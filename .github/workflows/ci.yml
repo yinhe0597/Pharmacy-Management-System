@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: yaofang
+          POSTGRES_PASSWORD: yaofang123
+          POSTGRES_DB: yaofang
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U yaofang"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      - name: 安装 PostgreSQL 客户端
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: 执行数据库迁移
+        env:
+          PGPASSWORD: yaofang123
+        run: |
+          for f in migrations/*.up.sql; do
+            echo "== $f"
+            psql -h localhost -U yaofang -d yaofang -v ON_ERROR_STOP=1 -f "$f"
+          done
+
+      - name: 静态检查（vet + 格式）
+        run: |
+          go vet ./...
+          gofmt -l . | tee /dev/stderr
+          test -z "$(gofmt -l .)"
+
+      - name: 单元测试
+        run: go test ./...
+
+      - name: 集成测试（真实 PostgreSQL）
+        run: go test -tags=integration -count=1 ./internal/service/
+        env:
+          YF_TEST_DB_HOST: localhost
+          YF_TEST_DB_USER: yaofang
+          YF_TEST_DB_PASSWORD: yaofang123
+          YF_TEST_DB_NAME: yaofang
+
+      - name: Swagger 文档一致性
+        run: |
+          go run github.com/swaggo/swag/cmd/swag@v1.16.6 init -g cmd/server/main.go -o docs --parseDependency --parseInternal
+          git diff --exit-code docs/ || (echo "Swagger 文档与代码不一致，请运行 make swag 后提交" && exit 1)

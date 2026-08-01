@@ -1,0 +1,29 @@
+# 配置样例。复制为 config.yaml 并按环境修改：
+#   cp configs/config.example.yaml configs/config.yaml
+# 或使用环境变量 YF_ 前缀覆盖（如 YF_DATABASE_PASSWORD、YF_AUTH_JWT_SECRET）。
+server:
+  port: 8080
+  mode: debug            # debug / release
+
+database:
+  host: 127.0.0.1
+  port: 5432
+  user: yaofang
+  password: "CHANGE_ME"            # 数据库密码（生产用环境变量覆盖）
+  name: yaofang
+  max_open_conns: 20
+  max_idle_conns: 10
+  conn_max_lifetime: 1h
+
+auth:
+  jwt_secret: "CHANGE_ME_32chars+"  # JWT 密钥，生产必须改为 ≥32 位随机串
+  token_ttl: 720h
+
+scheduler:
+  enabled: true
+  expiry_warning_cron: "0 7 * * *"   # 每日 07:00 效期预警
+  expired_lock_cron: "0 0 * * *"     # 每日 00:00 过期锁定
+  stock_warning_cron: "0 7 * * *"    # 每日 07:00 上下限预警
+
+stock:
+  default_expiry_warning_days: 90

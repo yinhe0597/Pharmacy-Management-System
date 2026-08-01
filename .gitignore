@@ -1,0 +1,26 @@
+# build
+/bin/
+/server
+*.exe
+*.out
+
+# runtime（本地配置含密码/密钥，不入库）
+configs/config.yaml
+configs/config.local.yaml
+.env
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# os
+Thumbs.db
+.DS_Store
+
+# Claude Code 本地配置
+.claude/settings.local.json
+
+# test
+coverage.out
