@@ -19,10 +19,17 @@
 - **退回医生**：新增 `action: "return"`，药师审核发现问题时退回医生修改——保留预占库存、处方保持 `pending_review`，医生可直接修改后重新提交。
 - **三种审核动作**：`pass`（通过→调配）、`reject`（驳回→释放预占）、`return`（退回→医生修改）。
 
+### 药房物品类型与临床边界
+
+- **`item_type` 字段**（迁移 `000011`）：`drugs` 表区分药品（drug）与耗材（consumable），统一走进销存。
+- **临床诊疗项目**（迁移 `000012`）：`clinical_services` 表管理手法复位、静脉注射等不入药房库存的诊疗项目，独立计价。
+- **计费记录**：`charge_records` 表统一药品/耗材/诊疗项目计费入口，护士/医生可直接录入。
+- **领用出库**：`POST /inventory/requisition` 医护内部消耗出库（不计费），FEFO 扣减。
+- **架构边界**：药房物品（drugs 表）vs 临床诊疗项目（clinical_services 表）清晰分离，避免二期扩展时混淆。
+
 ### 代码审查与修复
 
-- 两轮对抗性代码审查共发现 32 个问题，修复 14 个（含 3 CRITICAL + 5 HIGH）：
-  - 去重算法索引越界、UpdateIngredientInteraction ID 赋值顺序、warmCache 原子性、ListSpecialPrescriptions 分页 total 错误、IngredientRule IsActive 缺失、成分名大小写不一致、死代码清理、UpdateGuidance 错误吞并等。
+- 两轮对抗性代码审查共发现 32 个问题，修复 14 个（含 3 CRITICAL + 5 HIGH）。
 
 ## [v1.1.0] - 2026-08-01
 
@@ -111,7 +118,9 @@
 | 000007 | 交互引擎：药品临床字段 + 6 张新表（成分/分类/标签/禁忌/结果） |
 | 000008 | 交互规则种子数据（37 条） |
 | 000009 | 处方新增 is_pregnant 字段（妊娠禁忌检查） |
-| 000010 | 用户角色种子数据（v1.2：7 种角色，调配/核对合并到医生/药师） |
+| 000010 | 用户角色种子数据（v1.2：7 种角色） |
+| 000011 | drugs 表新增 item_type 字段（drug/consumable） |
+| 000012 | clinical_services + charge_records 表（诊疗项目+计费） |
 
 ### 已知限制（一期有意为之）
 

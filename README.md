@@ -12,15 +12,15 @@ Go 1.22+ / Gin / GORM / PostgreSQL 14+ / golang-migrate（SQL 迁移）/ JWT / r
 
 ## 功能概览
 
-- **药品**：主数据（一药多规/一品多商/分类分级/配伍禁忌）、启停用/冻结
-- **药物相互作用引擎（v1.1）**：多策略分层匹配（显式药品对→成分→分类→标签）、患者个体化禁忌（年龄/妊娠/哺乳/过敏）、37 条种子规则、交互规则管理 API
+- **药房物品**：药品+耗材统一管理（item_type），批号效期/FEFO/拆零/配伍禁忌
+- **药物相互作用引擎**：4 策略分层匹配（显式→成分→分类→标签）、患者个体化禁忌、37 条种子规则
 - **采购**：供应商、采购单状态机、质检收货（批次/效期绑定）
-- **库存**：批号效期追踪、FEFO 发药、预占/实扣/释放、调拨、盘点、效期/上下限预警
-- **拆零（专项完善）**：按盒/按片拆零（零头+损耗）、拆零价可配、**混合发药**（LDU 精确计价）、**自动拆零**
-- **处方**：录入→药师审核（pass/reject/return 三动作）→调配→发药→退药全状态机，审计日志可追溯
-- **药师审核**：仅药师/药房主任可审核；发现问题可退回医生修改（保留预占库存）
+- **库存**：FEFO 发药、预占/实扣/释放、调拨、盘点、预警、**领用出库**（内部消耗不计费）
+- **拆零**：按盒/按片拆零、混合发药（LDU 精确计价）、自动拆零
+- **处方**：录入→药师审核（pass/reject/return）→调配→发药→退药全状态机
+- **诊疗项目**：手法复位/注射等不入药房库存，独立计价 → 计费记录统一入口
 - **特殊药品「五专」**、**药学服务**、**报表**
-- **用户角色**：admin / pharmacy_director / pharmacist / doctor / nurse / buyer / finance 7 种角色，分级权限，调配+核对由医生/药师兼任
+- **用户角色**：7 种角色分级权限，调配+核对由医生/药师兼任
 - **二期预留**：`port` 三接口 + 契约测试
 
 ## 快速开始
@@ -37,7 +37,7 @@ Go 1.22+ / Gin / GORM / PostgreSQL 14+ / golang-migrate（SQL 迁移）/ JWT / r
 psql -U postgres -h localhost -c "CREATE ROLE yaofang LOGIN PASSWORD 'yaofang123';"
 psql -U postgres -h localhost -c "CREATE DATABASE yaofang OWNER yaofang;"
 
-# 依次执行全部迁移与种子（migrations/NNNNNN_*.up.sql，共 10 个版本）
+# 依次执行全部迁移与种子（migrations/NNNNNN_*.up.sql，共 12 个版本）
 for f in migrations/*.up.sql; do
   echo "== $f"
   psql -U postgres -h localhost -d yaofang -v ON_ERROR_STOP=1 -f "$f"
@@ -76,8 +76,8 @@ python scripts/smoke_test.py           # HTTP 冒烟测试（需服务已启动�
 
 ## 项目状态
 
-一期已全部交付，v1.2.0 新增药物相互作用引擎、用户角色体系、药师审核流程。
-功能完整、测试全绿（38 单元 + 24 集成）、含 CI 与部署文档。
+一期已全部交付，v1.2.0 新增药物相互作用引擎、用户角色体系、药师审核、诊疗项目+计费、领用出库。
+功能完整、测试全绿（38 单元 + 24 集成）。
 详见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 二期预留
