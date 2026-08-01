@@ -16,6 +16,7 @@ type Prescription struct {
 	PatientGender            string     `gorm:"size:10" json:"patient_gender"`
 	PatientAge               string     `gorm:"size:10" json:"patient_age"`
 	PatientCardNo            string     `gorm:"size:50" json:"patient_card_no"`
+	IsPregnant               bool       `gorm:"not null;default:false" json:"is_pregnant"`
 	Diagnosis                string     `gorm:"type:text" json:"diagnosis"`
 	Department               string     `gorm:"size:50" json:"department"`
 	DoctorName               string     `gorm:"size:50" json:"doctor_name"`

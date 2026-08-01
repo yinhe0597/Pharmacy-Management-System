@@ -48,6 +48,7 @@ type PrescriptionInput struct {
 	Department       string                  `json:"department"`
 	DoctorName       string                  `json:"doctor_name"`
 	PrescriptionType int                     `json:"prescription_type"`
+	IsPregnant       bool                    `json:"is_pregnant"` // 患者是否妊娠（用于妊娠禁忌检查）
 	Remarks          string                  `json:"remarks"`
 	Items            []PrescriptionItemInput `json:"items"`
 }
@@ -136,6 +137,7 @@ func (s *PrescriptionService) Create(ctx context.Context, input PrescriptionInpu
 		PatientGender:      input.PatientGender,
 		PatientAge:         input.PatientAge,
 		PatientCardNo:      input.PatientCardNo,
+		IsPregnant:         input.IsPregnant,
 		Diagnosis:          input.Diagnosis,
 		Department:         input.Department,
 		DoctorName:         input.DoctorName,
@@ -291,6 +293,7 @@ func (s *PrescriptionService) Update(ctx context.Context, id int64, input Prescr
 		p.PatientGender = input.PatientGender
 		p.PatientAge = input.PatientAge
 		p.PatientCardNo = input.PatientCardNo
+		p.IsPregnant = input.IsPregnant
 		p.Diagnosis = input.Diagnosis
 		p.Department = input.Department
 		p.DoctorName = input.DoctorName
@@ -395,7 +398,7 @@ func (s *PrescriptionService) Review(ctx context.Context, id int64, input AuditI
 			return err
 		}
 		if input.Action == "pass" {
-			auditResult, err := s.checkAuditRules(ctx, tx, items, p.PatientID)
+			auditResult, err := s.checkAuditRules(ctx, tx, items, p)
 			if err != nil {
 				return err
 			}
@@ -438,13 +441,13 @@ func (s *PrescriptionService) Review(ctx context.Context, id int64, input AuditI
 // checkAuditRules 配伍/极量/重复用药检查。
 // 返回结构化审核结果，包含拦截项和提醒项。
 // 引擎负责全部策略（显式药品对、成分级、分类级、标签级）的匹配和去重。
-func (s *PrescriptionService) checkAuditRules(ctx context.Context, db *gorm.DB, items []model.PrescriptionItem, patientID int64) (*interaction.AuditResult, error) {
+func (s *PrescriptionService) checkAuditRules(ctx context.Context, db *gorm.DB, items []model.PrescriptionItem, p *model.Prescription) (*interaction.AuditResult, error) {
 	if len(items) == 0 {
 		return nil, errs.ErrBadRequest
 	}
-	// 优先使用新引擎（多层匹配）
+	// 优先使用新引擎（多层匹配），从处方直接提取患者上下文
 	if s.interSvc != nil {
-		return s.interSvc.CheckPrescription(ctx, items, patientID, s.patientSvc)
+		return s.interSvc.CheckPrescription(ctx, items, p, s.patientSvc)
 	}
 	// 回退：兼容旧逻辑（仅在未注入交互服务时使用）
 	drugIDs := make([]int64, 0, len(items))
@@ -512,8 +515,8 @@ func (s *PrescriptionService) checkAuditRules(ctx context.Context, db *gorm.DB, 
 }
 
 // CheckAuditRules 公开方法：供外部调用处方审核规则检查。
-func (s *PrescriptionService) CheckAuditRules(ctx context.Context, items []model.PrescriptionItem, patientID int64) (*interaction.AuditResult, error) {
-	return s.checkAuditRules(ctx, s.db, items, patientID)
+func (s *PrescriptionService) CheckAuditRules(ctx context.Context, items []model.PrescriptionItem, p *model.Prescription) (*interaction.AuditResult, error) {
+	return s.checkAuditRules(ctx, s.db, items, p)
 }
 
 // Dispense 调配：审核通过后进入调配中（核对预占可用）。

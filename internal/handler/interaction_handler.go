@@ -46,6 +46,14 @@ func (h *InteractionHandler) Register(authed *gin.RouterGroup, _ *gin.RouterGrou
 
 // ---- 成分交互规则 ----
 
+// ListIngredientInteractions godoc
+// @Summary 成分交互规则列表
+// @Tags ingredient-interactions
+// @Security BearerAuth
+// @Param page query int false "页码"
+// @Param page_size query int false "每页条数"
+// @Success 200 {object} Body
+// @Router /ingredient-interactions [get]
 func (h *InteractionHandler) ListIngredientInteractions(c *gin.Context) {
 	var q pagination.Query
 	if err := c.ShouldBindQuery(&q); err != nil {
@@ -61,6 +69,14 @@ func (h *InteractionHandler) ListIngredientInteractions(c *gin.Context) {
 	OK(c, pagination.Of(list, total, &q))
 }
 
+// CreateIngredientInteraction godoc
+// @Summary 新建成分交互规则
+// @Tags ingredient-interactions
+// @Accept json
+// @Security BearerAuth
+// @Param body body model.IngredientInteraction true "成分交互规则"
+// @Success 200 {object} Body
+// @Router /ingredient-interactions [post]
 func (h *InteractionHandler) CreateIngredientInteraction(c *gin.Context) {
 	var v model.IngredientInteraction
 	if err := c.ShouldBindJSON(&v); err != nil {
@@ -74,6 +90,15 @@ func (h *InteractionHandler) CreateIngredientInteraction(c *gin.Context) {
 	OK(c, v)
 }
 
+// UpdateIngredientInteraction godoc
+// @Summary 更新成分交互规则
+// @Tags ingredient-interactions
+// @Accept json
+// @Security BearerAuth
+// @Param id path int true "规则ID"
+// @Param body body model.IngredientInteraction true "成分交互规则"
+// @Success 200 {object} Body
+// @Router /ingredient-interactions/{id} [put]
 func (h *InteractionHandler) UpdateIngredientInteraction(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -93,6 +118,13 @@ func (h *InteractionHandler) UpdateIngredientInteraction(c *gin.Context) {
 	OK(c, nil)
 }
 
+// DeleteIngredientInteraction godoc
+// @Summary 删除成分交互规则
+// @Tags ingredient-interactions
+// @Security BearerAuth
+// @Param id path int true "规则ID"
+// @Success 200 {object} Body
+// @Router /ingredient-interactions/{id} [delete]
 func (h *InteractionHandler) DeleteIngredientInteraction(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -108,6 +140,14 @@ func (h *InteractionHandler) DeleteIngredientInteraction(c *gin.Context) {
 
 // ---- 分类交互规则 ----
 
+// ListClassInteractions godoc
+// @Summary 分类交互规则列表
+// @Tags class-interactions
+// @Security BearerAuth
+// @Param page query int false "页码"
+// @Param page_size query int false "每页条数"
+// @Success 200 {object} Body
+// @Router /class-interactions [get]
 func (h *InteractionHandler) ListClassInteractions(c *gin.Context) {
 	var q pagination.Query
 	if err := c.ShouldBindQuery(&q); err != nil {
@@ -123,6 +163,14 @@ func (h *InteractionHandler) ListClassInteractions(c *gin.Context) {
 	OK(c, pagination.Of(list, total, &q))
 }
 
+// CreateClassInteraction godoc
+// @Summary 新建分类交互规则
+// @Tags class-interactions
+// @Accept json
+// @Security BearerAuth
+// @Param body body model.ClassInteractionRule true "分类交互规则"
+// @Success 200 {object} Body
+// @Router /class-interactions [post]
 func (h *InteractionHandler) CreateClassInteraction(c *gin.Context) {
 	var v model.ClassInteractionRule
 	if err := c.ShouldBindJSON(&v); err != nil {
@@ -136,6 +184,15 @@ func (h *InteractionHandler) CreateClassInteraction(c *gin.Context) {
 	OK(c, v)
 }
 
+// UpdateClassInteraction godoc
+// @Summary 更新分类交互规则
+// @Tags class-interactions
+// @Accept json
+// @Security BearerAuth
+// @Param id path int true "规则ID"
+// @Param body body model.ClassInteractionRule true "分类交互规则"
+// @Success 200 {object} Body
+// @Router /class-interactions/{id} [put]
 func (h *InteractionHandler) UpdateClassInteraction(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -155,6 +212,13 @@ func (h *InteractionHandler) UpdateClassInteraction(c *gin.Context) {
 	OK(c, nil)
 }
 
+// DeleteClassInteraction godoc
+// @Summary 删除分类交互规则
+// @Tags class-interactions
+// @Security BearerAuth
+// @Param id path int true "规则ID"
+// @Success 200 {object} Body
+// @Router /class-interactions/{id} [delete]
 func (h *InteractionHandler) DeleteClassInteraction(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -170,6 +234,14 @@ func (h *InteractionHandler) DeleteClassInteraction(c *gin.Context) {
 
 // ---- 标签交互规则 ----
 
+// ListTagInteractions godoc
+// @Summary 标签交互规则列表
+// @Tags tag-interactions
+// @Security BearerAuth
+// @Param page query int false "页码"
+// @Param page_size query int false "每页条数"
+// @Success 200 {object} Body
+// @Router /tag-interactions [get]
 func (h *InteractionHandler) ListTagInteractions(c *gin.Context) {
 	var q pagination.Query
 	if err := c.ShouldBindQuery(&q); err != nil {
@@ -185,6 +257,14 @@ func (h *InteractionHandler) ListTagInteractions(c *gin.Context) {
 	OK(c, pagination.Of(list, total, &q))
 }
 
+// CreateTagInteraction godoc
+// @Summary 新建标签交互规则
+// @Tags tag-interactions
+// @Accept json
+// @Security BearerAuth
+// @Param body body model.TagInteraction true "标签交互规则"
+// @Success 200 {object} Body
+// @Router /tag-interactions [post]
 func (h *InteractionHandler) CreateTagInteraction(c *gin.Context) {
 	var v model.TagInteraction
 	if err := c.ShouldBindJSON(&v); err != nil {
@@ -198,6 +278,15 @@ func (h *InteractionHandler) CreateTagInteraction(c *gin.Context) {
 	OK(c, v)
 }
 
+// UpdateTagInteraction godoc
+// @Summary 更新标签交互规则
+// @Tags tag-interactions
+// @Accept json
+// @Security BearerAuth
+// @Param id path int true "规则ID"
+// @Param body body model.TagInteraction true "标签交互规则"
+// @Success 200 {object} Body
+// @Router /tag-interactions/{id} [put]
 func (h *InteractionHandler) UpdateTagInteraction(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -217,6 +306,13 @@ func (h *InteractionHandler) UpdateTagInteraction(c *gin.Context) {
 	OK(c, nil)
 }
 
+// DeleteTagInteraction godoc
+// @Summary 删除标签交互规则
+// @Tags tag-interactions
+// @Security BearerAuth
+// @Param id path int true "规则ID"
+// @Success 200 {object} Body
+// @Router /tag-interactions/{id} [delete]
 func (h *InteractionHandler) DeleteTagInteraction(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -232,6 +328,13 @@ func (h *InteractionHandler) DeleteTagInteraction(c *gin.Context) {
 
 // ---- 药品成分映射 ----
 
+// ListDrugIngredients godoc
+// @Summary 药品成分列表
+// @Tags drug-ingredients
+// @Security BearerAuth
+// @Param id path int true "药品ID"
+// @Success 200 {object} Body
+// @Router /drugs/{id}/ingredients [get]
 func (h *InteractionHandler) ListDrugIngredients(c *gin.Context) {
 	drugID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -246,6 +349,15 @@ func (h *InteractionHandler) ListDrugIngredients(c *gin.Context) {
 	OK(c, list)
 }
 
+// AddDrugIngredient godoc
+// @Summary 添加药品成分
+// @Tags drug-ingredients
+// @Accept json
+// @Security BearerAuth
+// @Param id path int true "药品ID"
+// @Param body body model.DrugIngredient true "成分信息"
+// @Success 200 {object} Body
+// @Router /drugs/{id}/ingredients [post]
 func (h *InteractionHandler) AddDrugIngredient(c *gin.Context) {
 	drugID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -265,6 +377,13 @@ func (h *InteractionHandler) AddDrugIngredient(c *gin.Context) {
 	OK(c, v)
 }
 
+// RemoveDrugIngredient godoc
+// @Summary 删除药品成分
+// @Tags drug-ingredients
+// @Security BearerAuth
+// @Param id path int true "成分映射ID"
+// @Success 200 {object} Body
+// @Router /drug-ingredients/{id} [delete]
 func (h *InteractionHandler) RemoveDrugIngredient(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {

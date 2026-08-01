@@ -1,6 +1,6 @@
 basePath: /api/v1
 definitions:
-  internal_handler.Body:
+  handler.Body:
     properties:
       code:
         type: integer
@@ -8,7 +8,7 @@ definitions:
       message:
         type: string
     type: object
-  internal_handler.adjustRequest:
+  handler.adjustRequest:
     properties:
       inventory_id:
         type: integer
@@ -20,7 +20,7 @@ definitions:
     - inventory_id
     - quantity
     type: object
-  internal_handler.bindDrugSupplierRequest:
+  handler.bindDrugSupplierRequest:
     properties:
       is_default:
         type: boolean
@@ -31,18 +31,18 @@ definitions:
     required:
     - supplier_id
     type: object
-  internal_handler.confirmDispenseRequest:
+  handler.confirmDispenseRequest:
     properties:
       checker_id:
         type: integer
     type: object
-  internal_handler.createOrderRequest:
+  handler.createOrderRequest:
     properties:
       expected_at:
         type: string
       items:
         items:
-          $ref: '#/definitions/yaofang_internal_service.POItemInput'
+          $ref: '#/definitions/service.POItemInput'
         type: array
       remarks:
         type: string
@@ -52,7 +52,7 @@ definitions:
     - items
     - supplier_id
     type: object
-  internal_handler.createStocktakeRequest:
+  handler.createStocktakeRequest:
     properties:
       location_id:
         type: integer
@@ -66,7 +66,7 @@ definitions:
     - location_id
     - type
     type: object
-  internal_handler.createUserRequest:
+  handler.createUserRequest:
     properties:
       name:
         type: string
@@ -84,16 +84,16 @@ definitions:
     - role
     - username
     type: object
-  internal_handler.enterCountedRequest:
+  handler.enterCountedRequest:
     properties:
       items:
         items:
-          $ref: '#/definitions/yaofang_internal_service.CountedItem'
+          $ref: '#/definitions/service.CountedItem'
         type: array
     required:
     - items
     type: object
-  internal_handler.loginRequest:
+  handler.loginRequest:
     properties:
       password:
         type: string
@@ -103,25 +103,25 @@ definitions:
     - password
     - username
     type: object
-  internal_handler.receiveRequest:
+  handler.receiveRequest:
     properties:
       items:
         items:
-          $ref: '#/definitions/yaofang_internal_service.ReceiveItemInput'
+          $ref: '#/definitions/service.ReceiveItemInput'
         type: array
     required:
     - items
     type: object
-  internal_handler.returnRequest:
+  handler.returnRequest:
     properties:
       items:
         items:
-          $ref: '#/definitions/yaofang_internal_service.ReturnItemInput'
+          $ref: '#/definitions/service.ReturnItemInput'
         type: array
     required:
     - items
     type: object
-  internal_handler.splitRequest:
+  handler.splitRequest:
     properties:
       inventory_id:
         type: integer
@@ -131,7 +131,7 @@ definitions:
     - inventory_id
     - packs
     type: object
-  internal_handler.splitUnitsRequest:
+  handler.splitUnitsRequest:
     properties:
       boxes:
         type: integer
@@ -146,7 +146,7 @@ definitions:
     - inventory_id
     - units
     type: object
-  internal_handler.statusRequest:
+  handler.statusRequest:
     properties:
       status:
         enum:
@@ -156,22 +156,22 @@ definitions:
     required:
     - status
     type: object
-  internal_handler.stockInRequest:
+  handler.stockInRequest:
     properties:
       entries:
         items:
-          $ref: '#/definitions/yaofang_internal_service.StockEntry'
+          $ref: '#/definitions/service.StockEntry'
         type: array
     required:
     - entries
     type: object
-  internal_handler.transferRequest:
+  handler.transferRequest:
     properties:
       from_location_id:
         type: integer
       items:
         items:
-          $ref: '#/definitions/yaofang_internal_service.TransferItem'
+          $ref: '#/definitions/service.TransferItem'
         type: array
       remarks:
         type: string
@@ -182,7 +182,7 @@ definitions:
     - items
     - to_location_id
     type: object
-  internal_handler.updateUserRequest:
+  handler.updateUserRequest:
     properties:
       name:
         type: string
@@ -195,7 +195,7 @@ definitions:
       status:
         type: integer
     type: object
-  yaofang_internal_model.AdverseReaction:
+  model.AdverseReaction:
     properties:
       batch_no:
         type: string
@@ -221,7 +221,7 @@ definitions:
         description: 1轻 2中 3重
         type: integer
     type: object
-  yaofang_internal_model.AmpouleReturn:
+  model.AmpouleReturn:
     properties:
       batch_no:
         type: string
@@ -247,7 +247,32 @@ definitions:
       verified_by:
         type: string
     type: object
-  yaofang_internal_model.Consultation:
+  model.ClassInteractionRule:
+    properties:
+      class_a:
+        type: string
+      class_b:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      evidence_level:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      level:
+        type: integer
+      mechanism:
+        type: string
+      source_reference:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  model.Consultation:
     properties:
       answer:
         type: string
@@ -270,12 +295,20 @@ definitions:
       question:
         type: string
     type: object
-  yaofang_internal_model.Drug:
+  model.Drug:
     properties:
+      active_ingredient:
+        type: string
+      age_max_years:
+        type: integer
+      age_min_years:
+        type: integer
       antibiotic_level:
         description: 0非抗生素 1非限制 2限制 3特殊
         type: integer
       approval_number:
+        type: string
+      atc_code:
         type: string
       barcode:
         type: string
@@ -287,6 +320,8 @@ definitions:
         type: integer
       code:
         type: string
+      contraindication_notes:
+        type: string
       created_at:
         type: string
       dosage_form:
@@ -297,9 +332,13 @@ definitions:
         type: string
       id:
         type: integer
+      interaction_tags:
+        type: string
       is_frozen:
         type: boolean
       is_split_allowed:
+        type: boolean
+      lactation_safe:
         type: boolean
       manufacturer:
         type: string
@@ -309,6 +348,10 @@ definitions:
         type: integer
       pack_size:
         type: integer
+      pharmacological_group:
+        type: string
+      pregnancy_category:
+        type: string
       psychotropic_level:
         type: integer
       purchase_price:
@@ -335,7 +378,7 @@ definitions:
       updated_at:
         type: string
     type: object
-  yaofang_internal_model.DrugCategory:
+  model.DrugCategory:
     properties:
       code:
         type: string
@@ -354,7 +397,20 @@ definitions:
       updated_at:
         type: string
     type: object
-  yaofang_internal_model.DrugInteraction:
+  model.DrugIngredient:
+    properties:
+      created_at:
+        type: string
+      drug_id:
+        type: integer
+      id:
+        type: integer
+      ingredient_name:
+        type: string
+      strength:
+        type: string
+    type: object
+  model.DrugInteraction:
     properties:
       created_at:
         type: string
@@ -364,13 +420,45 @@ definitions:
         type: integer
       drug_b_id:
         type: integer
+      evidence_level:
+        type: string
       id:
         type: integer
       level:
         description: 1禁忌 2慎用 3注意
         type: integer
+      mechanism:
+        type: string
+      source_reference:
+        type: string
+      updated_at:
+        type: string
     type: object
-  yaofang_internal_model.InventoryLocation:
+  model.IngredientInteraction:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      evidence_level:
+        type: string
+      id:
+        type: integer
+      ingredient_a:
+        type: string
+      ingredient_b:
+        type: string
+      level:
+        description: 1禁忌 2慎用 3注意
+        type: integer
+      mechanism:
+        type: string
+      source_reference:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  model.InventoryLocation:
     properties:
       code:
         type: string
@@ -389,7 +477,7 @@ definitions:
       updated_at:
         type: string
     type: object
-  yaofang_internal_model.MedicationGuidance:
+  model.MedicationGuidance:
     properties:
       content:
         type: string
@@ -408,7 +496,7 @@ definitions:
       prescription_id:
         type: integer
     type: object
-  yaofang_internal_model.SpecialDrugLedger:
+  model.SpecialDrugLedger:
     properties:
       batch_no:
         type: string
@@ -437,7 +525,7 @@ definitions:
         description: 有符号
         type: integer
     type: object
-  yaofang_internal_model.Supplier:
+  model.Supplier:
     properties:
       address:
         type: string
@@ -462,7 +550,32 @@ definitions:
       updated_at:
         type: string
     type: object
-  yaofang_internal_service.AuditInput:
+  model.TagInteraction:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      evidence_level:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      level:
+        type: integer
+      mechanism:
+        type: string
+      source_reference:
+        type: string
+      tag_a:
+        type: string
+      tag_b:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  service.AuditInput:
     properties:
       action:
         description: pass / reject
@@ -470,14 +583,14 @@ definitions:
       remarks:
         type: string
     type: object
-  yaofang_internal_service.CountedItem:
+  service.CountedItem:
     properties:
       counted_quantity:
         type: integer
       item_id:
         type: integer
     type: object
-  yaofang_internal_service.POItemInput:
+  service.POItemInput:
     properties:
       drug_id:
         type: integer
@@ -488,7 +601,7 @@ definitions:
         description: 分/基本单位
         type: integer
     type: object
-  yaofang_internal_service.PrescriptionInput:
+  service.PrescriptionInput:
     properties:
       department:
         type: string
@@ -496,9 +609,12 @@ definitions:
         type: string
       doctor_name:
         type: string
+      is_pregnant:
+        description: 患者是否妊娠（用于妊娠禁忌检查）
+        type: boolean
       items:
         items:
-          $ref: '#/definitions/yaofang_internal_service.PrescriptionItemInput'
+          $ref: '#/definitions/service.PrescriptionItemInput'
         type: array
       patient_age:
         type: string
@@ -513,7 +629,7 @@ definitions:
       remarks:
         type: string
     type: object
-  yaofang_internal_service.PrescriptionItemInput:
+  service.PrescriptionItemInput:
     properties:
       days:
         type: integer
@@ -536,7 +652,7 @@ definitions:
       usage_text:
         type: string
     type: object
-  yaofang_internal_service.ReceiveItemInput:
+  service.ReceiveItemInput:
     properties:
       batch_no:
         type: string
@@ -553,7 +669,7 @@ definitions:
         description: 基本单位
         type: integer
     type: object
-  yaofang_internal_service.ReturnItemInput:
+  service.ReturnItemInput:
     properties:
       item_id:
         type: integer
@@ -561,7 +677,7 @@ definitions:
         description: 与明细同口径
         type: integer
     type: object
-  yaofang_internal_service.StockEntry:
+  service.StockEntry:
     properties:
       batch_no:
         type: string
@@ -578,7 +694,7 @@ definitions:
       unit_price:
         type: integer
     type: object
-  yaofang_internal_service.TransferItem:
+  service.TransferItem:
     properties:
       inventory_id:
         type: integer
@@ -616,7 +732,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 不良反应列表
@@ -631,12 +747,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/yaofang_internal_model.AdverseReaction'
+          $ref: '#/definitions/model.AdverseReaction'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 新建不良反应登记
@@ -654,7 +770,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 删除不良反应登记
@@ -672,12 +788,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/yaofang_internal_model.AdverseReaction'
+          $ref: '#/definitions/model.AdverseReaction'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 更新不良反应登记
@@ -693,15 +809,29 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_handler.loginRequest'
+          $ref: '#/definitions/handler.loginRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       summary: 登录
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 登出
       tags:
       - auth
   /auth/profile:
@@ -712,7 +842,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 当前用户信息
@@ -724,7 +854,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 分类列表
@@ -739,12 +869,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/yaofang_internal_model.DrugCategory'
+          $ref: '#/definitions/model.DrugCategory'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 新增分类
@@ -762,7 +892,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 删除分类
@@ -780,17 +910,101 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/yaofang_internal_model.DrugCategory'
+          $ref: '#/definitions/model.DrugCategory'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 更新分类
       tags:
       - categories
+  /class-interactions:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: page_size
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 分类交互规则列表
+      tags:
+      - class-interactions
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 分类交互规则
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.ClassInteractionRule'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 新建分类交互规则
+      tags:
+      - class-interactions
+  /class-interactions/{id}:
+    delete:
+      parameters:
+      - description: 规则ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 删除分类交互规则
+      tags:
+      - class-interactions
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 规则ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 分类交互规则
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.ClassInteractionRule'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 更新分类交互规则
+      tags:
+      - class-interactions
   /consultations:
     get:
       parameters:
@@ -810,7 +1024,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 用药咨询列表
@@ -825,12 +1039,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/yaofang_internal_model.Consultation'
+          $ref: '#/definitions/model.Consultation'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 新建用药咨询
@@ -848,7 +1062,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 删除用药咨询
@@ -866,17 +1080,35 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/yaofang_internal_model.Consultation'
+          $ref: '#/definitions/model.Consultation'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 更新用药咨询
       tags:
       - consultations
+  /drug-ingredients/{id}:
+    delete:
+      parameters:
+      - description: 成分映射ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 删除药品成分
+      tags:
+      - drug-ingredients
   /drug-suppliers/{id}:
     delete:
       parameters:
@@ -889,7 +1121,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 删除供货关系
@@ -930,7 +1162,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 药品列表
@@ -945,14 +1177,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/yaofang_internal_model.Drug'
+          $ref: '#/definitions/model.Drug'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 新增药品
@@ -970,7 +1202,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 删除药品（有下游自动冻结）
@@ -987,7 +1219,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 药品详情
@@ -1007,17 +1239,60 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/yaofang_internal_model.Drug'
+          $ref: '#/definitions/model.Drug'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 更新药品
       tags:
       - drugs
+  /drugs/{id}/ingredients:
+    get:
+      parameters:
+      - description: 药品ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 药品成分列表
+      tags:
+      - drug-ingredients
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 药品ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 成分信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.DrugIngredient'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 添加药品成分
+      tags:
+      - drug-ingredients
   /drugs/{id}/status:
     patch:
       consumes:
@@ -1033,12 +1308,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_handler.statusRequest'
+          $ref: '#/definitions/handler.statusRequest'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 启停用药品
@@ -1056,7 +1331,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 药品供货关系列表
@@ -1076,17 +1351,101 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_handler.bindDrugSupplierRequest'
+          $ref: '#/definitions/handler.bindDrugSupplierRequest'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 绑定药品-供应商关系
       tags:
       - suppliers
+  /ingredient-interactions:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: page_size
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 成分交互规则列表
+      tags:
+      - ingredient-interactions
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 成分交互规则
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.IngredientInteraction'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 新建成分交互规则
+      tags:
+      - ingredient-interactions
+  /ingredient-interactions/{id}:
+    delete:
+      parameters:
+      - description: 规则ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 删除成分交互规则
+      tags:
+      - ingredient-interactions
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 规则ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 成分交互规则
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.IngredientInteraction'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 更新成分交互规则
+      tags:
+      - ingredient-interactions
   /interactions:
     get:
       parameters:
@@ -1102,7 +1461,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 配伍禁忌列表
@@ -1117,12 +1476,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/yaofang_internal_model.DrugInteraction'
+          $ref: '#/definitions/model.DrugInteraction'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 新增配伍禁忌
@@ -1140,7 +1499,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 删除配伍禁忌
@@ -1158,12 +1517,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/yaofang_internal_model.DrugInteraction'
+          $ref: '#/definitions/model.DrugInteraction'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 更新配伍禁忌
@@ -1200,7 +1559,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 库存列表
@@ -1218,7 +1577,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 批次库存详情
@@ -1234,12 +1593,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_handler.adjustRequest'
+          $ref: '#/definitions/handler.adjustRequest'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 库存调整（报损/修正）
@@ -1257,7 +1616,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 处理预警
@@ -1275,7 +1634,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 药品可用库存
@@ -1296,7 +1655,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 效期预警列表
@@ -1308,7 +1667,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 库房列表
@@ -1323,12 +1682,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/yaofang_internal_model.InventoryLocation'
+          $ref: '#/definitions/model.InventoryLocation'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 新建库房
@@ -1347,12 +1706,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/yaofang_internal_model.InventoryLocation'
+          $ref: '#/definitions/model.InventoryLocation'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 更新库房
@@ -1368,12 +1727,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_handler.splitRequest'
+          $ref: '#/definitions/handler.splitRequest'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 拆零
@@ -1389,12 +1748,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_handler.splitUnitsRequest'
+          $ref: '#/definitions/handler.splitUnitsRequest'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 按片拆零（开盒零头入账 + 破损报损）
@@ -1410,12 +1769,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_handler.stockInRequest'
+          $ref: '#/definitions/handler.stockInRequest'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 其他入库
@@ -1436,7 +1795,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 库存下限预警列表
@@ -1461,7 +1820,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 盘点单列表
@@ -1476,12 +1835,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_handler.createStocktakeRequest'
+          $ref: '#/definitions/handler.createStocktakeRequest'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 创建盘点单
@@ -1499,7 +1858,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 盘点单详情
@@ -1517,7 +1876,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 确认差异并调整库存
@@ -1535,7 +1894,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 取消盘点
@@ -1553,7 +1912,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 完成盘点
@@ -1574,12 +1933,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_handler.enterCountedRequest'
+          $ref: '#/definitions/handler.enterCountedRequest'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 录入实盘数量
@@ -1597,7 +1956,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 开始盘点
@@ -1638,7 +1997,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 库存流水
@@ -1654,12 +2013,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_handler.transferRequest'
+          $ref: '#/definitions/handler.transferRequest'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 库存调拨
@@ -1684,7 +2043,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 用药指导列表
@@ -1699,15 +2058,56 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/yaofang_internal_model.MedicationGuidance'
+          $ref: '#/definitions/model.MedicationGuidance'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 新建用药指导
+      tags:
+      - medication-guidances
+  /medication-guidances/{id}:
+    delete:
+      parameters:
+      - description: 指导ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 删除用药指导
+      tags:
+      - medication-guidances
+    put:
+      parameters:
+      - description: 指导ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 指导记录
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.MedicationGuidance'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 更新用药指导
       tags:
       - medication-guidances
   /prescriptions:
@@ -1741,7 +2141,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 处方列表
@@ -1756,12 +2156,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/yaofang_internal_service.PrescriptionInput'
+          $ref: '#/definitions/service.PrescriptionInput'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 处方录入
@@ -1779,7 +2179,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 处方详情
@@ -1799,12 +2199,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/yaofang_internal_service.PrescriptionInput'
+          $ref: '#/definitions/service.PrescriptionInput'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 修改处方
@@ -1822,7 +2222,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 处方状态流转日志
@@ -1840,7 +2240,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 作废处方（释放预占）
@@ -1861,12 +2261,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_handler.confirmDispenseRequest'
+          $ref: '#/definitions/handler.confirmDispenseRequest'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 发药确认（实扣库存）
@@ -1884,7 +2284,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 调配（按批号分配）
@@ -1905,12 +2305,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_handler.returnRequest'
+          $ref: '#/definitions/handler.returnRequest'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 退药（整方/部分）
@@ -1931,12 +2331,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/yaofang_internal_service.AuditInput'
+          $ref: '#/definitions/service.AuditInput'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 处方审核（配伍/极量/重复用药）
@@ -1954,7 +2354,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 提交审核（预占库存）
@@ -1983,7 +2383,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 采购单列表
@@ -1998,12 +2398,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_handler.createOrderRequest'
+          $ref: '#/definitions/handler.createOrderRequest'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 创建采购单
@@ -2021,7 +2421,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 采购单详情
@@ -2039,7 +2439,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 作废采购单
@@ -2060,12 +2460,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_handler.receiveRequest'
+          $ref: '#/definitions/handler.receiveRequest'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 采购收货（质检）
@@ -2083,7 +2483,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 提交采购单
@@ -2112,7 +2512,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 收货单列表
@@ -2130,7 +2530,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 收货单详情
@@ -2148,7 +2548,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 收货确认入库
@@ -2160,7 +2560,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 采购计划建议
@@ -2183,7 +2583,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 调配工作量统计
@@ -2195,7 +2595,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 效期分析
@@ -2218,7 +2618,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 进销存汇总
@@ -2241,7 +2641,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 特殊药品使用统计
@@ -2270,7 +2670,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 空安瓿回收记录
@@ -2285,12 +2685,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/yaofang_internal_model.AmpouleReturn'
+          $ref: '#/definitions/model.AmpouleReturn'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 空安瓿回收登记
@@ -2308,7 +2708,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 核对空安瓿回收
@@ -2324,12 +2724,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/yaofang_internal_model.SpecialDrugLedger'
+          $ref: '#/definitions/model.SpecialDrugLedger'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 发药专册登记（补录）
@@ -2366,10 +2766,39 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 专账查询
+      tags:
+      - special-drugs
+  /special-drugs/prescriptions:
+    get:
+      parameters:
+      - description: 状态
+        in: query
+        name: status
+        type: string
+      - description: 患者姓名
+        in: query
+        name: keyword
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: page_size
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 麻精处方登记列表
       tags:
       - special-drugs
   /suppliers:
@@ -2395,7 +2824,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 供应商列表
@@ -2410,12 +2839,12 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/yaofang_internal_model.Supplier'
+          $ref: '#/definitions/model.Supplier'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 新增供应商
@@ -2433,7 +2862,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 删除供应商
@@ -2450,7 +2879,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 供应商详情
@@ -2468,17 +2897,101 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/yaofang_internal_model.Supplier'
+          $ref: '#/definitions/model.Supplier'
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 更新供应商
       tags:
       - suppliers
+  /tag-interactions:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: page_size
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 标签交互规则列表
+      tags:
+      - tag-interactions
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 标签交互规则
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.TagInteraction'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 新建标签交互规则
+      tags:
+      - tag-interactions
+  /tag-interactions/{id}:
+    delete:
+      parameters:
+      - description: 规则ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 删除标签交互规则
+      tags:
+      - tag-interactions
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 规则ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 标签交互规则
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/model.TagInteraction'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 更新标签交互规则
+      tags:
+      - tag-interactions
   /users:
     get:
       parameters:
@@ -2502,7 +3015,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 用户列表
@@ -2517,14 +3030,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_handler.createUserRequest'
+          $ref: '#/definitions/handler.createUserRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 新建用户
@@ -2542,7 +3055,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 删除用户
@@ -2562,14 +3075,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_handler.updateUserRequest'
+          $ref: '#/definitions/handler.updateUserRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_handler.Body'
+            $ref: '#/definitions/handler.Body'
       security:
       - BearerAuth: []
       summary: 更新用户

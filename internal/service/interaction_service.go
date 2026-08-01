@@ -72,10 +72,11 @@ func (s *InteractionService) warmCache(ctx context.Context) error {
 }
 
 // CheckPrescription 执行处方交互检测。
+// prescription 用于从处方记录中提取患者年龄/性别/妊娠状态来构建患者画像。
 func (s *InteractionService) CheckPrescription(
 	ctx context.Context,
 	items []model.PrescriptionItem,
-	patientID int64,
+	prescription *model.Prescription,
 	patientService port.IPatientService,
 ) (*interaction.AuditResult, error) {
 	// 1. 提取药品 ID
@@ -198,10 +199,13 @@ func (s *InteractionService) CheckPrescription(
 	}
 	s.cache.mu.RUnlock()
 
-	// 8. 构建患者画像
+	// 8. 构建患者画像（优先从处方记录提取，其次从 IPatientService）
 	var patientProfile *interaction.PatientProfile
-	if patientService != nil && patientID > 0 {
-		patientProfile = s.buildPatientProfile(ctx, patientID, patientService)
+	if prescription != nil {
+		patientProfile = s.buildPatientProfileFromPrescription(prescription, ctx, patientService)
+	} else if patientService != nil {
+		// 回退：通过患者服务获取（二期实现）
+		patientProfile = &interaction.PatientProfile{}
 	}
 
 	// 9. 调用引擎
@@ -211,7 +215,43 @@ func (s *InteractionService) CheckPrescription(
 	return result, nil
 }
 
-// buildPatientProfile 构建患者画像。
+// buildPatientProfileFromPrescription 从处方记录构建患者画像（绕过 二期 stub）。
+func (s *InteractionService) buildPatientProfileFromPrescription(
+	p *model.Prescription,
+	ctx context.Context,
+	ps port.IPatientService,
+) *interaction.PatientProfile {
+	profile := &interaction.PatientProfile{
+		Gender:     p.PatientGender,
+		IsPregnant: p.IsPregnant,
+	}
+	// 从年龄字符串解析年龄数值
+	if p.PatientAge != "" {
+		for _, c := range p.PatientAge {
+			if c >= '0' && c <= '9' {
+				profile.Age = profile.Age*10 + int(c-'0')
+			} else {
+				break
+			}
+		}
+	}
+	// 若有患者 ID，尝试从 IPatientService 加载过敏史（二期）
+	if ps != nil && p.PatientID > 0 {
+		allergies, err := ps.GetAllergies(ctx, p.PatientID)
+		if err == nil {
+			for _, a := range allergies {
+				profile.Allergies = append(profile.Allergies, interaction.AllergyInfo{
+					DrugName: a.DrugName,
+					Reaction: a.Reaction,
+					Severity: a.Severity,
+				})
+			}
+		}
+	}
+	return profile
+}
+
+// buildPatientProfile 构建患者画像（从 IPatientService 加载，二期使用）。
 func (s *InteractionService) buildPatientProfile(
 	ctx context.Context, patientID int64, ps port.IPatientService,
 ) *interaction.PatientProfile {
