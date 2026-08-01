@@ -61,6 +61,13 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 	OK(c, gin.H{"token": token, "user": user})
+	// 记录登录日志
+	if h.logSvc != nil {
+		h.logSvc.Log(c.Request.Context(), &model.OperationLog{
+			Username: req.Username, Action: "login", Resource: "auth",
+			Method: "POST", Path: "/auth/login", IP: c.ClientIP(),
+		})
+	}
 }
 
 // Logout godoc
@@ -115,6 +122,16 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 		return
 	}
 	OK(c, gin.H{"message": "密码已修改"})
+	if h.logSvc != nil {
+		uid := middleware.UserIDFromCtx(c)
+		h.logSvc.Log(c.Request.Context(), &model.OperationLog{
+			UserID: &uid,
+			Username: middleware.UserNameFromCtx(c),
+			UserRole: middleware.UserRoleFromCtx(c),
+			Action: "change_password", Resource: "auth",
+			Method: "PUT", Path: "/auth/password", IP: c.ClientIP(),
+		})
+	}
 }
 
 // ListOperationLogs godoc
@@ -176,6 +193,16 @@ func (h *AuthHandler) CreateUser(c *gin.Context) {
 		return
 	}
 	OK(c, u)
+	if h.logSvc != nil {
+		logUID := middleware.UserIDFromCtx(c)
+		h.logSvc.Log(c.Request.Context(), &model.OperationLog{
+			UserID: &logUID, Username: middleware.UserNameFromCtx(c),
+			UserRole: middleware.UserRoleFromCtx(c),
+			Action: "create", Resource: "users",
+			ResourceID: &u.ID, Method: "POST", Path: "/users", IP: c.ClientIP(),
+			Detail: "新建用户: " + u.Username + " (" + u.Role + ")",
+		})
+	}
 }
 
 type updateUserRequest struct {
