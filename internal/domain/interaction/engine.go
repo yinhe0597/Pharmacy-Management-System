@@ -2,7 +2,7 @@
 package interaction
 
 import (
-	"sort"
+	"strconv"
 	"strings"
 
 	"yaofang/internal/domain/enum"
@@ -99,6 +99,9 @@ func (eng *Engine) checkExplicit(
 		drugIDs[d.ID] = true
 	}
 	for _, r := range rules {
+		if r.DrugAID == r.DrugBID {
+			continue // 跳过自交互规则
+		}
 		if drugIDs[r.DrugAID] && drugIDs[r.DrugBID] {
 			nameA, nameB := "", ""
 			if p, ok := profileByID[r.DrugAID]; ok {
@@ -128,22 +131,25 @@ func (eng *Engine) checkIngredient(drugs []DrugProfile, rules []IngredientRule) 
 	if len(rules) == 0 {
 		return nil
 	}
-	// 构建 ingredient → []drugs 索引
+	// 构建 ingredient → []drugs 索引（大小写不敏感）
 	ingIndex := make(map[string][]DrugProfile)
 	for _, d := range drugs {
-		// 主成分
 		if d.ActiveIngredient != "" {
-			ingIndex[d.ActiveIngredient] = append(ingIndex[d.ActiveIngredient], d)
+			key := strings.ToLower(strings.TrimSpace(d.ActiveIngredient))
+			ingIndex[key] = append(ingIndex[key], d)
 		}
-		// drug_ingredients 中的成分
 		for _, ing := range d.Ingredients {
-			ingIndex[ing] = append(ingIndex[ing], d)
+			key := strings.ToLower(strings.TrimSpace(ing))
+			ingIndex[key] = append(ingIndex[key], d)
 		}
 	}
 	var findings []InteractionFinding
 	for _, r := range rules {
-		drugsA := ingIndex[r.IngredientA]
-		drugsB := ingIndex[r.IngredientB]
+		if !r.IsActive {
+			continue
+		}
+		drugsA := ingIndex[strings.ToLower(strings.TrimSpace(r.IngredientA))]
+		drugsB := ingIndex[strings.ToLower(strings.TrimSpace(r.IngredientB))]
 		if len(drugsA) == 0 || len(drugsB) == 0 {
 			continue
 		}
@@ -332,11 +338,11 @@ func (eng *Engine) checkPatientContraindications(drugs []DrugProfile, patient *P
 		if patient.Age > 0 {
 			if d.AgeMinYears != nil && patient.Age < *d.AgeMinYears {
 				result.AddBlock(enum.ErrAgeContraindicationCode, "年龄禁忌",
-					d.GenericName+"：患者年龄低于该药品最低适用年龄（"+itoa(*d.AgeMinYears)+"岁）")
+					d.GenericName+"：患者年龄低于该药品最低适用年龄（"+strconv.Itoa(*d.AgeMinYears)+"岁）")
 			}
 			if d.AgeMaxYears != nil && *d.AgeMaxYears > 0 && patient.Age > *d.AgeMaxYears {
 				result.AddBlock(enum.ErrAgeContraindicationCode, "年龄禁忌",
-					d.GenericName+"：患者年龄超过该药品最高适用年龄（"+itoa(*d.AgeMaxYears)+"岁）")
+					d.GenericName+"：患者年龄超过该药品最高适用年龄（"+strconv.Itoa(*d.AgeMaxYears)+"岁）")
 			}
 		}
 
@@ -498,30 +504,3 @@ func (eng *Engine) checkDuplicateDrugs(items []PrescriptionItemInfo, drugs []Dru
 	}
 }
 
-// itoa 简单的 int → string 转换（避免导入 strconv）。
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	s := ""
-	neg := false
-	if n < 0 {
-		neg = true
-		n = -n
-	}
-	for n > 0 {
-		s = string(rune('0'+n%10)) + s
-		n /= 10
-	}
-	if neg {
-		s = "-" + s
-	}
-	return s
-}
-
-// sortFindings 按严重程度排序（level 小 → 大）。
-func sortFindings(findings []InteractionFinding) {
-	sort.Slice(findings, func(i, j int) bool {
-		return findings[i].Level < findings[j].Level
-	})
-}

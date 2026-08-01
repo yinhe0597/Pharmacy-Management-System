@@ -114,11 +114,15 @@ func (s *PharmaService) ListGuidances(ctx context.Context, keyword string, page,
 
 // UpdateGuidance 更新指导。
 func (s *PharmaService) UpdateGuidance(ctx context.Context, id int64, m *model.MedicationGuidance) error {
-	_, err := repository.NewMedicationGuidanceRepo(s.db).GetByID(ctx, id)
+	existing, err := repository.NewMedicationGuidanceRepo(s.db).GetByID(ctx, id)
 	if err != nil {
-		return errs.ErrNotFound
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errs.ErrNotFound
+		}
+		return err
 	}
-	m.ID = id
+	m.ID = existing.ID
+	m.CreatedAt = existing.CreatedAt
 	return repository.NewMedicationGuidanceRepo(s.db).Update(ctx, m)
 }
 

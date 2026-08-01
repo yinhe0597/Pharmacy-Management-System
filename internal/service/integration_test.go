@@ -51,7 +51,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		"prescription_audit_logs", "prescription_dispense_records", "prescription_items",
 		"prescriptions", "stock_reservations", "inventory_transactions", "inventory",
 		"purchase_receipt_items", "purchase_receipts", "purchase_order_items", "purchase_orders",
-		"drug_suppliers", "drug_interactions", "interaction_results", "suppliers", "drugs", "stock_alerts",
+		"drug_suppliers", "drug_interactions", "interaction_results", "drug_ingredients", "suppliers", "drugs", "stock_alerts",
 	}
 	for _, tb := range tables {
 		if err := db.Exec("TRUNCATE TABLE " + tb + " RESTART IDENTITY CASCADE").Error; err != nil {

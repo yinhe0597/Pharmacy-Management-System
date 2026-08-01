@@ -47,26 +47,29 @@ func (s *InteractionService) InvalidateCache() {
 	s.cache.loaded = false
 }
 
-// warmCache 预热/刷新缓存。
+// warmCache 预热/刷新缓存。原子加载：全部成功才更新缓存，避免部分失败导致不一致。
 func (s *InteractionService) warmCache(ctx context.Context) error {
 	s.cache.mu.Lock()
 	defer s.cache.mu.Unlock()
 	if s.cache.loaded {
 		return nil
 	}
-	var err error
-	s.cache.ingredients, err = repository.NewIngredientInteractionRepo(s.db).GetAll(ctx)
+	// 先加载到局部变量，全部成功再原子赋值
+	ingredients, err := repository.NewIngredientInteractionRepo(s.db).GetAll(ctx)
 	if err != nil {
 		return err
 	}
-	s.cache.classes, err = repository.NewClassInteractionRepo(s.db).GetAllActive(ctx)
+	classes, err := repository.NewClassInteractionRepo(s.db).GetAllActive(ctx)
 	if err != nil {
 		return err
 	}
-	s.cache.tags, err = repository.NewTagInteractionRepo(s.db).GetAllActive(ctx)
+	tags, err := repository.NewTagInteractionRepo(s.db).GetAllActive(ctx)
 	if err != nil {
 		return err
 	}
+	s.cache.ingredients = ingredients
+	s.cache.classes = classes
+	s.cache.tags = tags
 	s.cache.loaded = true
 	return nil
 }
@@ -171,6 +174,7 @@ func (s *InteractionService) CheckPrescription(
 			Mechanism:     r.Mechanism,
 			EvidenceLevel: r.EvidenceLevel,
 			Description:   r.Description,
+			IsActive:      true, // ingredient_interactions 表无 is_active 列，始终启用
 		})
 	}
 	classRules := make([]interaction.ClassRule, 0, len(s.cache.classes))

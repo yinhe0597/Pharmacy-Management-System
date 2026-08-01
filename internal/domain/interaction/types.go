@@ -131,8 +131,10 @@ func (f InteractionFinding) ToBlock() Block {
 
 // FindingToWarning 将交互发现转为提醒项。
 func (f InteractionFinding) ToPairWarning() PairWarning {
-	code := 0
+	code := enum.ErrInteractionNoteCode // 未知级别默认归入"注意"
 	switch f.Level {
+	case enum.InteractionLevelContraindication:
+		code = enum.ErrInteractionCode
 	case enum.InteractionLevelCaution:
 		code = enum.ErrInteractionCautionCode
 	case enum.InteractionLevelNote:

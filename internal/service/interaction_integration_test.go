@@ -58,10 +58,12 @@ func TestReviewBlockedByExplicitInteraction(t *testing.T) {
 	ctx := context.Background()
 
 	// 创建显式配伍禁忌（level=1）
-	db.Create(&model.DrugInteraction{
+	if err := db.Create(&model.DrugInteraction{
 		DrugAID: drugA.ID, DrugBID: drugB.ID, Level: 1,
 		Description: "布洛芬+华法林禁忌",
-	})
+	}).Error; err != nil {
+		t.Fatalf("创建交互规则失败: %v", err)
+	}
 
 	// 创建含两药的处方
 	p, err := presc.Create(ctx, service.PrescriptionInput{
@@ -95,10 +97,12 @@ func TestReviewWarningForCautionInteraction(t *testing.T) {
 	ctx := context.Background()
 
 	// 创建显式配伍慎用（level=2）
-	db.Create(&model.DrugInteraction{
+	if err := db.Create(&model.DrugInteraction{
 		DrugAID: drugA.ID, DrugBID: drugB.ID, Level: 2,
 		Description: "布洛芬+华法林慎用",
-	})
+	}).Error; err != nil {
+		t.Fatalf("创建交互规则失败: %v", err)
+	}
 
 	p, err := presc.Create(ctx, service.PrescriptionInput{
 		PatientName: "李四",

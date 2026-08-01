@@ -19,6 +19,7 @@ type IngredientRule struct {
 	Mechanism     string
 	EvidenceLevel string
 	Description   string
+	IsActive      bool
 }
 
 // ClassRule 分类级交互规则（来自 class_interaction_rules 表）。
