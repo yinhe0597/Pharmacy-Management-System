@@ -42,12 +42,19 @@ type IPatientService interface {
 	GetMedicationHistory(ctx context.Context, patientID int64) ([]MedicationRecord, error)
 }
 
-// ReserveItem 预占项。数量以 IsSplit 对应口径计：true=拆零单位，false=基本单位。
+// ReserveItem 预占项。
+// 分配模式：
+//   - IsSplit=true            ：强制拆零，数量按拆零单位，仅从拆零库存分配
+//   - IsSplit=false, Mixed=false：整盒口径，数量按基本单位，仅从整盒库存分配
+//   - IsSplit=false, Mixed=true ：混合发药，数量按 LDU（拆零单位），
+//     自动拆为「整盒部分（按盒）× 整盒库存 + 零头部分 × 拆零库存」
+//
 // ItemID 为可选业务明细 ID（处方明细），用于预占与发药记录的批次归属。
 type ReserveItem struct {
 	DrugID     int64 `json:"drug_id"`
 	LocationID int64 `json:"location_id"`
 	IsSplit    bool  `json:"is_split"`
+	Mixed      bool  `json:"mixed"`
 	Quantity   int64 `json:"quantity"`
 	ItemID     int64 `json:"item_id"`
 }

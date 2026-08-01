@@ -4051,10 +4051,11 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "is_split": {
+                    "description": "true=强制拆零",
                     "type": "boolean"
                 },
                 "quantity": {
-                    "description": "is_split=true 拆零单位，false 基本单位",
+                    "description": "LDU（拆零单位）",
                     "type": "integer"
                 },
                 "single_dose": {

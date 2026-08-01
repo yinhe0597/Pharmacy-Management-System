@@ -53,10 +53,12 @@ type PrescriptionItem struct {
 	BaseUnit          string    `gorm:"size:20;not null" json:"base_unit"`
 	SplitUnit         string    `gorm:"size:20" json:"split_unit"`
 	PackSize          int       `gorm:"not null;default:1" json:"pack_size"`
-	IsSplit           bool      `gorm:"not null;default:false" json:"is_split"`
-	Quantity          int64     `gorm:"not null" json:"quantity"`
-	UnitPrice         int64     `gorm:"not null" json:"unit_price"` // 分/拆零单位
-	Amount            int64     `gorm:"not null" json:"amount"`
+	IsSplitAllowed    bool      `gorm:"not null;default:false" json:"is_split_allowed"`
+	IsSplit           bool      `gorm:"not null;default:false" json:"is_split"` // true=强制拆零发药
+	Quantity          int64     `gorm:"not null" json:"quantity"`               // LDU（拆零单位）
+	UnitPrice         int64     `gorm:"not null" json:"unit_price"`             // 拆零单价快照（分/拆零单位）
+	RetailPrice       int64     `gorm:"not null;default:0" json:"retail_price"` // 盒价快照（分/基本单位）
+	Amount            int64     `gorm:"not null" json:"amount"`                 // 精确混合金额
 	UsageText         string    `gorm:"size:200" json:"usage_text"`
 	Frequency         string    `gorm:"size:50" json:"frequency"`
 	SingleDose        int64     `json:"single_dose"`

@@ -13,6 +13,7 @@ import (
 	"yaofang/internal/domain/rule"
 	"yaofang/internal/model"
 	"yaofang/internal/pkg/errs"
+	"yaofang/internal/pkg/money"
 	"yaofang/internal/pkg/seq"
 	"yaofang/internal/repository"
 	"yaofang/internal/service/port"
@@ -22,10 +23,13 @@ import (
 const PrescriptionLocationID int64 = 2
 
 // PrescriptionItemInput 处方明细输入。
+// Quantity 统一按拆零单位（LDU，如片）计；不可拆零药品按基本单位（盒，pack_size=1 等价）。
+// IsSplit=true 表示强制拆零发药（全部按拆零价/拆零库存）；false（默认）为混合发药：
+// 整盒部分按盒价、零头部分按拆零价，自动跨整盒+拆零库存分配。
 type PrescriptionItemInput struct {
 	DrugID         int64  `json:"drug_id"`
-	Quantity       int64  `json:"quantity"` // is_split=true 拆零单位，false 基本单位
-	IsSplit        bool   `json:"is_split"`
+	Quantity       int64  `json:"quantity"` // LDU（拆零单位）
+	IsSplit        bool   `json:"is_split"` // true=强制拆零
 	UsageText      string `json:"usage_text"`
 	Frequency      string `json:"frequency"`
 	SingleDose     int64  `json:"single_dose"`      // 拆零单位
@@ -162,7 +166,8 @@ func (s *PrescriptionService) Create(ctx context.Context, input PrescriptionInpu
 	return p, nil
 }
 
-// prepareItems 校验并生成明细（单价快照，金额=quantity×unit_price）。
+// prepareItems 校验并生成明细（价格快照 + 混合计价）。
+// 计价规则（docs/13 §4.3）：整盒部分按盒价、零头部分按拆零价，金额精确。
 func (s *PrescriptionService) prepareItems(ctx context.Context, db *gorm.DB, inputs []PrescriptionItemInput) ([]*model.PrescriptionItem, []model.Drug, error) {
 	drugRepo := repository.NewDrugRepo(db)
 	items := make([]*model.PrescriptionItem, 0, len(inputs))
@@ -181,20 +186,34 @@ func (s *PrescriptionService) prepareItems(ctx context.Context, db *gorm.DB, inp
 		if d.Status != 1 {
 			return nil, nil, errs.ErrDrugInactive
 		}
-		unitPrice := d.RetailPrice
-		if in.IsSplit {
-			if !d.IsSplitAllowed {
-				return nil, nil, errs.ErrSplitNotAllowed
-			}
+		splitAllowed := d.IsSplitAllowed && d.PackSize > 1
+		if in.IsSplit && !splitAllowed {
+			return nil, nil, errs.ErrSplitNotAllowed
+		}
+		var unitPrice, amount int64
+		switch {
+		case in.IsSplit:
+			// 强制拆零：全部按拆零价
 			unitPrice = d.SplitRetailPrice
+			amount = in.Quantity * d.SplitRetailPrice
+		case splitAllowed:
+			// 混合发药：整盒部分按盒价 + 零头按拆零价
+			boxes := in.Quantity / int64(d.PackSize)
+			units := in.Quantity % int64(d.PackSize)
+			unitPrice = d.SplitRetailPrice
+			amount = boxes*d.RetailPrice + units*d.SplitRetailPrice
+		default:
+			// 不可拆零：整盒
+			unitPrice = d.RetailPrice
+			amount = in.Quantity * d.RetailPrice
 		}
 		items = append(items, &model.PrescriptionItem{
 			DrugID:   in.DrugID,
 			DrugName: d.GenericName, Specification: d.Specification,
 			Manufacturer: d.Manufacturer, DosageForm: d.DosageForm,
 			BaseUnit: d.BaseUnit, SplitUnit: d.SplitUnit, PackSize: d.PackSize,
-			IsSplit: in.IsSplit, Quantity: in.Quantity,
-			UnitPrice: unitPrice, Amount: unitPrice * in.Quantity,
+			IsSplitAllowed: splitAllowed, IsSplit: in.IsSplit, Quantity: in.Quantity,
+			UnitPrice: unitPrice, RetailPrice: d.RetailPrice, Amount: amount,
 			UsageText: in.UsageText, Frequency: in.Frequency,
 			SingleDose: in.SingleDose, TotalDailyDose: in.TotalDailyDose,
 			Days: in.Days,
@@ -321,7 +340,9 @@ func (s *PrescriptionService) Submit(ctx context.Context, id int64, operatorID i
 		for _, it := range items {
 			reserveItems = append(reserveItems, port.ReserveItem{
 				DrugID: it.DrugID, LocationID: PrescriptionLocationID,
-				IsSplit: it.IsSplit, Quantity: it.Quantity, ItemID: it.ID,
+				// 混合发药：非强制拆零且药品可拆零 → 按 LDU 跨整盒+拆零分配
+				IsSplit: it.IsSplit, Mixed: !it.IsSplit && it.IsSplitAllowed,
+				Quantity: it.Quantity, ItemID: it.ID,
 			})
 		}
 		results, err := s.inventory.reserveItemsTx(ctx, tx, "prescription", id, reserveItems)
@@ -446,17 +467,25 @@ func (s *PrescriptionService) Dispense(ctx context.Context, id int64, operatorID
 		if err != nil {
 			return err
 		}
-		// 校验每项预占充足（LDU 同口径）
+		// 校验每项预占充足（按明细汇总 LDU，支持整盒+拆零混合）
 		resvs, err := repository.NewStockReservationRepo(tx).ListActiveByRef(ctx, "prescription", id)
 		if err != nil {
 			return err
 		}
-		got := make(map[drugUnit]int64)
+		got := make(map[int64]int64) // itemID → 已预占 LDU
+		itemMap := make(map[int64]*model.PrescriptionItem, len(items))
+		for i := range items {
+			itemMap[items[i].ID] = &items[i]
+		}
 		for _, r := range resvs {
-			got[drugUnit{r.DrugID, r.IsSplit}] += r.Quantity
+			it, ok := itemMap[r.ItemID]
+			if !ok {
+				continue
+			}
+			got[r.ItemID] += rule.ToLDU(r.IsSplit, r.Quantity, it.PackSize)
 		}
 		for _, it := range items {
-			if got[drugUnit{it.DrugID, it.IsSplit}] < it.Quantity {
+			if got[it.ID] < it.Quantity {
 				return errs.ErrBatchAllocation
 			}
 		}
@@ -500,15 +529,8 @@ func (s *PrescriptionService) ConfirmDispense(ctx context.Context, id int64, che
 				return err
 			}
 		}
-		// 核销预占并实扣库存
-		dispenseItems := make([]port.DispenseItem, 0, len(items))
-		for _, it := range items {
-			dispenseItems = append(dispenseItems, port.DispenseItem{
-				DrugID: it.DrugID, LocationID: PrescriptionLocationID,
-				IsSplit: it.IsSplit, Quantity: it.Quantity,
-			})
-		}
-		if err := s.inventory.consumeTx(ctx, tx, "prescription", id, dispenseItems); err != nil {
+		// 核销预占并实扣库存（以该单据预占为准，混合整盒+拆零批次）
+		if err := s.inventory.consumeTx(ctx, tx, "prescription", id, nil); err != nil {
 			return err
 		}
 		// 更新明细状态与主单
@@ -552,7 +574,11 @@ func buildDispenseRecords(p *model.Prescription, items []model.PrescriptionItem,
 		if !ok {
 			continue
 		}
+		// 按批次形态取快照价：整盒批按盒价，拆零批按拆零价（与明细混合计价一致）
 		unitPrice := it.UnitPrice
+		if !r.IsSplit {
+			unitPrice = it.RetailPrice
+		}
 		records = append(records, &model.PrescriptionDispenseRecord{
 			PrescriptionID: p.ID, ItemID: r.ItemID, InventoryID: r.InventoryID,
 			DrugID: r.DrugID, BatchNo: r.BatchNo, ExpiryDate: r.ExpiryDate,
@@ -604,6 +630,11 @@ func (s *PrescriptionService) Return(ctx context.Context, id int64, inputs []Ret
 			if err != nil {
 				return err
 			}
+			// 重建库存行时取进价（库存 unit_price 为进价口径，发药记录存的是零售价）
+			drug, derr := repository.NewDrugRepo(tx).GetByID(ctx, it.DrugID)
+			if derr != nil && !errors.Is(derr, gorm.ErrRecordNotFound) {
+				return derr
+			}
 			remaining := in.ReturnQuantity
 			for _, rec := range records {
 				if remaining <= 0 {
@@ -634,15 +665,23 @@ func (s *PrescriptionService) Return(ctx context.Context, id int64, inputs []Ret
 					}
 				} else if errors.Is(err, gorm.ErrRecordNotFound) {
 					before = 0
-					// 批次已清空时重建（保留原批次信息）
+					// 批次已清空时重建（保留原批次信息）；成本取进价而非发药零售价
 					status := 1
 					if rule.IsExpired(rec.ExpiryDate, todayNow()) {
 						status = 2
 					}
+					cost := int64(0)
+					if drug != nil {
+						if rec.IsSplit {
+							cost = money.Cents(drug.PurchasePrice).SplitPrice(drug.PackSize).Int64()
+						} else {
+							cost = drug.PurchasePrice
+						}
+					}
 					if err := invRepo.Create(ctx, &model.Inventory{
 						DrugID: rec.DrugID, LocationID: PrescriptionLocationID,
 						BatchNo: rec.BatchNo, ExpiryDate: rec.ExpiryDate,
-						Quantity: take, IsSplit: rec.IsSplit, UnitPrice: rec.UnitPrice, Status: status,
+						Quantity: take, IsSplit: rec.IsSplit, UnitPrice: cost, Status: status,
 					}); err != nil {
 						return err
 					}

@@ -193,9 +193,10 @@ func TestCancelReleasesReservation(t *testing.T) {
 	}}, 1, "集成测试"); err != nil {
 		t.Fatalf("入库失败: %v", err)
 	}
+	// 混合发药：Quantity 按 LDU（48 = 2 整盒），整盒部分走整盒库存
 	p, err := presc.Create(ctx, service.PrescriptionInput{
 		PatientName: "李四",
-		Items:       []service.PrescriptionItemInput{{DrugID: drug.ID, Quantity: 2, IsSplit: false}},
+		Items:       []service.PrescriptionItemInput{{DrugID: drug.ID, Quantity: 48}},
 	})
 	if err != nil {
 		t.Fatalf("创建处方失败: %v", err)
@@ -235,7 +236,7 @@ func TestSubmitIdempotent(t *testing.T) {
 	}
 	p, err := presc.Create(ctx, service.PrescriptionInput{
 		PatientName: "幂等患者",
-		Items:       []service.PrescriptionItemInput{{DrugID: drug.ID, Quantity: 3, IsSplit: false}},
+		Items:       []service.PrescriptionItemInput{{DrugID: drug.ID, Quantity: 72}},
 	})
 	if err != nil {
 		t.Fatalf("创建处方失败: %v", err)
@@ -270,7 +271,7 @@ func TestSplitReservedBlocked(t *testing.T) {
 	}
 	p, err := presc.Create(ctx, service.PrescriptionInput{
 		PatientName: "拆零患者",
-		Items:       []service.PrescriptionItemInput{{DrugID: drug.ID, Quantity: 2, IsSplit: false}},
+		Items:       []service.PrescriptionItemInput{{DrugID: drug.ID, Quantity: 48}},
 	})
 	if err != nil {
 		t.Fatalf("创建处方失败: %v", err)
@@ -315,7 +316,7 @@ func TestConcurrentReserveNoOversell(t *testing.T) {
 	for i := 0; i < n; i++ {
 		p, err := presc.Create(ctx, service.PrescriptionInput{
 			PatientName: "并发患者",
-			Items:       []service.PrescriptionItemInput{{DrugID: drug.ID, Quantity: 3, IsSplit: false}},
+			Items:       []service.PrescriptionItemInput{{DrugID: drug.ID, Quantity: 72}},
 		})
 		if err != nil {
 			t.Fatalf("创建处方 %d 失败: %v", i, err)

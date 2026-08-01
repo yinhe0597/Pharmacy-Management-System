@@ -128,6 +128,96 @@ func TestSplitFullBoxAsUnits(t *testing.T) {
 	}
 }
 
+// TestMixedDispense 混合发药：36 片 = 1 整盒 + 12 片拆零，计价精确、跨口径分配、发药记录按形态计价。
+func TestMixedDispense(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	inv := service.NewInventoryService(db)
+	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db))
+	drug := mustCreateDrug(t, db) // 24片/盒，零售 2400 分，拆零 100 分/片
+
+	// 3 整盒 + 拆零 12 片
+	if err := inv.StockIn(ctx, []service.StockEntry{{
+		DrugID: drug.ID, LocationID: 2, BatchNo: "MIX-B",
+		ExpiryDate: time.Now().AddDate(1, 0, 0), IsSplit: false, Quantity: 3, UnitPrice: 1800,
+	}}, 1, "混合测试"); err != nil {
+		t.Fatalf("入库失败: %v", err)
+	}
+	whole := wholeRow(t, db, drug.ID)
+	if err := inv.SplitUnits(ctx, service.SplitUnitsRequest{InventoryID: whole.ID, Boxes: 1, Units: 12, Damaged: 12}, 1, "混合测试"); err != nil {
+		t.Fatalf("拆零失败: %v", err)
+	}
+	// 整盒 2 盒 + 拆零 12 片
+
+	// 处方 36 片（1 盒 + 12 片），混合发药（IsSplit=false）
+	p, err := presc.Create(ctx, service.PrescriptionInput{
+		PatientName: "混合患者",
+		Items:       []service.PrescriptionItemInput{{DrugID: drug.ID, Quantity: 36}},
+	})
+	if err != nil {
+		t.Fatalf("创建处方失败: %v", err)
+	}
+	// 计价：1×2400 + 12×100 = 3600
+	items, _ := repository.NewPrescriptionItemRepo(db).ListByPrescription(ctx, p.ID)
+	if len(items) != 1 || items[0].Amount != 3600 {
+		t.Fatalf("混合计价不符: amount=%d want 3600", items[0].Amount)
+	}
+	if items[0].Quantity != 36 || items[0].UnitPrice != 100 || items[0].RetailPrice != 2400 {
+		t.Fatalf("明细快照不符: qty=%d unit=%d retail=%d", items[0].Quantity, items[0].UnitPrice, items[0].RetailPrice)
+	}
+
+	// 预占：1 盒（整盒行）+ 12 片（拆零行）
+	if err := presc.Submit(ctx, p.ID, 1, "药师A"); err != nil {
+		t.Fatalf("提交失败: %v", err)
+	}
+	resvs, _ := repository.NewStockReservationRepo(db).ListActiveByRef(ctx, "prescription", p.ID)
+	var wholeResv, splitResv int64
+	for _, r := range resvs {
+		if r.IsSplit {
+			splitResv += r.Quantity
+		} else {
+			wholeResv += r.Quantity
+		}
+	}
+	if wholeResv != 1 || splitResv != 12 {
+		t.Fatalf("混合分配不符: 整盒=%d want 1, 拆零=%d want 12", wholeResv, splitResv)
+	}
+
+	if err := presc.Review(ctx, p.ID, service.AuditInput{Action: "pass"}, 2, "药师B"); err != nil {
+		t.Fatalf("审核失败: %v", err)
+	}
+	if err := presc.Dispense(ctx, p.ID, 3, "调配员"); err != nil {
+		t.Fatalf("调配失败: %v", err)
+	}
+	if err := presc.ConfirmDispense(ctx, p.ID, 4, "核对员"); err != nil {
+		t.Fatalf("发药确认失败: %v", err)
+	}
+
+	// 发药记录：整盒 1 盒按盒价 2400，拆零 12 片按拆零价 100
+	records, _ := repository.NewDispenseRecordRepo(db).ListByPrescription(ctx, p.ID)
+	var totalAmount int64
+	for _, rec := range records {
+		if !rec.IsSplit && (rec.Quantity != 1 || rec.UnitPrice != 2400) {
+			t.Fatalf("整盒发药记录不符: qty=%d price=%d", rec.Quantity, rec.UnitPrice)
+		}
+		if rec.IsSplit && (rec.Quantity != 12 || rec.UnitPrice != 100) {
+			t.Fatalf("拆零发药记录不符: qty=%d price=%d", rec.Quantity, rec.UnitPrice)
+		}
+		totalAmount += rec.Amount
+	}
+	if totalAmount != 3600 {
+		t.Fatalf("发药记录金额合计不符: %d want 3600", totalAmount)
+	}
+	// 库存核销：整盒剩 1 盒，拆零归 0
+	whole = wholeRow(t, db, drug.ID)
+	if whole.Quantity != 1 {
+		t.Fatalf("整盒应剩1盒, got %d", whole.Quantity)
+	}
+	if splitQty, _ := splitRowQty(t, db, drug.ID); splitQty != 0 {
+		t.Fatalf("拆零应归0, got %d", splitQty)
+	}
+}
+
 // TestConfigurableSplitPrice 拆零零售价可显式配置覆盖，不强制公式推算。
 func TestConfigurableSplitPrice(t *testing.T) {
 	db := setupTestDB(t)
