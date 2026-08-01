@@ -17,6 +17,7 @@ import (
 	"yaofang/internal/service"
 )
 
+// splitRowQty 汇总某药品全部拆零行的数量与（首行）单价。可存在多条拆零批次。
 func splitRowQty(t *testing.T, db *gorm.DB, drugID int64) (qty int64, unitPrice int64) {
 	t.Helper()
 	rows, _, err := repository.NewInventoryRepo(db).List(context.Background(),
@@ -26,10 +27,13 @@ func splitRowQty(t *testing.T, db *gorm.DB, drugID int64) (qty int64, unitPrice 
 	}
 	for _, r := range rows {
 		if r.IsSplit {
-			return r.Quantity, r.UnitPrice
+			qty += r.Quantity
+			if unitPrice == 0 {
+				unitPrice = r.UnitPrice
+			}
 		}
 	}
-	return 0, 0
+	return qty, unitPrice
 }
 
 func wholeRow(t *testing.T, db *gorm.DB, drugID int64) model.Inventory {
@@ -365,6 +369,111 @@ func TestAutoSplitPartialSplit(t *testing.T) {
 	}
 	if w := wholeRow(t, db, drug.ID); w.Quantity != 0 {
 		t.Fatalf("整盒应剩0, got %d", w.Quantity)
+	}
+}
+
+// TestReturnSplitScenario 用户场景还原：一盒 15 片、拆零剩 2 片，处方 3 片
+// → 系统开盒（整盒-1、拆零+15 净效果）→ 处方扣 3 片；
+// 随后其他医生开 5 片零散处方正常扣减；退药 3 片按原批次正常回补拆零柜。
+func TestReturnSplitScenario(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	inv := service.NewInventoryService(db)
+	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db))
+	drugSvc := service.NewDrugService(db)
+
+	drug := &model.Drug{
+		Code: "SC001", GenericName: "场景药", DosageForm: "片剂",
+		Specification: "0.1g", Manufacturer: "场景药厂",
+		BaseUnit: "盒", SplitUnit: "片", PackSize: 15, IsSplitAllowed: true,
+		RetailPrice: 1500, PurchasePrice: 1200, Status: 1,
+	}
+	if err := drugSvc.Create(ctx, drug); err != nil {
+		t.Fatalf("创建药品失败: %v", err)
+	}
+	if drug.SplitRetailPrice != 100 { // round(1500/15)
+		t.Fatalf("拆零价应为100, got %d", drug.SplitRetailPrice)
+	}
+
+	exp := time.Now().AddDate(1, 0, 0)
+	// 库存：整盒 1 盒(batch W) + 拆零 2 片(batch S)
+	if err := inv.StockIn(ctx, []service.StockEntry{
+		{DrugID: drug.ID, LocationID: 2, BatchNo: "W", ExpiryDate: exp, IsSplit: false, Quantity: 1, UnitPrice: 1200},
+		{DrugID: drug.ID, LocationID: 2, BatchNo: "S", ExpiryDate: exp, IsSplit: true, Quantity: 2, UnitPrice: 80},
+	}, 1, "场景测试"); err != nil {
+		t.Fatalf("入库失败: %v", err)
+	}
+
+	// Rx1：3 片（拆零不足 → 自动规划待拆盒）
+	p1, err := presc.Create(ctx, service.PrescriptionInput{PatientName: "医生A患者", Items: []service.PrescriptionItemInput{{DrugID: drug.ID, Quantity: 3}}})
+	if err != nil {
+		t.Fatalf("创建Rx1失败: %v", err)
+	}
+	if err := presc.Submit(ctx, p1.ID, 1, "药师A"); err != nil {
+		t.Fatalf("Rx1提交失败: %v", err)
+	}
+	resvs, _ := repository.NewStockReservationRepo(db).ListActiveByRef(ctx, "prescription", p1.ID)
+	var needSplit bool
+	for _, r := range resvs {
+		if r.NeedSplit {
+			needSplit = true
+			if r.SplitUnits != 1 { // 拆零缺1片
+				t.Fatalf("待拆盒 split_units 应为1, got %d", r.SplitUnits)
+			}
+		}
+	}
+	if !needSplit {
+		t.Fatal("拆零不足时应规划待拆盒")
+	}
+	for _, fn := range []func() error{
+		func() error { return presc.Review(ctx, p1.ID, service.AuditInput{Action: "pass"}, 2, "药师B") },
+		func() error { return presc.Dispense(ctx, p1.ID, 3, "调配员") },
+		func() error { return presc.ConfirmDispense(ctx, p1.ID, 4, "核对员") },
+	} {
+		if err := fn(); err != nil {
+			t.Fatalf("Rx1流程失败: %v", err)
+		}
+	}
+	// 发药后：整盒 W=0，拆零 = S 0 + W-split 14（开盒15片，患者取1片）
+	if q := wholeRow(t, db, drug.ID); q.Quantity != 0 {
+		t.Fatalf("整盒应剩0, got %d", q.Quantity)
+	}
+	if splitQty, _ := splitRowQty(t, db, drug.ID); splitQty != 14 {
+		t.Fatalf("拆零应剩14片, got %d", splitQty)
+	}
+
+	// Rx2：另一医生开 5 片零散处方 → 从拆零柜正常扣减
+	p2, err := presc.Create(ctx, service.PrescriptionInput{PatientName: "医生B患者", Items: []service.PrescriptionItemInput{{DrugID: drug.ID, Quantity: 5}}})
+	if err != nil {
+		t.Fatalf("创建Rx2失败: %v", err)
+	}
+	if err := presc.Submit(ctx, p2.ID, 1, "药师A"); err != nil {
+		t.Fatalf("Rx2提交失败: %v", err)
+	}
+	if err := presc.Review(ctx, p2.ID, service.AuditInput{Action: "pass"}, 2, "药师B"); err != nil {
+		t.Fatalf("Rx2审核失败: %v", err)
+	}
+	if err := presc.Dispense(ctx, p2.ID, 3, "调配员"); err != nil {
+		t.Fatalf("Rx2调配失败: %v", err)
+	}
+	if err := presc.ConfirmDispense(ctx, p2.ID, 4, "核对员"); err != nil {
+		t.Fatalf("Rx2发药失败: %v", err)
+	}
+	if splitQty, _ := splitRowQty(t, db, drug.ID); splitQty != 9 {
+		t.Fatalf("Rx2扣减5片后拆零应剩9, got %d", splitQty)
+	}
+
+	// Rx1 退药 3 片 → 按原批次回补拆零柜（不重新封盒）
+	items1, _ := repository.NewPrescriptionItemRepo(db).ListByPrescription(ctx, p1.ID)
+	if err := presc.Return(ctx, p1.ID, []service.ReturnItemInput{{ItemID: items1[0].ID, ReturnQuantity: 3}}, 5, "药师C"); err != nil {
+		t.Fatalf("Rx1退药失败: %v", err)
+	}
+	// 最终拆零 = 9 + 3 = 12（Rx2 的 5 片不受影响）
+	if splitQty, _ := splitRowQty(t, db, drug.ID); splitQty != 12 {
+		t.Fatalf("退药后拆零应为12, got %d", splitQty)
+	}
+	if w := wholeRow(t, db, drug.ID); w.Quantity != 0 {
+		t.Fatalf("整盒仍应0, got %d", w.Quantity)
 	}
 }
 
