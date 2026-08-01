@@ -23,6 +23,7 @@ func NewAuthHandler(svc *service.AuthService) *AuthHandler { return &AuthHandler
 // Register 注册路由。
 func (h *AuthHandler) Register(r *gin.RouterGroup, authed *gin.RouterGroup, adminOnly *gin.RouterGroup) {
 	r.POST("/auth/login", h.Login)
+	authed.POST("/auth/logout", h.Logout)
 	authed.GET("/auth/profile", h.Profile)
 	adminOnly.POST("/users", h.CreateUser)
 	adminOnly.PUT("/users/:id", h.UpdateUser)
@@ -55,6 +56,18 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 	OK(c, gin.H{"token": token, "user": user})
+}
+
+// Logout godoc
+// @Summary 登出
+// @Tags auth
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} Body
+// @Router /auth/logout [post]
+func (h *AuthHandler) Logout(c *gin.Context) {
+	// JWT 无状态，客户端丢弃 token 即可；服务端返回成功。
+	OK(c, gin.H{"message": "已登出"})
 }
 
 // Profile godoc

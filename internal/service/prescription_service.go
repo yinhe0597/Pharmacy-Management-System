@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"yaofang/internal/domain/enum"
+	"yaofang/internal/domain/interaction"
 	"yaofang/internal/domain/prescription"
 	"yaofang/internal/domain/rule"
 	"yaofang/internal/model"
@@ -65,14 +66,16 @@ type ReturnItemInput struct {
 
 // PrescriptionService 处方服务（状态机与库存联动的唯一入口）。
 type PrescriptionService struct {
-	db        *gorm.DB
-	inventory *InventoryService
-	special   *SpecialDrugService
+	db         *gorm.DB
+	inventory  *InventoryService
+	special    *SpecialDrugService
+	interSvc   *InteractionService
+	patientSvc port.IPatientService
 }
 
 // NewPrescriptionService 构建处方服务。
-func NewPrescriptionService(db *gorm.DB, inventory *InventoryService, special *SpecialDrugService) *PrescriptionService {
-	return &PrescriptionService{db: db, inventory: inventory, special: special}
+func NewPrescriptionService(db *gorm.DB, inventory *InventoryService, special *SpecialDrugService, interSvc *InteractionService, patientSvc port.IPatientService) *PrescriptionService {
+	return &PrescriptionService{db: db, inventory: inventory, special: special, interSvc: interSvc, patientSvc: patientSvc}
 }
 
 // deriveSpecialType 根据明细药品的管制标记推导处方类型。
@@ -364,9 +367,18 @@ func (s *PrescriptionService) Submit(ctx context.Context, id int64, operatorID i
 	})
 }
 
+// AuditReviewResult 审核结果（含交互检测明细）。
+type AuditReviewResult struct {
+	Passed   bool                           `json:"passed"`
+	Warnings []interaction.PairWarning      `json:"warnings,omitempty"`
+	DrugWarnings []interaction.DrugWarning  `json:"drug_warnings,omitempty"`
+}
+
 // Review 审核：配伍/极量/重复用药检查；pass→reviewed_passed，reject→reviewed_rejected+释放预占。
-func (s *PrescriptionService) Review(ctx context.Context, id int64, input AuditInput, auditorID int64, auditorName string) error {
-	return s.db.Transaction(func(tx *gorm.DB) error {
+// 返回审核明细（含提醒项），供前端展示。
+func (s *PrescriptionService) Review(ctx context.Context, id int64, input AuditInput, auditorID int64, auditorName string) (*AuditReviewResult, error) {
+	var result *AuditReviewResult
+	err := s.db.Transaction(func(tx *gorm.DB) error {
 		p, err := repository.NewPrescriptionRepo(tx).LockForUpdate(ctx, id)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -383,17 +395,31 @@ func (s *PrescriptionService) Review(ctx context.Context, id int64, input AuditI
 			return err
 		}
 		if input.Action == "pass" {
-			if err := s.checkAuditRules(ctx, tx, items); err != nil {
+			auditResult, err := s.checkAuditRules(ctx, tx, items, p.PatientID)
+			if err != nil {
 				return err
 			}
+			// 构建审核明细结果
+			result = &AuditReviewResult{
+				Passed:       !auditResult.HasBlocks(),
+				Warnings:     auditResult.Warnings,
+				DrugWarnings: auditResult.DrugWarnings,
+			}
+			// 拦截项阻止通过
+			if auditResult.HasBlocks() {
+				_ = s.interSvc.SaveInteractionResults(ctx, tx, id, auditResult)
+				return errs.ErrInteraction
+			}
+			// 保存提醒项快照
+			_ = s.interSvc.SaveInteractionResults(ctx, tx, id, auditResult)
 			p.Status = prescription.StatusReviewedPassed.String()
 			p.AuditorID = auditorID
 			p.AuditorName = auditorName
 			now := time.Now()
 			p.ReviewedAt = &now
 		} else if input.Action == "reject" {
+			result = &AuditReviewResult{Passed: false}
 			p.Status = prescription.StatusReviewedRejected.String()
-			// 驳回释放预占
 			if err := s.releaseReservationsTx(ctx, tx, id); err != nil {
 				return err
 			}
@@ -406,48 +432,88 @@ func (s *PrescriptionService) Review(ctx context.Context, id int64, input AuditI
 		return s.auditTx(ctx, tx, id, "review_"+input.Action,
 			prescription.StatusPendingReview.String(), p.Status, auditorName, input.Remarks)
 	})
+	return result, err
 }
 
 // checkAuditRules 配伍/极量/重复用药检查。
-func (s *PrescriptionService) checkAuditRules(ctx context.Context, db *gorm.DB, items []model.PrescriptionItem) error {
+// 返回结构化审核结果，包含拦截项和提醒项。
+// 引擎负责全部策略（显式药品对、成分级、分类级、标签级）的匹配和去重。
+func (s *PrescriptionService) checkAuditRules(ctx context.Context, db *gorm.DB, items []model.PrescriptionItem, patientID int64) (*interaction.AuditResult, error) {
 	if len(items) == 0 {
-		return errs.ErrBadRequest
+		return nil, errs.ErrBadRequest
 	}
+	// 优先使用新引擎（多层匹配）
+	if s.interSvc != nil {
+		return s.interSvc.CheckPrescription(ctx, items, patientID, s.patientSvc)
+	}
+	// 回退：兼容旧逻辑（仅在未注入交互服务时使用）
 	drugIDs := make([]int64, 0, len(items))
 	for _, it := range items {
 		drugIDs = append(drugIDs, it.DrugID)
 	}
-	// 配伍禁忌（同处方内任意两药）
 	interactions, err := repository.NewInteractionRepo(db).ListByDrugIDs(ctx, drugIDs)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	result := &interaction.AuditResult{Passed: true}
 	inSet := make(map[int64]struct{}, len(drugIDs))
 	for _, id := range drugIDs {
 		inSet[id] = struct{}{}
 	}
+	drugRepo := repository.NewDrugRepo(db)
 	for _, inter := range interactions {
 		_, aIn := inSet[inter.DrugAID]
 		_, bIn := inSet[inter.DrugBID]
-		if aIn && bIn && inter.Level == 1 {
-			return errs.ErrInteraction
+		if aIn && bIn {
+			da, _ := drugRepo.GetByID(ctx, inter.DrugAID)
+			db2, _ := drugRepo.GetByID(ctx, inter.DrugBID)
+			nameA, nameB := "", ""
+			if da != nil {
+				nameA = da.GenericName
+			}
+			if db2 != nil {
+				nameB = db2.GenericName
+			}
+			f := interaction.InteractionFinding{
+				DrugAID:       inter.DrugAID,
+				DrugBID:       inter.DrugBID,
+				DrugAName:     nameA,
+				DrugBName:     nameB,
+				Strategy:      enum.InteractionStrategyExplicit,
+				Level:         inter.Level,
+				Mechanism:     inter.Mechanism,
+				EvidenceLevel: inter.EvidenceLevel,
+				Description:   inter.Description,
+			}
+			result.AddInteraction(f)
+			if inter.Level == enum.InteractionLevelContraindication {
+				result.AddBlock(f.ToBlock().Code, f.ToBlock().Message, f.ToBlock().Detail)
+			} else {
+				result.AddWarning(f.ToPairWarning())
+			}
 		}
 	}
 	// 极量检查
-	drugRepo := repository.NewDrugRepo(db)
 	for _, it := range items {
 		d, err := drugRepo.GetByID(ctx, it.DrugID)
 		if err != nil {
 			continue
 		}
 		if d.MaxSingleDose > 0 && it.SingleDose > 0 && it.SingleDose > d.MaxSingleDose {
-			return errs.ErrDoseExceeded
+			result.AddBlock(enum.ErrDoseExceededCode, "极量超限",
+				d.GenericName+"：单次剂量超过最大单次剂量")
 		}
 		if d.MaxDailyDose > 0 && it.TotalDailyDose > 0 && it.TotalDailyDose > d.MaxDailyDose {
-			return errs.ErrDoseExceeded
+			result.AddBlock(enum.ErrDoseExceededCode, "极量超限",
+				d.GenericName+"：日总剂量超过最大日剂量")
 		}
 	}
-	return nil
+	return result, nil
+}
+
+// CheckAuditRules 公开方法：供外部调用处方审核规则检查。
+func (s *PrescriptionService) CheckAuditRules(ctx context.Context, items []model.PrescriptionItem, patientID int64) (*interaction.AuditResult, error) {
+	return s.checkAuditRules(ctx, s.db, items, patientID)
 }
 
 // Dispense 调配：审核通过后进入调配中（核对预占可用）。

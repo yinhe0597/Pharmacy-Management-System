@@ -221,11 +221,238 @@ func (r *InteractionRepo) List(ctx context.Context, keyword string, offset, limi
 	return list, total, nil
 }
 
-// ListByDrugIDs 查询与给定药品集合相关的全部禁忌（用于处方审核），返回 A-B 双向规范化后的集合。
 func (r *InteractionRepo) ListByDrugIDs(ctx context.Context, drugIDs []int64) ([]model.DrugInteraction, error) {
 	var list []model.DrugInteraction
 	err := r.db.WithContext(ctx).
 		Where("drug_a_id IN ? OR drug_b_id IN ?", drugIDs, drugIDs).
 		Find(&list).Error
+	return list, err
+}
+
+// ---- 药品成分 ----
+
+// DrugIngredientRepo 药品成分映射仓储。
+type DrugIngredientRepo struct {
+	db *gorm.DB
+}
+
+// NewDrugIngredientRepo 创建成分仓储。
+func NewDrugIngredientRepo(db *gorm.DB) *DrugIngredientRepo { return &DrugIngredientRepo{db: db} }
+
+// Create 添加成分映射。
+func (r *DrugIngredientRepo) Create(ctx context.Context, di *model.DrugIngredient) error {
+	return r.db.WithContext(ctx).Create(di).Error
+}
+
+// Delete 删除成分映射。
+func (r *DrugIngredientRepo) Delete(ctx context.Context, id int64) error {
+	return r.db.WithContext(ctx).Delete(&model.DrugIngredient{}, id).Error
+}
+
+// ListByDrugID 按药品 ID 查询成分。
+func (r *DrugIngredientRepo) ListByDrugID(ctx context.Context, drugID int64) ([]model.DrugIngredient, error) {
+	var list []model.DrugIngredient
+	err := r.db.WithContext(ctx).Where("drug_id = ?", drugID).Find(&list).Error
+	return list, err
+}
+
+// ListByDrugIDs 批量查询药品成分。
+func (r *DrugIngredientRepo) ListByDrugIDs(ctx context.Context, drugIDs []int64) ([]model.DrugIngredient, error) {
+	var list []model.DrugIngredient
+	err := r.db.WithContext(ctx).Where("drug_id IN ?", drugIDs).Find(&list).Error
+	return list, err
+}
+
+// ---- 成分相互作用 ----
+
+// IngredientInteractionRepo 成分级交互规则仓储。
+type IngredientInteractionRepo struct {
+	db *gorm.DB
+}
+
+// NewIngredientInteractionRepo 创建成分交互仓储。
+func NewIngredientInteractionRepo(db *gorm.DB) *IngredientInteractionRepo {
+	return &IngredientInteractionRepo{db: db}
+}
+
+// Create 创建成分交互规则。
+func (r *IngredientInteractionRepo) Create(ctx context.Context, ii *model.IngredientInteraction) error {
+	return r.db.WithContext(ctx).Create(ii).Error
+}
+
+// GetAll 加载全部成分交互规则。
+func (r *IngredientInteractionRepo) GetAll(ctx context.Context) ([]model.IngredientInteraction, error) {
+	var list []model.IngredientInteraction
+	err := r.db.WithContext(ctx).Find(&list).Error
+	return list, err
+}
+
+// Update 更新成分交互规则。
+func (r *IngredientInteractionRepo) Update(ctx context.Context, ii *model.IngredientInteraction) error {
+	return r.db.WithContext(ctx).Model(ii).Updates(ii).Error
+}
+
+// Delete 删除成分交互规则。
+func (r *IngredientInteractionRepo) Delete(ctx context.Context, id int64) error {
+	return r.db.WithContext(ctx).Delete(&model.IngredientInteraction{}, id).Error
+}
+
+// List 分页查询成分交互规则。
+func (r *IngredientInteractionRepo) List(ctx context.Context, offset, limit int) ([]model.IngredientInteraction, int64, error) {
+	q := r.db.WithContext(ctx).Model(&model.IngredientInteraction{})
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var list []model.IngredientInteraction
+	if err := q.Order("id ASC").Offset(offset).Limit(limit).Find(&list).Error; err != nil {
+		return nil, 0, err
+	}
+	return list, total, nil
+}
+
+// ---- 分类相互作用 ----
+
+// ClassInteractionRepo 分类级交互规则仓储。
+type ClassInteractionRepo struct {
+	db *gorm.DB
+}
+
+// NewClassInteractionRepo 创建分类交互仓储。
+func NewClassInteractionRepo(db *gorm.DB) *ClassInteractionRepo {
+	return &ClassInteractionRepo{db: db}
+}
+
+// Create 创建分类交互规则。
+func (r *ClassInteractionRepo) Create(ctx context.Context, ci *model.ClassInteractionRule) error {
+	return r.db.WithContext(ctx).Create(ci).Error
+}
+
+// GetAllActive 加载全部启用的分类交互规则。
+func (r *ClassInteractionRepo) GetAllActive(ctx context.Context) ([]model.ClassInteractionRule, error) {
+	var list []model.ClassInteractionRule
+	err := r.db.WithContext(ctx).Where("is_active = true").Find(&list).Error
+	return list, err
+}
+
+// GetAll 加载全部分类交互规则。
+func (r *ClassInteractionRepo) GetAll(ctx context.Context) ([]model.ClassInteractionRule, error) {
+	var list []model.ClassInteractionRule
+	err := r.db.WithContext(ctx).Find(&list).Error
+	return list, err
+}
+
+// Update 更新分类交互规则。
+func (r *ClassInteractionRepo) Update(ctx context.Context, ci *model.ClassInteractionRule) error {
+	return r.db.WithContext(ctx).Model(ci).Updates(ci).Error
+}
+
+// Delete 删除分类交互规则。
+func (r *ClassInteractionRepo) Delete(ctx context.Context, id int64) error {
+	return r.db.WithContext(ctx).Delete(&model.ClassInteractionRule{}, id).Error
+}
+
+// List 分页查询分类交互规则。
+func (r *ClassInteractionRepo) List(ctx context.Context, offset, limit int) ([]model.ClassInteractionRule, int64, error) {
+	q := r.db.WithContext(ctx).Model(&model.ClassInteractionRule{})
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var list []model.ClassInteractionRule
+	if err := q.Order("id ASC").Offset(offset).Limit(limit).Find(&list).Error; err != nil {
+		return nil, 0, err
+	}
+	return list, total, nil
+}
+
+// ---- 标签相互作用 ----
+
+// TagInteractionRepo 标签级交互规则仓储。
+type TagInteractionRepo struct {
+	db *gorm.DB
+}
+
+// NewTagInteractionRepo 创建标签交互仓储。
+func NewTagInteractionRepo(db *gorm.DB) *TagInteractionRepo {
+	return &TagInteractionRepo{db: db}
+}
+
+// Create 创建标签交互规则。
+func (r *TagInteractionRepo) Create(ctx context.Context, ti *model.TagInteraction) error {
+	return r.db.WithContext(ctx).Create(ti).Error
+}
+
+// GetAllActive 加载全部启用的标签交互规则。
+func (r *TagInteractionRepo) GetAllActive(ctx context.Context) ([]model.TagInteraction, error) {
+	var list []model.TagInteraction
+	err := r.db.WithContext(ctx).Where("is_active = true").Find(&list).Error
+	return list, err
+}
+
+// GetAll 加载全部标签交互规则。
+func (r *TagInteractionRepo) GetAll(ctx context.Context) ([]model.TagInteraction, error) {
+	var list []model.TagInteraction
+	err := r.db.WithContext(ctx).Find(&list).Error
+	return list, err
+}
+
+// Update 更新标签交互规则。
+func (r *TagInteractionRepo) Update(ctx context.Context, ti *model.TagInteraction) error {
+	return r.db.WithContext(ctx).Model(ti).Updates(ti).Error
+}
+
+// Delete 删除标签交互规则。
+func (r *TagInteractionRepo) Delete(ctx context.Context, id int64) error {
+	return r.db.WithContext(ctx).Delete(&model.TagInteraction{}, id).Error
+}
+
+// List 分页查询标签交互规则。
+func (r *TagInteractionRepo) List(ctx context.Context, offset, limit int) ([]model.TagInteraction, int64, error) {
+	q := r.db.WithContext(ctx).Model(&model.TagInteraction{})
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var list []model.TagInteraction
+	if err := q.Order("id ASC").Offset(offset).Limit(limit).Find(&list).Error; err != nil {
+		return nil, 0, err
+	}
+	return list, total, nil
+}
+
+// ---- 交互结果快照 ----
+
+// InteractionResultRepo 交互检测结果仓储。
+type InteractionResultRepo struct {
+	db *gorm.DB
+}
+
+// NewInteractionResultRepo 创建交互结果仓储。
+func NewInteractionResultRepo(db *gorm.DB) *InteractionResultRepo {
+	return &InteractionResultRepo{db: db}
+}
+
+// BatchCreate 批量保存交互检测结果。
+func (r *InteractionResultRepo) BatchCreate(ctx context.Context, results []model.InteractionResult) error {
+	if len(results) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).Create(&results).Error
+}
+
+// ListByPrescription 按处方查询交互结果。
+func (r *InteractionResultRepo) ListByPrescription(ctx context.Context, prescriptionID int64) ([]model.InteractionResult, error) {
+	var list []model.InteractionResult
+	err := r.db.WithContext(ctx).Where("prescription_id = ?", prescriptionID).Find(&list).Error
+	return list, err
+}
+
+// ---- 药品画像批量加载 ----
+
+// BatchGetDrugProfiles 批量加载药品用于交互检测。
+func (r *DrugRepo) BatchGetDrugProfiles(ctx context.Context, drugIDs []int64) ([]model.Drug, error) {
+	var list []model.Drug
+	err := r.db.WithContext(ctx).Where("id IN ?", drugIDs).Find(&list).Error
 	return list, err
 }

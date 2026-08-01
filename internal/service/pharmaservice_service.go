@@ -111,3 +111,18 @@ func (s *PharmaService) CreateGuidance(ctx context.Context, m *model.MedicationG
 func (s *PharmaService) ListGuidances(ctx context.Context, keyword string, page, pageSize int) ([]model.MedicationGuidance, int64, error) {
 	return repository.NewMedicationGuidanceRepo(s.db).List(ctx, keyword, (page-1)*pageSize, pageSize)
 }
+
+// UpdateGuidance 更新指导。
+func (s *PharmaService) UpdateGuidance(ctx context.Context, id int64, m *model.MedicationGuidance) error {
+	_, err := repository.NewMedicationGuidanceRepo(s.db).GetByID(ctx, id)
+	if err != nil {
+		return errs.ErrNotFound
+	}
+	m.ID = id
+	return repository.NewMedicationGuidanceRepo(s.db).Update(ctx, m)
+}
+
+// DeleteGuidance 删除指导。
+func (s *PharmaService) DeleteGuidance(ctx context.Context, id int64) error {
+	return repository.NewMedicationGuidanceRepo(s.db).Delete(ctx, id)
+}

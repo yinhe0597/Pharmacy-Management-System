@@ -84,7 +84,7 @@ func TestFullChain(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	inv := service.NewInventoryService(db)
-	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db))
+	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil)
 
 	drug := mustCreateDrug(t, db)
 	today := time.Now()
@@ -143,7 +143,7 @@ func TestFullChain(t *testing.T) {
 	}
 
 	// 5. 审核通过
-	if err := presc.Review(ctx, p.ID, service.AuditInput{Action: "pass"}, 2, "药师B"); err != nil {
+	if _, err := presc.Review(ctx, p.ID, service.AuditInput{Action: "pass"}, 2, "药师B"); err != nil {
 		t.Fatalf("审核失败: %v", err)
 	}
 
@@ -184,7 +184,7 @@ func TestCancelReleasesReservation(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	inv := service.NewInventoryService(db)
-	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db))
+	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil)
 	drug := mustCreateDrug(t, db)
 
 	if err := inv.StockIn(ctx, []service.StockEntry{{
@@ -226,7 +226,7 @@ func TestSubmitIdempotent(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	inv := service.NewInventoryService(db)
-	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db))
+	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil)
 	drug := mustCreateDrug(t, db)
 	if err := inv.StockIn(ctx, []service.StockEntry{{
 		DrugID: drug.ID, LocationID: 2, BatchNo: "BATCH-D",
@@ -261,7 +261,7 @@ func TestSplitReservedBlocked(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	inv := service.NewInventoryService(db)
-	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db))
+	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil)
 	drug := mustCreateDrug(t, db)
 	if err := inv.StockIn(ctx, []service.StockEntry{{
 		DrugID: drug.ID, LocationID: 2, BatchNo: "BATCH-E",
@@ -301,7 +301,7 @@ func TestConcurrentReserveNoOversell(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	inv := service.NewInventoryService(db)
-	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db))
+	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil)
 	drug := mustCreateDrug(t, db)
 
 	if err := inv.StockIn(ctx, []service.StockEntry{{

@@ -137,7 +137,7 @@ func TestMixedDispense(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	inv := service.NewInventoryService(db)
-	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db))
+	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil)
 	drug := mustCreateDrug(t, db) // 24片/盒，零售 2400 分，拆零 100 分/片
 
 	// 3 整盒 + 拆零 12 片
@@ -187,7 +187,7 @@ func TestMixedDispense(t *testing.T) {
 		t.Fatalf("混合分配不符: 整盒=%d want 1, 拆零=%d want 12", wholeResv, splitResv)
 	}
 
-	if err := presc.Review(ctx, p.ID, service.AuditInput{Action: "pass"}, 2, "药师B"); err != nil {
+	if _, err := presc.Review(ctx, p.ID, service.AuditInput{Action: "pass"}, 2, "药师B"); err != nil {
 		t.Fatalf("审核失败: %v", err)
 	}
 	if err := presc.Dispense(ctx, p.ID, 3, "调配员"); err != nil {
@@ -227,7 +227,7 @@ func TestAutoSplit(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	inv := service.NewInventoryService(db)
-	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db))
+	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil)
 	drug := mustCreateDrug(t, db)
 
 	// 仅 2 整盒，无拆零库存
@@ -265,7 +265,7 @@ func TestAutoSplit(t *testing.T) {
 		t.Fatalf("自动拆零规划不符: normalBoxes=%d needSplit=%d splitUnits=%d", normalBoxes, needSplit, splitUnits)
 	}
 
-	if err := presc.Review(ctx, p.ID, service.AuditInput{Action: "pass"}, 2, "药师B"); err != nil {
+	if _, err := presc.Review(ctx, p.ID, service.AuditInput{Action: "pass"}, 2, "药师B"); err != nil {
 		t.Fatalf("审核失败: %v", err)
 	}
 	if err := presc.Dispense(ctx, p.ID, 3, "调配员"); err != nil {
@@ -305,7 +305,7 @@ func TestAutoSplitPartialSplit(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	inv := service.NewInventoryService(db)
-	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db))
+	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil)
 	drug := mustCreateDrug(t, db)
 
 	// 备 3 盒：拆 1 盒留拆零、调成 6 片，剩 2 整盒供「1 盒整发 + 1 盒待拆」
@@ -354,7 +354,7 @@ func TestAutoSplitPartialSplit(t *testing.T) {
 		t.Fatalf("部分拆零规划不符: splitResv=%d needSplitUnits=%d", splitResv, needSplitUnits)
 	}
 
-	if err := presc.Review(ctx, p.ID, service.AuditInput{Action: "pass"}, 2, "药师B"); err != nil {
+	if _, err := presc.Review(ctx, p.ID, service.AuditInput{Action: "pass"}, 2, "药师B"); err != nil {
 		t.Fatalf("审核失败: %v", err)
 	}
 	if err := presc.Dispense(ctx, p.ID, 3, "调配员"); err != nil {
@@ -379,7 +379,7 @@ func TestReturnSplitScenario(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	inv := service.NewInventoryService(db)
-	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db))
+	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil)
 	drugSvc := service.NewDrugService(db)
 
 	drug := &model.Drug{
@@ -426,7 +426,7 @@ func TestReturnSplitScenario(t *testing.T) {
 		t.Fatal("拆零不足时应规划待拆盒")
 	}
 	for _, fn := range []func() error{
-		func() error { return presc.Review(ctx, p1.ID, service.AuditInput{Action: "pass"}, 2, "药师B") },
+		func() error { _, err := presc.Review(ctx, p1.ID, service.AuditInput{Action: "pass"}, 2, "药师B"); return err },
 		func() error { return presc.Dispense(ctx, p1.ID, 3, "调配员") },
 		func() error { return presc.ConfirmDispense(ctx, p1.ID, 4, "核对员") },
 	} {
@@ -450,7 +450,7 @@ func TestReturnSplitScenario(t *testing.T) {
 	if err := presc.Submit(ctx, p2.ID, 1, "药师A"); err != nil {
 		t.Fatalf("Rx2提交失败: %v", err)
 	}
-	if err := presc.Review(ctx, p2.ID, service.AuditInput{Action: "pass"}, 2, "药师B"); err != nil {
+	if _, err := presc.Review(ctx, p2.ID, service.AuditInput{Action: "pass"}, 2, "药师B"); err != nil {
 		t.Fatalf("Rx2审核失败: %v", err)
 	}
 	if err := presc.Dispense(ctx, p2.ID, 3, "调配员"); err != nil {

@@ -130,3 +130,26 @@ func (s *SpecialDrugService) RegisterDispense(ctx context.Context, l *model.Spec
 	l.ID = 0
 	return repository.NewSpecialDrugLedgerRepo(s.db).Create(ctx, l)
 }
+
+// ListSpecialPrescriptions 查询特殊药品处方列表（麻精/毒性/放射性）。
+func (s *SpecialDrugService) ListSpecialPrescriptions(ctx context.Context, status string, keyword string, page, pageSize int) ([]model.Prescription, int64, error) {
+	f := repository.PrescriptionFilter{
+		Status: status,
+	}
+	if keyword != "" {
+		f.PatientName = keyword
+	}
+	// 特殊处方类型：麻醉(1)/精神一类(2)/精神二类(3)/毒性(4)/放射性(5)
+	list, total, err := repository.NewPrescriptionRepo(s.db).List(ctx, f, (page-1)*pageSize, pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+	// 过滤出特殊类型（非普通处方 0）
+	var result []model.Prescription
+	for _, p := range list {
+		if p.PrescriptionType > 0 {
+			result = append(result, p)
+		}
+	}
+	return result, total, nil
+}

@@ -126,11 +126,12 @@ func (h *PrescriptionHandler) Review(c *gin.Context) {
 		Error(c, errs.ErrBadRequest)
 		return
 	}
-	if err := h.svc.Review(c.Request.Context(), id, req, middleware.UserIDFromCtx(c), middleware.UserNameFromCtx(c)); err != nil {
+	result, err := h.svc.Review(c.Request.Context(), id, req, middleware.UserIDFromCtx(c), middleware.UserNameFromCtx(c))
+	if err != nil {
 		Error(c, err)
 		return
 	}
-	OK(c, nil)
+	OK(c, result)
 }
 
 // Dispense godoc

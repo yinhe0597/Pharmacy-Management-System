@@ -55,13 +55,18 @@ var (
 
 // 处方（3xxx）
 var (
-	ErrPrescriptionState = New(3001, "处方状态不允许该操作", http.StatusConflict)
-	ErrDoseExceeded      = New(3002, "极量超限", http.StatusBadRequest)
-	ErrInteraction       = New(3003, "配伍禁忌", http.StatusBadRequest)
-	ErrDuplicateDrug     = New(3004, "重复用药提醒", http.StatusBadRequest)
-	ErrBatchAllocation   = New(3005, "批次分配不足，无法调配", http.StatusConflict)
-	ErrItemNotFound      = New(3006, "处方明细不存在", http.StatusNotFound)
-	ErrReturnExceeded    = New(3007, "退药数量超过已发数量", http.StatusBadRequest)
+	ErrPrescriptionState          = New(3001, "处方状态不允许该操作", http.StatusConflict)
+	ErrDoseExceeded               = New(3002, "极量超限", http.StatusBadRequest)
+	ErrInteraction                = New(3003, "配伍禁忌", http.StatusBadRequest)
+	ErrDuplicateDrug              = New(3004, "重复用药提醒", http.StatusBadRequest)
+	ErrBatchAllocation            = New(3005, "批次分配不足，无法调配", http.StatusConflict)
+	ErrItemNotFound               = New(3006, "处方明细不存在", http.StatusNotFound)
+	ErrReturnExceeded             = New(3007, "退药数量超过已发数量", http.StatusBadRequest)
+	ErrAgeContraindication        = New(3008, "年龄禁忌", http.StatusBadRequest)
+	ErrPregnancyContraindication  = New(3009, "妊娠期禁忌", http.StatusBadRequest)
+	ErrAllergyContraindication    = New(3010, "过敏史禁忌", http.StatusBadRequest)
+	ErrLactationWarning           = New(3011, "哺乳期慎用", http.StatusBadRequest)
+	ErrPrescriptionWarning        = New(3050, "处方存在提醒项，请确认后通过", http.StatusOK)
 )
 
 // 特殊药品（4xxx）

@@ -80,6 +80,59 @@ const (
 	RoleBuyer      = "buyer"      // 采购
 )
 
+// 配伍等级。
+const (
+	InteractionLevelContraindication = 1 // 禁忌
+	InteractionLevelCaution          = 2 // 慎用
+	InteractionLevelNote             = 3 // 注意
+)
+
+// 证据等级。
+const (
+	EvidenceLevelMetaRCT       = 'A' // Meta分析/RCT系统评价
+	EvidenceLevelRCT           = 'B' // 随机对照试验
+	EvidenceLevelObservational = 'C' // 观察性研究
+	EvidenceLevelCaseReport    = 'D' // 病例报告
+	EvidenceLevelExpertOnly    = 'E' // 专家经验
+)
+
+// 交互检测策略。
+const (
+	InteractionStrategyExplicit   = "explicit"
+	InteractionStrategyIngredient = "ingredient"
+	InteractionStrategyClass      = "class"
+	InteractionStrategyTag        = "tag"
+)
+
+// 禁忌类型。
+const (
+	ContraindicationTypeAge       = "age"
+	ContraindicationTypePregnancy = "pregnancy"
+	ContraindicationTypeLactation = "lactation"
+	ContraindicationTypeDisease   = "disease"
+	ContraindicationTypeAllergy   = "allergy"
+)
+
+// 交互严重程度。
+const (
+	InteractionSeverityBlock   = "block"
+	InteractionSeverityWarning = "warning"
+)
+
+// --- 错误码常量（供 domain 层引用，避免循环依赖） ---
+
+const (
+	ErrInteractionCode         = 3003
+	ErrInteractionCautionCode  = 30031 // 慎用提示
+	ErrInteractionNoteCode     = 30032 // 注意提示
+	ErrDoseExceededCode        = 3002
+	ErrDuplicateDrugCode       = 3004
+	ErrAgeContraindicationCode = 3008
+	ErrPregnancyContraindicationCode = 3009
+	ErrAllergyContraindicationCode   = 3010
+	ErrLactationWarningCode          = 3011
+)
+
 // 特殊管制药品是否启用「五专」管理（麻醉/精神）。
 func IsSpecialControlled(controlType int) bool {
 	return controlType == SpecialControlNarcotic || controlType == SpecialControlPsycho

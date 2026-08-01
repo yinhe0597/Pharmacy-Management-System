@@ -2,6 +2,44 @@
 
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 与 [Keep a Changelog](https://keepachangelog.com/zh-CN/)。
 
+## [v1.1.0] - 2026-08-01
+
+### 新增：药物相互作用引擎
+
+- **多策略分层匹配引擎**（`internal/domain/interaction/`）：支持显式药品对、成分级、分类级、标签级 4 层匹配，自动去重（explicit > ingredient > class > tag），按严重程度分级（禁忌=拦截 / 慎用=警告 / 注意=提示）。
+- **患者个体化禁忌检查**：年龄禁忌、妊娠分级禁忌（A/B/C/D/X）、哺乳期慎用、过敏史交叉匹配。
+- **重复用药检测增强**：同通用名 + 同活性成分 + 同药理分组三重检测。
+- **标签系统**：预定义 15 个核心交互标签（nsaid、anticoagulant、maoi、ssri、qt-prolonging、cyp3a4-inhibitor 等），支持标签间交互规则。
+- **37 条种子交互规则**：12 成分级 + 11 分类级 + 8 标签级 + 6 患者禁忌（迁移 `000008`）。
+
+### 新增：数据库迁移 000007-000008
+
+- `000007`：`drugs` 表新增 9 个临床字段（active_ingredient、atc_code、pharmacological_group、pregnancy_category、age_min/max_years、interaction_tags、lactation_safe、contraindication_notes）；`drug_interactions` 表新增 4 个循证字段（mechanism、evidence_level、source_reference、updated_at）；新建 6 张表（drug_ingredients、ingredient_interactions、class_interaction_rules、tag_interactions、patient_contraindications、interaction_results）。
+- `000008`：37 条核心交互规则种子数据。
+
+### 新增：交互规则管理 API（14 个端点）
+
+- `GET/POST/PUT/DELETE /api/v1/ingredient-interactions` — 成分级交互规则 CRUD
+- `GET/POST/PUT/DELETE /api/v1/class-interactions` — 分类级交互规则 CRUD
+- `GET/POST/PUT/DELETE /api/v1/tag-interactions` — 标签级交互规则 CRUD
+- `GET/POST /api/v1/drugs/:id/ingredients` — 药品成分映射
+- `DELETE /api/v1/drug-ingredients/:id` — 删除成分映射
+
+### 修复：API 缺口补齐（5 个端点）
+
+- `POST /api/v1/auth/logout` — 登出端点（设计文档已有，代码缺失）
+- `PUT /api/v1/medication-guidances/:id` — 用药指导更新
+- `DELETE /api/v1/medication-guidances/:id` — 用药指导删除
+- `GET /api/v1/special-drugs/prescriptions` — 麻精处方登记列表
+- `GET /api/v1/drugs/:id/availability` — 药品可用库存别名路由
+- `GET /api/v1/special-drugs/reports/usage` — 特殊药品使用统计别名路由
+
+### 增强
+
+- **处方审核响应结构化**：`POST /prescriptions/:id/review` 返回 `AuditReviewResult`（含 warnings/drug_warnings 明细），审核人可看到具体提醒项而不仅是错误码。
+- **ErrDuplicateInteraction(1005) 正式启用**：配伍禁忌重复创建时返回专用错误码。
+- **PrescriptionFilter 新增 `prescription_type` 筛选**：支持按处方类型查询。
+
 ## [v1.0.0] - 2026-08-01
 
 药房管理系统一期交付。Go + PostgreSQL 模块化单体后端，覆盖药品进销存与处方调配全流程，
@@ -48,6 +86,8 @@
 | 000004 | 发药明细/拆零 FEFO 索引 |
 | 000005 | 处方明细盒价与可拆零快照（混合发药） |
 | 000006 | 预占待拆标记（自动拆零） |
+| 000007 | 交互引擎：药品临床字段 + 6 张新表（成分/分类/标签/禁忌/结果） |
+| 000008 | 交互规则种子数据（37 条） |
 
 ### 已知限制（一期有意为之）
 

@@ -149,3 +149,13 @@ func (r *MedicationGuidanceRepo) List(ctx context.Context, keyword string, offse
 	}
 	return list, total, nil
 }
+
+// Update 更新指导。
+func (r *MedicationGuidanceRepo) Update(ctx context.Context, m *model.MedicationGuidance) error {
+	return r.db.WithContext(ctx).Model(m).Updates(m).Error
+}
+
+// Delete 删除指导。
+func (r *MedicationGuidanceRepo) Delete(ctx context.Context, id int64) error {
+	return r.db.WithContext(ctx).Delete(&model.MedicationGuidance{}, id).Error
+}

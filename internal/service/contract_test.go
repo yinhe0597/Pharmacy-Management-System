@@ -106,7 +106,7 @@ func TestPricingServiceContract(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	inv := service.NewInventoryService(db)
-	prescSvc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db))
+	prescSvc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil)
 	drug := mustCreateDrug(t, db)
 
 	p, err := prescSvc.Create(ctx, service.PrescriptionInput{

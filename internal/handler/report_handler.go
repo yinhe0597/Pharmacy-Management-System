@@ -81,6 +81,11 @@ func (h *ReportHandler) SpecialDrugUsage(c *gin.Context) {
 	OK(c, rows)
 }
 
+// SpecialDrugUsageAlias 特殊药品使用统计别名（兼容设计文档路径 /special-drugs/reports/usage）。
+func (h *ReportHandler) SpecialDrugUsageAlias(c *gin.Context) {
+	h.SpecialDrugUsage(c)
+}
+
 // DispensingWorkload godoc
 // @Summary 调配工作量统计
 // @Tags reports

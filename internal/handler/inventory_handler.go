@@ -421,6 +421,11 @@ func (h *InventoryHandler) Availability(c *gin.Context) {
 	OK(c, list)
 }
 
+// AvailabilityAlias 药品可用库存别名（兼容设计文档路径 /drugs/:id/availability）。
+func (h *InventoryHandler) AvailabilityAlias(c *gin.Context) {
+	h.Availability(c)
+}
+
 // CreateStocktake godoc
 // @Summary 创建盘点单
 // @Tags inventory

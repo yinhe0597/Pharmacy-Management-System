@@ -29,6 +29,7 @@ func (h *SpecialDrugHandler) Register(r *gin.RouterGroup, _ *gin.RouterGroup, _ 
 	r.POST("/special-drugs/ampoule-returns/:id/verify", h.VerifyAmpouleReturn)
 	r.GET("/special-drugs/ampoule-returns", h.ListAmpouleReturns)
 	r.GET("/special-drugs/ledgers", h.ListLedgers)
+	r.GET("/special-drugs/prescriptions", h.ListSpecialPrescriptions)
 }
 
 // RegisterDispense godoc
@@ -144,6 +145,32 @@ func (h *SpecialDrugHandler) ListLedgers(c *gin.Context) {
 		End:     parseTime(c.Query("end")),
 	}
 	list, total, err := h.svc.ListLedgers(c.Request.Context(), f, q.Page, q.PageSize)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+	OK(c, pagination.Of(list, total, &q))
+}
+
+// ListSpecialPrescriptions godoc
+// @Summary 麻精处方登记列表
+// @Tags special-drugs
+// @Security BearerAuth
+// @Param status query string false "状态"
+// @Param keyword query string false "患者姓名"
+// @Param page query int false "页码"
+// @Param page_size query int false "每页条数"
+// @Success 200 {object} Body
+// @Router /special-drugs/prescriptions [get]
+func (h *SpecialDrugHandler) ListSpecialPrescriptions(c *gin.Context) {
+	var q pagination.Query
+	if err := c.ShouldBindQuery(&q); err != nil {
+		Error(c, errs.ErrBadRequest)
+		return
+	}
+	q.Normalize()
+	list, total, err := h.svc.ListSpecialPrescriptions(c.Request.Context(),
+		c.Query("status"), c.Query("keyword"), q.Page, q.PageSize)
 	if err != nil {
 		Error(c, err)
 		return

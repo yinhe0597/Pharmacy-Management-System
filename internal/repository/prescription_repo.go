@@ -76,11 +76,12 @@ func (r *PrescriptionRepo) UpdateBase(ctx context.Context, p *model.Prescription
 
 // PrescriptionFilter 处方列表筛选。
 type PrescriptionFilter struct {
-	Status      string
-	PatientID   int64
-	PatientName string
-	Start       *time.Time
-	End         *time.Time
+	Status           string
+	PatientID        int64
+	PatientName      string
+	PrescriptionType int
+	Start            *time.Time
+	End              *time.Time
 }
 
 // List 分页查询处方。
@@ -94,6 +95,9 @@ func (r *PrescriptionRepo) List(ctx context.Context, f PrescriptionFilter, offse
 	}
 	if f.PatientName != "" {
 		q = q.Where("patient_name ILIKE ?", "%"+f.PatientName+"%")
+	}
+	if f.PrescriptionType > 0 {
+		q = q.Where("prescription_type = ?", f.PrescriptionType)
 	}
 	if f.Start != nil {
 		q = q.Where("created_at >= ?", f.Start)

@@ -36,6 +36,7 @@ type App struct {
 	special      *service.SpecialDrugService
 	pharma       *service.PharmaService
 	report       *service.ReportService
+	interSvc     *service.InteractionService
 
 	patientService port.IPatientService
 	pricingService port.IPricingService
@@ -50,6 +51,8 @@ func NewApp(cfg *config.Config, db *gorm.DB) *App {
 
 	inv := service.NewInventoryService(db)
 	special := service.NewSpecialDrugService(db)
+	interSvc := service.NewInteractionService(db)
+	patientSvc := patient.NewSimplePatientService()
 
 	return &App{
 		cfg:            cfg,
@@ -59,11 +62,12 @@ func NewApp(cfg *config.Config, db *gorm.DB) *App {
 		supplier:       service.NewSupplierService(db),
 		inventory:      inv,
 		purchase:       service.NewPurchaseService(db, inv),
-		prescription:   service.NewPrescriptionService(db, inv, special),
+		prescription:   service.NewPrescriptionService(db, inv, special, interSvc, patientSvc),
 		special:        special,
 		pharma:         service.NewPharmaService(db),
 		report:         service.NewReportService(db),
-		patientService: patient.NewSimplePatientService(),
+		interSvc:       interSvc,
+		patientService: patientSvc,
 		pricingService: pricing.NewSimplePricingService(db),
 	}
 }
@@ -92,11 +96,16 @@ func (a *App) Engine() *gin.Engine {
 	handler.NewDrugHandler(a.drug).Register(authed, authed, adminOnly)
 	handler.NewSupplierHandler(a.supplier).Register(authed, authed, adminOnly)
 	handler.NewInventoryHandler(a.inventory).Register(authed, authed, adminOnly)
+	// 别名：设计文档路径 /drugs/:id/availability → 实际实现在库存模块
+	authed.GET("/drugs/:id/availability", handler.NewInventoryHandler(a.inventory).AvailabilityAlias)
 	handler.NewPurchaseHandler(a.purchase, a.inventory).Register(authed, authed, adminOnly)
 	handler.NewPrescriptionHandler(a.prescription).Register(authed, authed, adminOnly)
 	handler.NewSpecialDrugHandler(a.special).Register(authed, authed, adminOnly)
+	// 别名：设计文档路径 /special-drugs/reports/usage → 功能已在报表模块
+	authed.GET("/special-drugs/reports/usage", handler.NewReportHandler(a.report).SpecialDrugUsageAlias)
 	handler.NewPharmaServiceHandler(a.pharma).Register(authed, authed, adminOnly)
 	handler.NewReportHandler(a.report).Register(authed, authed, adminOnly)
+	handler.NewInteractionHandler(a.interSvc).Register(authed, authed, adminOnly)
 
 	return r
 }

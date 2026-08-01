@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -173,7 +174,14 @@ func (s *DrugService) CreateInteraction(ctx context.Context, i *model.DrugIntera
 	if i.DrugAID == i.DrugBID {
 		return errs.ErrBadRequest
 	}
-	return repository.NewInteractionRepo(s.db).Create(ctx, i)
+	if err := repository.NewInteractionRepo(s.db).Create(ctx, i); err != nil {
+		// 唯一约束冲突（已存在同药品对配伍记录）
+		if strings.Contains(err.Error(), "uq_interaction") || strings.Contains(err.Error(), "duplicate key") {
+			return errs.ErrDuplicateInteraction
+		}
+		return err
+	}
+	return nil
 }
 
 // ListInteractions 分页查询配伍禁忌。

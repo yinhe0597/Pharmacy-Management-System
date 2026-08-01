@@ -33,6 +33,8 @@ func (h *PharmaServiceHandler) Register(r *gin.RouterGroup, _ *gin.RouterGroup, 
 	r.DELETE("/adverse-reactions/:id", h.DeleteAdverseReaction)
 	r.GET("/medication-guidances", h.ListGuidances)
 	r.POST("/medication-guidances", h.CreateGuidance)
+	r.PUT("/medication-guidances/:id", h.UpdateGuidance)
+	r.DELETE("/medication-guidances/:id", h.DeleteGuidance)
 }
 
 // ListConsultations godoc
@@ -261,4 +263,50 @@ func (h *PharmaServiceHandler) CreateGuidance(c *gin.Context) {
 		return
 	}
 	OK(c, v)
+}
+
+// UpdateGuidance godoc
+// @Summary 更新用药指导
+// @Tags medication-guidances
+// @Security BearerAuth
+// @Param id path int true "指导ID"
+// @Param body body model.MedicationGuidance true "指导记录"
+// @Success 200 {object} Body
+// @Router /medication-guidances/{id} [put]
+func (h *PharmaServiceHandler) UpdateGuidance(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		Error(c, errs.ErrBadRequest)
+		return
+	}
+	var v model.MedicationGuidance
+	if err := c.ShouldBindJSON(&v); err != nil {
+		Error(c, errs.ErrBadRequest)
+		return
+	}
+	if err := h.svc.UpdateGuidance(c.Request.Context(), id, &v); err != nil {
+		Error(c, err)
+		return
+	}
+	OK(c, nil)
+}
+
+// DeleteGuidance godoc
+// @Summary 删除用药指导
+// @Tags medication-guidances
+// @Security BearerAuth
+// @Param id path int true "指导ID"
+// @Success 200 {object} Body
+// @Router /medication-guidances/{id} [delete]
+func (h *PharmaServiceHandler) DeleteGuidance(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		Error(c, errs.ErrBadRequest)
+		return
+	}
+	if err := h.svc.DeleteGuidance(c.Request.Context(), id); err != nil {
+		Error(c, err)
+		return
+	}
+	OK(c, nil)
 }
