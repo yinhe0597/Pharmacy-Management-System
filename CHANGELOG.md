@@ -2,6 +2,28 @@
 
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 与 [Keep a Changelog](https://keepachangelog.com/zh-CN/)。
 
+## [v1.2.0] - 2026-08-01
+
+### 用户角色体系（7 种角色）
+
+- **角色列表**：管理员（admin）、药房主任（pharmacy_director）、药师（pharmacist）、医生（doctor）、护士（nurse）、采购员（buyer）、财务（finance）。
+- **权限分组**：PharmacyStaff（药房管理）、ClinicalStaff（处方开立）、ReportAccess（报表查看）、UserAdmin（用户管理）。
+- **角色校验**：`CreateUser`/`UpdateUser` 强制校验角色合法性（`IsValidRole`），拒绝非法角色名。
+- **种子用户**：7 个预置账户（迁移 `000010`），密码均为 `admin123`。
+- **调配/核对合并**：不再设独立调配员/核对员角色，由医生和药师兼任调配与核对职能。
+- **护士权限**：拥有处方执行权（调配/发药/核对/药品查询），无处方开立权。
+
+### 药师审核流程
+
+- **强制审核**：`POST /prescriptions/:id/review` 仅 pharmacist / pharmacy_director / admin 可执行。
+- **退回医生**：新增 `action: "return"`，药师审核发现问题时退回医生修改——保留预占库存、处方保持 `pending_review`，医生可直接修改后重新提交。
+- **三种审核动作**：`pass`（通过→调配）、`reject`（驳回→释放预占）、`return`（退回→医生修改）。
+
+### 代码审查与修复
+
+- 两轮对抗性代码审查共发现 32 个问题，修复 14 个（含 3 CRITICAL + 5 HIGH）：
+  - 去重算法索引越界、UpdateIngredientInteraction ID 赋值顺序、warmCache 原子性、ListSpecialPrescriptions 分页 total 错误、IngredientRule IsActive 缺失、成分名大小写不一致、死代码清理、UpdateGuidance 错误吞并等。
+
 ## [v1.1.0] - 2026-08-01
 
 ### 新增：药物相互作用引擎

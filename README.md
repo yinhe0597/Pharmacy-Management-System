@@ -17,9 +17,10 @@ Go 1.22+ / Gin / GORM / PostgreSQL 14+ / golang-migrate（SQL 迁移）/ JWT / r
 - **采购**：供应商、采购单状态机、质检收货（批次/效期绑定）
 - **库存**：批号效期追踪、FEFO 发药、预占/实扣/释放、调拨、盘点、效期/上下限预警
 - **拆零（专项完善）**：按盒/按片拆零（零头+损耗）、拆零价可配、**混合发药**（LDU 精确计价）、**自动拆零**
-- **处方**：录入→审核→调配→发药→退药全状态机
+- **处方**：录入→药师审核（pass/reject/return 三动作）→调配→发药→退药全状态机，审计日志可追溯
+- **药师审核**：仅药师/药房主任可审核；发现问题可退回医生修改（保留预占库存）
 - **特殊药品「五专」**、**药学服务**、**报表**
-- **用户角色**：管理员/药房主任/药师/医生/护士/采购/财务 7 种角色，分级权限控制（调配与核对职能由医生/药师兼任）
+- **用户角色**：admin / pharmacy_director / pharmacist / doctor / nurse / buyer / finance 7 种角色，分级权限，调配+核对由医生/药师兼任
 - **二期预留**：`port` 三接口 + 契约测试
 
 ## 快速开始
@@ -36,7 +37,7 @@ Go 1.22+ / Gin / GORM / PostgreSQL 14+ / golang-migrate（SQL 迁移）/ JWT / r
 psql -U postgres -h localhost -c "CREATE ROLE yaofang LOGIN PASSWORD 'yaofang123';"
 psql -U postgres -h localhost -c "CREATE DATABASE yaofang OWNER yaofang;"
 
-# 依次执行全部迁移与种子（migrations/NNNNNN_*.up.sql，共 6 个版本）
+# 依次执行全部迁移与种子（migrations/NNNNNN_*.up.sql，共 10 个版本）
 for f in migrations/*.up.sql; do
   echo "== $f"
   psql -U postgres -h localhost -d yaofang -v ON_ERROR_STOP=1 -f "$f"
@@ -63,7 +64,7 @@ go run ./cmd/server
 go build -o bin/yaofang.exe ./cmd/server && ./bin/yaofang.exe
 ```
 
-默认管理员：`admin / admin123`（生产环境务必修改）。
+默认管理员：`admin / admin123`。其他种子用户：`doctor`、`nurse`、`pharmacy_chief`、`pharmacist`、`buyer`、`finance`（密码均 `admin123`，生产环境务必修改）。
 
 ### 5. 测试
 
@@ -75,8 +76,9 @@ python scripts/smoke_test.py           # HTTP 冒烟测试（需服务已启动�
 
 ## 项目状态
 
-一期已全部开发并交付（见 [CHANGELOG.md](CHANGELOG.md)）：功能完整、测试全绿、含 CI 与部署文档。
-拆分与混合发药能力详见 [docs/13-药品拆零方案.md](docs/13-药品拆零方案.md)。
+一期已全部交付，v1.2.0 新增药物相互作用引擎、用户角色体系、药师审核流程。
+功能完整、测试全绿（38 单元 + 24 集成）、含 CI 与部署文档。
+详见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 二期预留
 
