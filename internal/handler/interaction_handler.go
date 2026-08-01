@@ -110,11 +110,11 @@ func (h *InteractionHandler) UpdateIngredientInteraction(c *gin.Context) {
 		Error(c, errs.ErrBadRequest)
 		return
 	}
+	v.ID = id
 	if err := h.svc.UpdateIngredientInteraction(c.Request.Context(), &v); err != nil {
 		Error(c, err)
 		return
 	}
-	v.ID = id
 	OK(c, nil)
 }
 

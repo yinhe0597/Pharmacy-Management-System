@@ -79,7 +79,8 @@ type PrescriptionFilter struct {
 	Status           string
 	PatientID        int64
 	PatientName      string
-	PrescriptionType int
+	PrescriptionType int  // 0=不限, 1-5=具体类型
+	SpecialOnly      bool // true=仅特殊类型（prescription_type > 0，麻精/毒性/放射性）
 	Start            *time.Time
 	End              *time.Time
 }
@@ -98,6 +99,9 @@ func (r *PrescriptionRepo) List(ctx context.Context, f PrescriptionFilter, offse
 	}
 	if f.PrescriptionType > 0 {
 		q = q.Where("prescription_type = ?", f.PrescriptionType)
+	}
+	if f.SpecialOnly {
+		q = q.Where("prescription_type > 0")
 	}
 	if f.Start != nil {
 		q = q.Where("created_at >= ?", f.Start)

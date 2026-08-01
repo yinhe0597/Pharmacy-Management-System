@@ -295,32 +295,31 @@ func (eng *Engine) deduplicate(findings []InteractionFinding) []InteractionFindi
 				bestRank = r
 			}
 		}
-		// 只保留最高优先级的发现
+		// 收集最高优先级策略的发现，同时记录添加数量
+		added := 0
 		for _, f := range group {
 			if strategyRank[f.Strategy] == bestRank {
 				result = append(result, f)
+				added++
 			}
 		}
-		// 同策略内按严重程度排序（level 越小越严重），只保留最严重的
-		if len(result) > 1 {
-			// 检查是否来自同一分组
-			lastGroup := result[len(result)-len(group):]
-			if len(lastGroup) > 1 {
-				bestLevel := 4
-				for _, f := range lastGroup {
-					if f.Level < bestLevel {
-						bestLevel = f.Level
-					}
+		// 同策略内按严重程度去重（level 越小越严重），只保留最严重的
+		if added > 1 {
+			lastGroup := result[len(result)-added:]
+			bestLevel := 4
+			for _, f := range lastGroup {
+				if f.Level < bestLevel {
+					bestLevel = f.Level
 				}
-				// 过滤出最严重级别的
-				filtered := result[:len(result)-len(lastGroup)]
-				for _, f := range lastGroup {
-					if f.Level == bestLevel {
-						filtered = append(filtered, f)
-					}
-				}
-				result = filtered
 			}
+			// 过滤出最严重级别的
+			filtered := result[:len(result)-added]
+			for _, f := range lastGroup {
+				if f.Level == bestLevel {
+					filtered = append(filtered, f)
+				}
+			}
+			result = filtered
 		}
 	}
 	return result
