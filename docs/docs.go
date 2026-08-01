@@ -1274,6 +1274,41 @@ const docTemplate = `{
                 }
             }
         },
+        "/inventory/split-units": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "按片拆零（开盒零头入账 + 破损报损）",
+                "parameters": [
+                    {
+                        "description": "拆零请求（units+damaged = boxes×包装含量）",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.splitUnitsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
         "/inventory/stock-in": {
             "post": {
                 "security": [
@@ -3424,6 +3459,28 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "packs": {
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_handler.splitUnitsRequest": {
+            "type": "object",
+            "required": [
+                "boxes",
+                "inventory_id",
+                "units"
+            ],
+            "properties": {
+                "boxes": {
+                    "type": "integer"
+                },
+                "damaged": {
+                    "type": "integer"
+                },
+                "inventory_id": {
+                    "type": "integer"
+                },
+                "units": {
                     "type": "integer"
                 }
             }

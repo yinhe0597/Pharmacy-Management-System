@@ -33,6 +33,7 @@ func (h *InventoryHandler) Register(r *gin.RouterGroup, _ *gin.RouterGroup, admi
 	adminOnly.PUT("/inventory/locations/:id", h.UpdateLocation)
 	r.POST("/inventory/transfer", h.Transfer)
 	r.POST("/inventory/split", h.Split)
+	r.POST("/inventory/split-units", h.SplitUnits)
 	r.POST("/inventory/adjust", h.Adjust)
 	r.POST("/inventory/stock-in", h.StockIn)
 	r.GET("/inventory/transactions", h.ListTransactions)
@@ -216,6 +217,36 @@ func (h *InventoryHandler) Split(c *gin.Context) {
 	}
 	if err := h.svc.Split(c.Request.Context(), service.SplitRequest{InventoryID: req.InventoryID, Packs: req.Packs},
 		middleware.UserIDFromCtx(c), middleware.UserNameFromCtx(c)); err != nil {
+		Error(c, err)
+		return
+	}
+	OK(c, nil)
+}
+
+type splitUnitsRequest struct {
+	InventoryID int64 `json:"inventory_id" binding:"required"`
+	Boxes       int64 `json:"boxes" binding:"required"`
+	Units       int64 `json:"units" binding:"required"`
+	Damaged     int64 `json:"damaged"`
+}
+
+// SplitUnits godoc
+// @Summary 按片拆零（开盒零头入账 + 破损报损）
+// @Tags inventory
+// @Accept json
+// @Security BearerAuth
+// @Param body body splitUnitsRequest true "拆零请求（units+damaged = boxes×包装含量）"
+// @Success 200 {object} Body
+// @Router /inventory/split-units [post]
+func (h *InventoryHandler) SplitUnits(c *gin.Context) {
+	var req splitUnitsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, errs.ErrBadRequest)
+		return
+	}
+	if err := h.svc.SplitUnits(c.Request.Context(), service.SplitUnitsRequest{
+		InventoryID: req.InventoryID, Boxes: req.Boxes, Units: req.Units, Damaged: req.Damaged,
+	}, middleware.UserIDFromCtx(c), middleware.UserNameFromCtx(c)); err != nil {
 		Error(c, err)
 		return
 	}

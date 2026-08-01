@@ -131,6 +131,21 @@ definitions:
     - inventory_id
     - packs
     type: object
+  internal_handler.splitUnitsRequest:
+    properties:
+      boxes:
+        type: integer
+      damaged:
+        type: integer
+      inventory_id:
+        type: integer
+      units:
+        type: integer
+    required:
+    - boxes
+    - inventory_id
+    - units
+    type: object
   internal_handler.statusRequest:
     properties:
       status:
@@ -1361,6 +1376,27 @@ paths:
       security:
       - BearerAuth: []
       summary: 拆零
+      tags:
+      - inventory
+  /inventory/split-units:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 拆零请求（units+damaged = boxes×包装含量）
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.splitUnitsRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 按片拆零（开盒零头入账 + 破损报损）
       tags:
       - inventory
   /inventory/stock-in:

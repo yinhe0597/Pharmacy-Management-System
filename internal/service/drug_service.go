@@ -28,7 +28,11 @@ func computeSplitPrices(d *model.Drug) {
 		d.SplitPurchasePrice = 0
 		return
 	}
-	d.SplitRetailPrice = money.Cents(d.RetailPrice).SplitPrice(d.PackSize).Int64()
+	// 拆零零售价：显式配置（>0 且不超过盒价）则保留，用于分摊损耗等；否则公式推算。
+	if d.SplitRetailPrice <= 0 || d.SplitRetailPrice > d.RetailPrice {
+		d.SplitRetailPrice = money.Cents(d.RetailPrice).SplitPrice(d.PackSize).Int64()
+	}
+	// 拆零进价恒由公式推导，不独立配置（成本侧不受人为调整）。
 	d.SplitPurchasePrice = money.Cents(d.PurchasePrice).SplitPrice(d.PackSize).Int64()
 }
 

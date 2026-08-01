@@ -328,11 +328,15 @@ func (s *PrescriptionService) Submit(ctx context.Context, id int64, operatorID i
 		if err != nil {
 			return err
 		}
-		// 库存不足仅提示不拦截（调配时重新校验）
+		// 库存不足仅提示不拦截（调配时重新校验）；存在整盒可用时提示可拆零补足
 		shortages := ""
 		for _, r := range results {
 			if r.Shortage > 0 {
-				shortages += fmt.Sprintf("药品%d缺%d;", r.DrugID, r.Shortage)
+				hint := fmt.Sprintf("药品%d缺%d;", r.DrugID, r.Shortage)
+				if packs, err := s.inventory.AvailablePacks(ctx, r.DrugID, PrescriptionLocationID); err == nil && packs > 0 {
+					hint += fmt.Sprintf("整盒可用%d盒，可拆零后重新提交;", packs)
+				}
+				shortages += hint
 			}
 		}
 		return s.auditTx(ctx, tx, id, "submit", from, p.Status, operatorName, shortages)
