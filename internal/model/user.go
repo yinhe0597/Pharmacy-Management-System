@@ -7,7 +7,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// User 系统用户。角色：admin/pharmacist/dispenser/checker/buyer/doctor/nurse/pharmacy_director/finance。
+// User 系统用户。角色：admin/pharmacist/buyer/doctor/nurse/pharmacy_director/finance。
 type User struct {
 	ID           int64          `gorm:"primaryKey" json:"id"`
 	Username     string         `gorm:"size:50;uniqueIndex;not null" json:"username"`
