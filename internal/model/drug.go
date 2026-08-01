@@ -8,14 +8,15 @@ import (
 
 // DrugCategory 药品分类（支持树）。
 type DrugCategory struct {
-	ID        int64     `gorm:"primaryKey" json:"id"`
-	Code      string    `gorm:"size:20;uniqueIndex;not null" json:"code"`
-	Name      string    `gorm:"size:50;not null" json:"name"`
-	ParentID  int64     `gorm:"not null;default:0" json:"parent_id"`
-	SortOrder int       `gorm:"not null;default:0" json:"sort_order"`
-	Status    int       `gorm:"not null;default:1" json:"status"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        int64          `gorm:"primaryKey" json:"id"`
+	Code      string         `gorm:"size:20;uniqueIndex;not null" json:"code"`
+	Name      string         `gorm:"size:50;not null" json:"name"`
+	ParentID  int64          `gorm:"not null;default:0" json:"parent_id"`
+	SortOrder int            `gorm:"not null;default:0" json:"sort_order"`
+	Status    int            `gorm:"not null;default:1" json:"status"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 func (DrugCategory) TableName() string { return "drug_categories" }
@@ -77,8 +78,9 @@ type DrugInteraction struct {
 	Mechanism       string    `gorm:"size:500" json:"mechanism"`
 	EvidenceLevel   string    `gorm:"size:1;default:E" json:"evidence_level"`
 	SourceReference string    `gorm:"size:500" json:"source_reference"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
+	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 func (DrugInteraction) TableName() string { return "drug_interactions" }
@@ -89,7 +91,8 @@ type DrugIngredient struct {
 	DrugID         int64     `gorm:"not null;index" json:"drug_id"`
 	IngredientName string    `gorm:"size:200;not null;index" json:"ingredient_name"`
 	Strength       string    `gorm:"size:50" json:"strength"`
-	CreatedAt      time.Time `json:"created_at"`
+	CreatedAt      time.Time      `json:"created_at"`
+	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 func (DrugIngredient) TableName() string { return "drug_ingredients" }
@@ -104,42 +107,45 @@ type IngredientInteraction struct {
 	EvidenceLevel   string    `gorm:"size:1;default:C" json:"evidence_level"`
 	SourceReference string    `gorm:"size:500" json:"source_reference"`
 	Description     string    `gorm:"size:500" json:"description"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
+	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 func (IngredientInteraction) TableName() string { return "ingredient_interactions" }
 
 // ClassInteractionRule 分类-分类相互作用规则。
 type ClassInteractionRule struct {
-	ID              int64     `gorm:"primaryKey" json:"id"`
-	ClassA          string    `gorm:"size:100;not null;index" json:"class_a"`
-	ClassB          string    `gorm:"size:100;not null;index" json:"class_b"`
-	Level           int       `gorm:"not null" json:"level"`
-	Mechanism       string    `gorm:"size:500" json:"mechanism"`
-	EvidenceLevel   string    `gorm:"size:1;default:C" json:"evidence_level"`
-	SourceReference string    `gorm:"size:500" json:"source_reference"`
-	Description     string    `gorm:"size:500" json:"description"`
-	IsActive        bool      `gorm:"not null;default:true" json:"is_active"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	ID              int64          `gorm:"primaryKey" json:"id"`
+	ClassA          string         `gorm:"size:100;not null;index" json:"class_a"`
+	ClassB          string         `gorm:"size:100;not null;index" json:"class_b"`
+	Level           int            `gorm:"not null" json:"level"`
+	Mechanism       string         `gorm:"size:500" json:"mechanism"`
+	EvidenceLevel   string         `gorm:"size:1;default:C" json:"evidence_level"`
+	SourceReference string         `gorm:"size:500" json:"source_reference"`
+	Description     string         `gorm:"size:500" json:"description"`
+	IsActive        bool           `gorm:"not null;default:true" json:"is_active"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
+	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 func (ClassInteractionRule) TableName() string { return "class_interaction_rules" }
 
 // TagInteraction 交互标签-标签相互作用规则。
 type TagInteraction struct {
-	ID              int64     `gorm:"primaryKey" json:"id"`
-	TagA            string    `gorm:"size:50;not null" json:"tag_a"`
-	TagB            string    `gorm:"size:50;not null" json:"tag_b"`
-	Level           int       `gorm:"not null" json:"level"`
-	Mechanism       string    `gorm:"size:500" json:"mechanism"`
-	EvidenceLevel   string    `gorm:"size:1;default:C" json:"evidence_level"`
-	SourceReference string    `gorm:"size:500" json:"source_reference"`
-	Description     string    `gorm:"size:500" json:"description"`
-	IsActive        bool      `gorm:"not null;default:true" json:"is_active"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	ID              int64          `gorm:"primaryKey" json:"id"`
+	TagA            string         `gorm:"size:50;not null" json:"tag_a"`
+	TagB            string         `gorm:"size:50;not null" json:"tag_b"`
+	Level           int            `gorm:"not null" json:"level"`
+	Mechanism       string         `gorm:"size:500" json:"mechanism"`
+	EvidenceLevel   string         `gorm:"size:1;default:C" json:"evidence_level"`
+	SourceReference string         `gorm:"size:500" json:"source_reference"`
+	Description     string         `gorm:"size:500" json:"description"`
+	IsActive        bool           `gorm:"not null;default:true" json:"is_active"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
+	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 func (TagInteraction) TableName() string { return "tag_interactions" }

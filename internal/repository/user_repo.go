@@ -45,6 +45,12 @@ func (r *UserRepo) Update(ctx context.Context, u *model.User) error {
 	return r.db.WithContext(ctx).Model(u).Select("name", "role", "phone", "status", "password_hash", "updated_at").Updates(u).Error
 }
 
+// UpdatePassword 仅更新密码哈希。
+func (r *UserRepo) UpdatePassword(ctx context.Context, userID int64, hash string) error {
+	return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", userID).
+		Update("password_hash", hash).Error
+}
+
 // Delete 软删除用户。
 func (r *UserRepo) Delete(ctx context.Context, id int64) error {
 	return r.db.WithContext(ctx).Delete(&model.User{}, id).Error

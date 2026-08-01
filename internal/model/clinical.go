@@ -1,7 +1,11 @@
 // Package model 临床服务与计费相关数据模型。
 package model
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 // ClinicalService 诊疗项目（手法复位/静脉注射等），不入药房库存，独立计价。
 type ClinicalService struct {
@@ -12,8 +16,9 @@ type ClinicalService struct {
 	UnitPrice int64     `gorm:"not null;default:0" json:"unit_price"`
 	Unit      string    `gorm:"size:20;not null;default:次" json:"unit"`
 	Status    int       `gorm:"not null;default:1" json:"status"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 func (ClinicalService) TableName() string { return "clinical_services" }

@@ -60,6 +60,25 @@ func (s *AuthService) Profile(ctx context.Context, userID int64) (*model.User, e
 	return u, nil
 }
 
+// ChangePassword 修改当前用户密码（验证旧密码）。
+func (s *AuthService) ChangePassword(ctx context.Context, userID int64, oldPassword, newPassword string) error {
+	if newPassword == "" {
+		return errs.ErrBadRequest
+	}
+	u, err := repository.NewUserRepo(s.db).GetByID(ctx, userID)
+	if err != nil {
+		return errs.ErrNotFound
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(oldPassword)); err != nil {
+		return errs.New(9008, "原密码错误", 400)
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	return repository.NewUserRepo(s.db).UpdatePassword(ctx, userID, string(hash))
+}
+
 // CreateUser 新建用户。
 func (s *AuthService) CreateUser(ctx context.Context, u *model.User, password string) (*model.User, error) {
 	if u.Username == "" || password == "" || u.Name == "" {

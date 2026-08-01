@@ -14,18 +14,23 @@ import (
 
 // AuthHandler 用户与鉴权接口。
 type AuthHandler struct {
-	svc *service.AuthService
+	svc    *service.AuthService
+	logSvc *service.OperationLogService
 }
 
 // NewAuthHandler 构建鉴权 Handler。
-func NewAuthHandler(svc *service.AuthService) *AuthHandler { return &AuthHandler{svc: svc} }
+func NewAuthHandler(svc *service.AuthService, logSvc *service.OperationLogService) *AuthHandler {
+	return &AuthHandler{svc: svc, logSvc: logSvc}
+}
 
 // Register 注册路由。
 func (h *AuthHandler) Register(r *gin.RouterGroup, authed *gin.RouterGroup, adminOnly *gin.RouterGroup) {
 	r.POST("/auth/login", h.Login)
 	authed.POST("/auth/logout", h.Logout)
 	authed.GET("/auth/profile", h.Profile)
+	authed.PUT("/auth/password", h.ChangePassword)
 	adminOnly.POST("/users", h.CreateUser)
+	adminOnly.GET("/operation-logs", h.ListOperationLogs)
 	adminOnly.PUT("/users/:id", h.UpdateUser)
 	adminOnly.DELETE("/users/:id", h.DeleteUser)
 	adminOnly.GET("/users", h.ListUsers)
@@ -84,6 +89,62 @@ func (h *AuthHandler) Profile(c *gin.Context) {
 		return
 	}
 	OK(c, u)
+}
+
+type changePasswordRequest struct {
+	OldPassword string `json:"old_password" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required"`
+}
+
+// ChangePassword godoc
+// @Summary 修改当前用户密码
+// @Tags auth
+// @Accept json
+// @Security BearerAuth
+// @Param body body changePasswordRequest true "新旧密码"
+// @Success 200 {object} Body
+// @Router /auth/password [put]
+func (h *AuthHandler) ChangePassword(c *gin.Context) {
+	var req changePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, errs.ErrBadRequest)
+		return
+	}
+	if err := h.svc.ChangePassword(c.Request.Context(), middleware.UserIDFromCtx(c), req.OldPassword, req.NewPassword); err != nil {
+		Error(c, err)
+		return
+	}
+	OK(c, gin.H{"message": "密码已修改"})
+}
+
+// ListOperationLogs godoc
+// @Summary 操作日志（管理员审计）
+// @Tags auth
+// @Security BearerAuth
+// @Param user_id query int false "用户ID"
+// @Param action query string false "操作动作"
+// @Param resource query string false "操作资源"
+// @Param keyword query string false "关键字"
+// @Param page query int false "页码"
+// @Param page_size query int false "每页条数"
+// @Success 200 {object} Body
+// @Router /operation-logs [get]
+func (h *AuthHandler) ListOperationLogs(c *gin.Context) {
+	var q pagination.Query
+	if err := c.ShouldBindQuery(&q); err != nil {
+		Error(c, errs.ErrBadRequest)
+		return
+	}
+	q.Normalize()
+	list, total, err := h.logSvc.List(c.Request.Context(),
+		int64(atoi(c.Query("user_id"))),
+		c.Query("action"), c.Query("resource"), c.Query("keyword"),
+		q.Page, q.PageSize)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+	OK(c, pagination.Of(list, total, &q))
 }
 
 type createUserRequest struct {

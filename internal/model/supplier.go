@@ -33,8 +33,9 @@ type DrugSupplier struct {
 	PurchasePrice  int64     `json:"purchase_price"`
 	LastPurchaseAt time.Time `json:"last_purchase_at"`
 	Status         int       `gorm:"not null;default:1" json:"status"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 func (DrugSupplier) TableName() string { return "drug_suppliers" }
