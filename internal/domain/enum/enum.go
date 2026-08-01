@@ -73,11 +73,43 @@ const (
 
 // 用户角色。
 const (
-	RoleAdmin      = "admin"      // 管理员
-	RolePharmacist = "pharmacist" // 药师
-	RoleDispenser  = "dispenser"  // 调配
-	RoleChecker    = "checker"    // 核对
-	RoleBuyer      = "buyer"      // 采购
+	RoleAdmin            = "admin"             // 管理员
+	RolePharmacist       = "pharmacist"        // 药师
+	RoleDispenser        = "dispenser"         // 调配
+	RoleChecker          = "checker"           // 核对
+	RoleBuyer            = "buyer"             // 采购
+	RoleDoctor           = "doctor"            // 医生
+	RoleNurse            = "nurse"             // 护士
+	RolePharmacyDirector = "pharmacy_director" // 药房主任
+	RoleFinance          = "finance"           // 财务
+)
+
+// AllRoles 全部角色列表。
+var AllRoles = []string{
+	RoleAdmin, RolePharmacist, RoleDispenser, RoleChecker, RoleBuyer,
+	RoleDoctor, RoleNurse, RolePharmacyDirector, RoleFinance,
+}
+
+// IsValidRole 校验角色名是否合法。
+func IsValidRole(role string) bool {
+	for _, r := range AllRoles {
+		if r == role {
+			return true
+		}
+	}
+	return false
+}
+
+// RoleGroups 预定义角色分组。
+var (
+	// PharmacyStaff 药房工作人员（药品/库存/处方访问权）
+	PharmacyStaff = []string{RoleAdmin, RolePharmacyDirector, RolePharmacist, RoleDispenser, RoleChecker}
+	// ClinicalStaff 临床人员（处方的开立权）
+	ClinicalStaff = []string{RoleAdmin, RoleDoctor, RoleNurse, RolePharmacist, RolePharmacyDirector}
+	// ReportAccess 报表访问权
+	ReportAccess = []string{RoleAdmin, RolePharmacyDirector, RolePharmacist, RoleFinance}
+	// UserAdmin 用户管理权
+	UserAdmin = []string{RoleAdmin}
 )
 
 // 配伍等级。

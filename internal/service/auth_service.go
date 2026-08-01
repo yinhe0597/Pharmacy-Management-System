@@ -8,6 +8,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
+	"yaofang/internal/domain/enum"
 	"yaofang/internal/model"
 	"yaofang/internal/pkg/auth"
 	"yaofang/internal/pkg/errs"
@@ -61,7 +62,10 @@ func (s *AuthService) Profile(ctx context.Context, userID int64) (*model.User, e
 
 // CreateUser 新建用户。
 func (s *AuthService) CreateUser(ctx context.Context, u *model.User, password string) (*model.User, error) {
-	if u.Username == "" || password == "" {
+	if u.Username == "" || password == "" || u.Name == "" {
+		return nil, errs.ErrBadRequest
+	}
+	if !enum.IsValidRole(u.Role) {
 		return nil, errs.ErrBadRequest
 	}
 	if _, err := repository.NewUserRepo(s.db).GetByUsername(ctx, u.Username); err == nil {
@@ -83,6 +87,9 @@ func (s *AuthService) CreateUser(ctx context.Context, u *model.User, password st
 
 // UpdateUser 更新用户信息。
 func (s *AuthService) UpdateUser(ctx context.Context, id int64, name, role, phone string, status int, newPassword string) error {
+	if role != "" && !enum.IsValidRole(role) {
+		return errs.ErrBadRequest
+	}
 	u, err := repository.NewUserRepo(s.db).GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

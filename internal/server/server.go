@@ -90,22 +90,28 @@ func (a *App) Engine() *gin.Engine {
 
 	v1 := r.Group("/api/v1")
 	authed := v1.Group("", middleware.Auth(a.jwt))
-	adminOnly := v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.RoleAdmin))
+	// 角色分组
+	userAdmin := v1.Group("", middleware.Auth(a.jwt),
+		middleware.RequireRoles(enum.RoleAdmin, enum.RolePharmacyDirector))
+	pharmacyMgmt := v1.Group("", middleware.Auth(a.jwt),
+		middleware.RequireRoles(enum.PharmacyStaff...))
+	reportView := v1.Group("", middleware.Auth(a.jwt),
+		middleware.RequireRoles(enum.ReportAccess...))
 
-	handler.NewAuthHandler(a.auth).Register(v1, authed, adminOnly)
-	handler.NewDrugHandler(a.drug).Register(authed, authed, adminOnly)
-	handler.NewSupplierHandler(a.supplier).Register(authed, authed, adminOnly)
-	handler.NewInventoryHandler(a.inventory).Register(authed, authed, adminOnly)
+	handler.NewAuthHandler(a.auth).Register(v1, authed, userAdmin)
+	handler.NewDrugHandler(a.drug).Register(authed, authed, pharmacyMgmt)
+	handler.NewSupplierHandler(a.supplier).Register(authed, authed, pharmacyMgmt)
+	handler.NewInventoryHandler(a.inventory).Register(authed, authed, pharmacyMgmt)
 	// 别名：设计文档路径 /drugs/:id/availability → 实际实现在库存模块
 	authed.GET("/drugs/:id/availability", handler.NewInventoryHandler(a.inventory).AvailabilityAlias)
-	handler.NewPurchaseHandler(a.purchase, a.inventory).Register(authed, authed, adminOnly)
-	handler.NewPrescriptionHandler(a.prescription).Register(authed, authed, adminOnly)
-	handler.NewSpecialDrugHandler(a.special).Register(authed, authed, adminOnly)
+	handler.NewPurchaseHandler(a.purchase, a.inventory).Register(authed, authed, pharmacyMgmt)
+	handler.NewPrescriptionHandler(a.prescription).Register(authed, authed, pharmacyMgmt)
+	handler.NewSpecialDrugHandler(a.special).Register(authed, authed, pharmacyMgmt)
 	// 别名：设计文档路径 /special-drugs/reports/usage → 功能已在报表模块
 	authed.GET("/special-drugs/reports/usage", handler.NewReportHandler(a.report).SpecialDrugUsageAlias)
-	handler.NewPharmaServiceHandler(a.pharma).Register(authed, authed, adminOnly)
-	handler.NewReportHandler(a.report).Register(authed, authed, adminOnly)
-	handler.NewInteractionHandler(a.interSvc).Register(authed, authed, adminOnly)
+	handler.NewPharmaServiceHandler(a.pharma).Register(authed, authed, pharmacyMgmt)
+	handler.NewReportHandler(a.report).Register(authed, authed, reportView)
+	handler.NewInteractionHandler(a.interSvc).Register(authed, authed, pharmacyMgmt)
 
 	return r
 }
