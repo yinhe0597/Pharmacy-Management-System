@@ -102,9 +102,9 @@ func IsValidRole(role string) bool {
 // RoleGroups 预定义角色分组。
 var (
 	// PharmacyStaff 药房工作人员（药品/库存/处方/调配/核对）
-	PharmacyStaff = []string{RoleAdmin, RolePharmacyDirector, RolePharmacist, RoleDoctor}
-	// ClinicalStaff 临床人员（处方开立 + 调配/核对）
-	ClinicalStaff = []string{RoleAdmin, RoleDoctor, RoleNurse, RolePharmacist, RolePharmacyDirector}
+	PharmacyStaff = []string{RoleAdmin, RolePharmacyDirector, RolePharmacist, RoleDoctor, RoleNurse}
+	// ClinicalStaff 临床人员（处方开立权；护士不在此列，仅执行/审核处方）
+	ClinicalStaff = []string{RoleAdmin, RoleDoctor, RolePharmacist, RolePharmacyDirector}
 	// ReportAccess 报表访问权
 	ReportAccess = []string{RoleAdmin, RolePharmacyDirector, RolePharmacist, RoleFinance}
 	// UserAdmin 用户管理权
