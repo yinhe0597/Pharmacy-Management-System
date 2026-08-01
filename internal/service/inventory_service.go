@@ -453,8 +453,13 @@ func (s *InventoryService) reserveSameUnitTx(ctx context.Context, tx *gorm.DB, i
 	return res, nil
 }
 
-// reserveMixedTx 混合发药分配：整盒部分（floor(need/pack)）走整盒库存，零头部分（need%pack）走拆零库存。
-// 若拆零库存足以覆盖整单 LDU 需求，则整单走拆零（优先消耗拆零）。
+// reserveMixedTx 混合发药分配（含自动拆零规划）。
+// 分配原则（docs/13 §4.4）：
+//   - 拆零库存足以覆盖整单 LDU → 整单拆零（优先消耗拆零）
+//   - 否则：整盒部分走整盒库存；零头部分先用拆零库存，
+//     拆零不足时自动规划「预留 1 盒待拆」（need_split），发药时拆盒入账。
+//
+// 返回的 Reserved/Shortage 均按 LDU 计（整盒折算 pack 后计入）。
 func (s *InventoryService) reserveMixedTx(ctx context.Context, tx *gorm.DB, invRepo *repository.InventoryRepo, resvRepo *repository.StockReservationRepo, refType string, refID int64, item port.ReserveItem) (port.ReservationResult, error) {
 	res := port.ReservationResult{DrugID: item.DrugID, Quantity: item.Quantity}
 	drug, err := repository.NewDrugRepo(tx).GetByID(ctx, item.DrugID)
@@ -478,9 +483,9 @@ func (s *InventoryService) reserveMixedTx(ctx context.Context, tx *gorm.DB, invR
 	for _, b := range splitBatches {
 		splitAvail += b.Available()
 	}
-	// 拆零行只用于零头（LDU 与拆零同单位），整盒行按整盒预占
+
 	if splitAvail >= item.Quantity {
-		// 整单可由拆零库存覆盖 → 优先拆零
+		// 整单由拆零库存覆盖 → 优先拆零（拆零单位即 LDU）
 		reserved, err := s.reserveAcrossBatches(ctx, tx, invRepo, resvRepo, refType, refID, item, splitBatches, item.Quantity)
 		if err != nil {
 			return res, err
@@ -489,15 +494,8 @@ func (s *InventoryService) reserveMixedTx(ctx context.Context, tx *gorm.DB, invR
 	} else {
 		boxes := item.Quantity / pack
 		remainder := item.Quantity % pack
-		// 零头部分走拆零库存
-		if remainder > 0 {
-			reserved, err := s.reserveAcrossBatches(ctx, tx, invRepo, resvRepo, refType, refID, item, splitBatches, remainder)
-			if err != nil {
-				return res, err
-			}
-			res.Reserved += reserved
-		}
-		// 整盒部分走整盒库存
+
+		// 整盒部分（数量按盒，LDU 折算 ×pack）
 		if boxes > 0 {
 			wholeBatches, err := invRepo.FindAvailableForDispenseUnit(ctx, item.DrugID, item.LocationID, false, todayNow())
 			if err != nil {
@@ -507,7 +505,23 @@ func (s *InventoryService) reserveMixedTx(ctx context.Context, tx *gorm.DB, invR
 			if err != nil {
 				return res, err
 			}
+			res.Reserved += reserved * pack
+		}
+		// 零头部分：先用拆零库存
+		if remainder > 0 {
+			reserved, err := s.reserveAcrossBatches(ctx, tx, invRepo, resvRepo, refType, refID, item, splitBatches, remainder)
+			if err != nil {
+				return res, err
+			}
 			res.Reserved += reserved
+			// 拆零不足：自动规划预留 1 盒待拆（need_split），拆开补足余片
+			if short := remainder - reserved; short > 0 {
+				reserved, err := s.reserveOpenBox(ctx, tx, invRepo, resvRepo, refType, refID, item, short)
+				if err != nil {
+					return res, err
+				}
+				res.Reserved += reserved
+			}
 		}
 	}
 	res.Shortage = item.Quantity - res.Reserved
@@ -515,6 +529,39 @@ func (s *InventoryService) reserveMixedTx(ctx context.Context, tx *gorm.DB, invR
 		res.Shortage = 0
 	}
 	return res, nil
+}
+
+// reserveOpenBox 自动拆零规划：预留 1 盒整盒（need_split），拆开后 splitUnits 片用于处方。
+// 返回该盒对处方的 LDU 覆盖量（splitUnits）；无可用整盒返回 0（缺货）。
+func (s *InventoryService) reserveOpenBox(ctx context.Context, tx *gorm.DB, invRepo *repository.InventoryRepo, resvRepo *repository.StockReservationRepo, refType string, refID int64, item port.ReserveItem, splitUnits int64) (int64, error) {
+	wholeBatches, err := invRepo.FindAvailableForDispenseUnit(ctx, item.DrugID, item.LocationID, false, todayNow())
+	if err != nil {
+		return 0, err
+	}
+	for _, b := range wholeBatches {
+		if b.Available() <= 0 {
+			continue
+		}
+		ok, err := invRepo.Reserve(ctx, b.ID, 1)
+		if err != nil {
+			return 0, err
+		}
+		if !ok {
+			continue
+		}
+		resv := &model.StockReservation{
+			ReservationNo: seq.Next("RSV"),
+			RefType:       refType, RefID: refID, ItemID: item.ItemID,
+			InventoryID: b.ID, DrugID: b.DrugID, LocationID: b.LocationID,
+			BatchNo: b.BatchNo, ExpiryDate: b.ExpiryDate, IsSplit: false,
+			Quantity: 1, NeedSplit: true, SplitUnits: splitUnits, Status: "active",
+		}
+		if err := resvRepo.Create(ctx, resv); err != nil {
+			return 0, err
+		}
+		return splitUnits, nil
+	}
+	return 0, nil
 }
 
 // reserveAcrossBatches 在同口径批次列表中按 FEFO 顺序预占 limit 数量，返回实际预占数。
@@ -591,6 +638,13 @@ func (s *InventoryService) consumeTx(ctx context.Context, tx *gorm.DB, refType s
 		if err := s.checkLocationNotCounting(ctx, tx, r.LocationID); err != nil {
 			return err
 		}
+		if r.NeedSplit {
+			// 自动拆零：整盒拆开，splitUnits 片用于处方，余片入拆零柜
+			if err := s.consumeOpenBoxTx(ctx, tx, invRepo, txnRepo, refType, refID, &r); err != nil {
+				return err
+			}
+			continue
+		}
 		inv, err := invRepo.LockForUpdate(ctx, r.InventoryID)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -623,6 +677,56 @@ func (s *InventoryService) consumeTx(ctx context.Context, tx *gorm.DB, refType s
 		}
 	}
 	return nil
+}
+
+// consumeOpenBoxTx 自动拆零入账：整盒行 -1 → 拆零行 +(pack-splitUnits) → 预占置 consumed。
+// 患者取走的 splitUnits 片由整盒扣减涵盖（不重复扣拆零行），发药记录在 buildDispenseRecords 生成。
+func (s *InventoryService) consumeOpenBoxTx(ctx context.Context, tx *gorm.DB, invRepo *repository.InventoryRepo, txnRepo *repository.InventoryTransactionRepo, refType string, refID int64, r *model.StockReservation) error {
+	inv, err := invRepo.LockForUpdate(ctx, r.InventoryID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errs.ErrNotFound
+		}
+		return err
+	}
+	// 打开该盒：整盒扣减（含预占核销）
+	before := inv.Quantity
+	consumed, err := invRepo.Consume(ctx, inv.ID, 1)
+	if err != nil {
+		return err
+	}
+	if !consumed {
+		return errs.ErrNegativeStock
+	}
+	// 整盒拆分流水（split_out）
+	expiry := inv.ExpiryDate
+	out := &model.InventoryTransaction{
+		TransactionNo: seq.Next("ITN"),
+		DrugID:        inv.DrugID, LocationID: inv.LocationID,
+		BatchNo: inv.BatchNo, ExpiryDate: &expiry,
+		Quantity: -1, IsSplit: false,
+		BeforeQuantity: before, AfterQuantity: before - 1,
+		TxnType: enum.TxnSplitOut, RefType: refType, RefID: refID,
+		Remarks: "自动拆零发放",
+	}
+	if err := txnRepo.Create(ctx, out); err != nil {
+		return err
+	}
+	// 余片入拆零柜（split_in）
+	drug, err := repository.NewDrugRepo(tx).GetByID(ctx, inv.DrugID)
+	if err != nil {
+		return err
+	}
+	if remain := int64(drug.PackSize) - r.SplitUnits; remain > 0 {
+		unitPrice := money.Cents(inv.UnitPrice).SplitPrice(drug.PackSize).Int64()
+		if err := s.addStockTx(ctx, tx, []StockEntry{{
+			DrugID: inv.DrugID, LocationID: inv.LocationID, BatchNo: inv.BatchNo,
+			ExpiryDate: inv.ExpiryDate, IsSplit: true, Quantity: remain, UnitPrice: unitPrice,
+		}}, refType, refID, enum.TxnSplitIn, 0, ""); err != nil {
+			return err
+		}
+	}
+	return repository.NewStockReservationRepo(tx).UpdateStatus(ctx, r.ID, "consumed")
 }
 
 // CancelReservation 退方/驳回/作废释放预占。

@@ -82,6 +82,7 @@ type InventoryTransaction struct {
 func (InventoryTransaction) TableName() string { return "inventory_transactions" }
 
 // StockReservation 库存预占记录。
+// NeedSplit=true 表示该整盒预占在发药时需拆零发放（自动拆零）；SplitUnits 为该盒用于处方的片数。
 type StockReservation struct {
 	ID            int64      `gorm:"primaryKey" json:"id"`
 	ReservationNo string     `gorm:"size:30;uniqueIndex;not null" json:"reservation_no"`
@@ -95,6 +96,8 @@ type StockReservation struct {
 	ExpiryDate    time.Time  `gorm:"type:date" json:"expiry_date"`
 	IsSplit       bool       `gorm:"not null;default:false" json:"is_split"`
 	Quantity      int64      `gorm:"not null" json:"quantity"`
+	NeedSplit     bool       `gorm:"not null;default:false" json:"need_split"`
+	SplitUnits    int64      `gorm:"not null;default:0" json:"split_units"`
 	Status        string     `gorm:"size:20;not null;default:active" json:"status"` // active/consumed/released
 	CreatedAt     time.Time  `json:"created_at"`
 	ReleasedAt    *time.Time `json:"released_at"`

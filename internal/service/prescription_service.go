@@ -482,6 +482,11 @@ func (s *PrescriptionService) Dispense(ctx context.Context, id int64, operatorID
 			if !ok {
 				continue
 			}
+			if r.NeedSplit {
+				// 待拆盒：该盒对本明细的 LDU 覆盖为其 splitUnits
+				got[r.ItemID] += r.SplitUnits
+				continue
+			}
 			got[r.ItemID] += rule.ToLDU(r.IsSplit, r.Quantity, it.PackSize)
 		}
 		for _, it := range items {
@@ -572,6 +577,17 @@ func buildDispenseRecords(p *model.Prescription, items []model.PrescriptionItem,
 	for _, r := range resvs {
 		it, ok := itemByID[r.ItemID]
 		if !ok {
+			continue
+		}
+		if r.NeedSplit {
+			// 自动拆零盒：患者取 splitUnits 片（按拆零价），记录为拆零形态
+			records = append(records, &model.PrescriptionDispenseRecord{
+				PrescriptionID: p.ID, ItemID: r.ItemID, InventoryID: r.InventoryID,
+				DrugID: r.DrugID, BatchNo: r.BatchNo, ExpiryDate: r.ExpiryDate,
+				IsSplit: true, Quantity: r.SplitUnits,
+				UnitPrice: it.UnitPrice, Amount: it.UnitPrice * r.SplitUnits,
+				DispensedBy: checkerID,
+			})
 			continue
 		}
 		// 按批次形态取快照价：整盒批按盒价，拆零批按拆零价（与明细混合计价一致）
