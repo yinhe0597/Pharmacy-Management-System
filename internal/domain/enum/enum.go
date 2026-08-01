@@ -71,6 +71,12 @@ const (
 	AlertBelowMin = "below_min" // 低于下限
 )
 
+// 药房物品类型。药品和耗材统一走药房进销存；诊疗项目（手法复位/静脉注射等）属于临床端，不入药房库存。
+const (
+	ItemTypeDrug       = "drug"       // 药品
+	ItemTypeConsumable = "consumable" // 耗材（注射器/纱布/手套等）
+)
+
 // 用户角色。
 // 调配（发药）与核对（双签）职能由医生/药师兼任，不再设独立角色。
 const (

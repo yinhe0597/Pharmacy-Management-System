@@ -36,6 +36,7 @@ func (h *InventoryHandler) Register(r *gin.RouterGroup, _ *gin.RouterGroup, admi
 	r.POST("/inventory/split-units", h.SplitUnits)
 	r.POST("/inventory/adjust", h.Adjust)
 	r.POST("/inventory/stock-in", h.StockIn)
+	r.POST("/inventory/requisition", h.Requisition)
 	r.GET("/inventory/transactions", h.ListTransactions)
 	r.GET("/inventory/expiry-warnings", h.ListExpiryWarnings)
 	r.GET("/inventory/stock-warnings", h.ListStockWarnings)
@@ -300,6 +301,35 @@ func (h *InventoryHandler) StockIn(c *gin.Context) {
 		return
 	}
 	if err := h.svc.StockIn(c.Request.Context(), req.Entries, middleware.UserIDFromCtx(c), middleware.UserNameFromCtx(c)); err != nil {
+		Error(c, err)
+		return
+	}
+	OK(c, nil)
+}
+
+type requisitionRequest struct {
+	DrugID     int64  `json:"drug_id" binding:"required"`
+	LocationID int64  `json:"location_id" binding:"required"`
+	Quantity   int64  `json:"quantity" binding:"required"`
+	Reason     string `json:"reason"` // 领用原因
+}
+
+// Requisition godoc
+// @Summary 领用出库（医护内部消耗，不计费）
+// @Tags inventory
+// @Accept json
+// @Security BearerAuth
+// @Param body body requisitionRequest true "领用信息"
+// @Success 200 {object} Body
+// @Router /inventory/requisition [post]
+func (h *InventoryHandler) Requisition(c *gin.Context) {
+	var req requisitionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, errs.ErrBadRequest)
+		return
+	}
+	if err := h.svc.Requisition(c.Request.Context(), req.DrugID, req.LocationID, req.Quantity, req.Reason,
+		middleware.UserIDFromCtx(c), middleware.UserNameFromCtx(c)); err != nil {
 		Error(c, err)
 		return
 	}

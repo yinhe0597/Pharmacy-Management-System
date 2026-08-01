@@ -20,10 +20,11 @@ type DrugCategory struct {
 
 func (DrugCategory) TableName() string { return "drug_categories" }
 
-// Drug 药品主数据。
+// Drug 药房物品主数据（含药品 + 耗材）。诊疗项目（手法复位/静脉注射等）不在此表，见 docs/05 二期临床服务目录。
 type Drug struct {
 	ID                 int64          `gorm:"primaryKey" json:"id"`
 	Code               string         `gorm:"size:20;uniqueIndex;not null" json:"code"`
+	ItemType           string         `gorm:"size:20;not null;default:drug" json:"item_type"` // drug=药品 consumable=耗材
 	GenericName        string         `gorm:"size:100;not null;index" json:"generic_name"`
 	BrandName          string         `gorm:"size:100" json:"brand_name"`
 	DosageForm         string         `gorm:"size:30;not null" json:"dosage_form"`

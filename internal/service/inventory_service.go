@@ -96,6 +96,67 @@ func (s *InventoryService) StockIn(ctx context.Context, entries []StockEntry, op
 	})
 }
 
+// Requisition 领用出库（医护内部消耗，不计费）。FEFO 扣减。
+func (s *InventoryService) Requisition(ctx context.Context, drugID, locationID, quantity int64, reason string, operatorID int64, operatorName string) error {
+	if quantity <= 0 {
+		return errs.ErrBadRequest
+	}
+	remarks := "领用出库"
+	if reason != "" {
+		remarks = "领用: " + reason
+	}
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		invRepo := repository.NewInventoryRepo(tx)
+		txnRepo := repository.NewInventoryTransactionRepo(tx)
+		if err := s.checkLocationNotCounting(ctx, tx, locationID); err != nil {
+			return err
+		}
+		batches, err := invRepo.FindAvailableForDispenseUnit(ctx, drugID, locationID, false, todayNow())
+		if err != nil {
+			return err
+		}
+		splitBatches, _ := invRepo.FindAvailableForDispenseUnit(ctx, drugID, locationID, true, todayNow())
+		batches = append(batches, splitBatches...)
+
+		remaining := quantity
+		for i := range batches {
+			if remaining <= 0 {
+				break
+			}
+			avail := batches[i].Available()
+			if avail <= 0 {
+				continue
+			}
+			take := remaining
+			if take > avail {
+				take = avail
+			}
+			ok, err := invRepo.Deduct(ctx, batches[i].ID, take)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return errs.ErrNegativeStock
+			}
+			before := batches[i].Quantity
+			txnRepo.Create(ctx, &model.InventoryTransaction{
+				TransactionNo: seq.Next("ITN"),
+				DrugID: drugID, LocationID: locationID,
+				BatchNo: batches[i].BatchNo, ExpiryDate: &batches[i].ExpiryDate,
+				Quantity: -take, IsSplit: batches[i].IsSplit,
+				BeforeQuantity: before, AfterQuantity: before - take,
+				TxnType: "requisition", RefType: "requisition", RefID: 0,
+				OperatorID: operatorID, OperatorName: operatorName, Remarks: remarks,
+			})
+			remaining -= take
+		}
+		if remaining > 0 {
+			return errs.ErrStockNotEnough
+		}
+		return nil
+	})
+}
+
 // addStockTx 入库核心：累加或新建库存行并写流水（须在调用方事务内执行）。
 func (s *InventoryService) addStockTx(ctx context.Context, tx *gorm.DB, entries []StockEntry, refType string, refID int64, txnType string, operatorID int64, operatorName string) error {
 	invRepo := repository.NewInventoryRepo(tx)

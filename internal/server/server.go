@@ -37,6 +37,7 @@ type App struct {
 	pharma       *service.PharmaService
 	report       *service.ReportService
 	interSvc     *service.InteractionService
+	clinical     *service.ClinicalService
 
 	patientService port.IPatientService
 	pricingService port.IPricingService
@@ -52,6 +53,7 @@ func NewApp(cfg *config.Config, db *gorm.DB) *App {
 	inv := service.NewInventoryService(db)
 	special := service.NewSpecialDrugService(db)
 	interSvc := service.NewInteractionService(db)
+	clinicalSvc := service.NewClinicalService(db)
 	patientSvc := patient.NewSimplePatientService()
 
 	return &App{
@@ -67,6 +69,7 @@ func NewApp(cfg *config.Config, db *gorm.DB) *App {
 		pharma:         service.NewPharmaService(db),
 		report:         service.NewReportService(db),
 		interSvc:       interSvc,
+		clinical:       clinicalSvc,
 		patientService: patientSvc,
 		pricingService: pricing.NewSimplePricingService(db),
 	}
@@ -112,6 +115,7 @@ func (a *App) Engine() *gin.Engine {
 	handler.NewPharmaServiceHandler(a.pharma).Register(authed, authed, pharmacyMgmt)
 	handler.NewReportHandler(a.report).Register(authed, authed, reportView)
 	handler.NewInteractionHandler(a.interSvc).Register(authed, authed, pharmacyMgmt)
+	handler.NewClinicalHandler(a.clinical).Register(authed, authed, pharmacyMgmt)
 
 	return r
 }
