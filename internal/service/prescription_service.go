@@ -377,7 +377,9 @@ type AuditReviewResult struct {
 	DrugWarnings []interaction.DrugWarning  `json:"drug_warnings,omitempty"`
 }
 
-// Review 审核：配伍/极量/重复用药检查；pass→reviewed_passed，reject→reviewed_rejected+释放预占。
+// Review 审核：仅药师/药房主任可执行。
+// pass→reviewed_passed（通过）、reject→reviewed_rejected+释放预占（驳回）、
+// return→保持pending_review+写退回审计日志（药师退回医生修改，保留预占）。
 // 返回审核明细（含提醒项），供前端展示。
 func (s *PrescriptionService) Review(ctx context.Context, id int64, input AuditInput, auditorID int64, auditorName string) (*AuditReviewResult, error) {
 	var result *AuditReviewResult
@@ -402,18 +404,15 @@ func (s *PrescriptionService) Review(ctx context.Context, id int64, input AuditI
 			if err != nil {
 				return err
 			}
-			// 构建审核明细结果
 			result = &AuditReviewResult{
 				Passed:       !auditResult.HasBlocks(),
 				Warnings:     auditResult.Warnings,
 				DrugWarnings: auditResult.DrugWarnings,
 			}
-			// 拦截项阻止通过
 			if auditResult.HasBlocks() {
 				_ = s.interSvc.SaveInteractionResults(ctx, tx, id, auditResult)
 				return errs.ErrInteraction
 			}
-			// 保存提醒项快照
 			_ = s.interSvc.SaveInteractionResults(ctx, tx, id, auditResult)
 			p.Status = prescription.StatusReviewedPassed.String()
 			p.AuditorID = auditorID
@@ -426,6 +425,10 @@ func (s *PrescriptionService) Review(ctx context.Context, id int64, input AuditI
 			if err := s.releaseReservationsTx(ctx, tx, id); err != nil {
 				return err
 			}
+		} else if input.Action == "return" {
+			// 药师退回医生修改：保持 pending_review 状态 + 保留预占，仅写审计日志
+			result = &AuditReviewResult{Passed: false}
+			// 不修改状态，不释放预占；医生修改后可直接重新提交
 		} else {
 			return errs.ErrBadRequest
 		}

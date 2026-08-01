@@ -147,3 +147,13 @@ func UserNameFromCtx(c *gin.Context) string {
 	}
 	return ""
 }
+
+// UserRoleFromCtx 读取当前用户角色。
+func UserRoleFromCtx(c *gin.Context) string {
+	if v, ok := c.Get(ctxKeyUserRole); ok {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return ""
+}

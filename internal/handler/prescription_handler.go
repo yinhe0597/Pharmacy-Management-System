@@ -107,15 +107,22 @@ func (h *PrescriptionHandler) Submit(c *gin.Context) {
 }
 
 // Review godoc
-// @Summary 处方审核（配伍/极量/重复用药）
+// @Summary 处方审核（仅药师/药房主任可执行）
+// @Description 审核动作：pass(通过)→调配中；reject(驳回)→释放预占；return(退回医生)→保持待审核+保留预占，医生可修改后重提交。
 // @Tags prescriptions
 // @Accept json
 // @Security BearerAuth
 // @Param id path int true "处方ID"
-// @Param body body service.AuditInput true "审核结果"
+// @Param body body service.AuditInput true "审核结果（action: pass/reject/return）"
 // @Success 200 {object} Body
 // @Router /prescriptions/{id}/review [post]
 func (h *PrescriptionHandler) Review(c *gin.Context) {
+	// 仅药师和药房主任可审核处方
+	role := middleware.UserRoleFromCtx(c)
+	if role != "pharmacist" && role != "pharmacy_director" && role != "admin" {
+		Error(c, errs.ErrForbidden)
+		return
+	}
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		Error(c, errs.ErrBadRequest)
