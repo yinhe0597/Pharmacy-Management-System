@@ -2,6 +2,18 @@
 
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 与 [Keep a Changelog](https://keepachangelog.com/zh-CN/)。
 
+## [v1.3.0] - 2026-08-02
+
+### 基础参考数据（种子）
+
+- **ICD-10 疾病诊断编码**（迁移 `000015`）：`diagnosis_codes` 表，1,586 条诊断编码，含 22 个一级章节 + 220 个二级分类的层级结构。数据来源 [ICD-10-CN](https://github.com/chaseliu/ICD-10-CN)。用于诊断名称模糊搜索/自动补全。
+- **国家集采药品目录**（迁移 `000016`）：`vbp_drug_catalog` 表，392 个品种（去重），覆盖第 1-10 批国家药品集中带量采购全部批次（2018-2025）。含药品通用名、剂型、剂型分类、集采批次。用于药品名称模糊搜索/自动补全，后续入库时再精确填列规格/厂家/价格。
+
+### 新增表
+
+- `diagnosis_codes` — ICD-10 诊断编码查找表（code, disease_name, chapter_code/name, category_code/name, py_code）
+- `vbp_drug_catalog` — 国家集采药品参考目录（generic_name, dosage_form, dosage_category, vbp_batch, py_code）
+
 ## [v1.2.0] - 2026-08-01
 
 ### 用户角色体系（7 种角色）

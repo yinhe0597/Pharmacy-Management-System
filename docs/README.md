@@ -80,6 +80,7 @@ yaofang/
 │   ├── scheduler/         # 定时任务
 │   └── pkg/               # 通用组件（errs/money/pagination/...）
 ├── migrations/            # golang-migrate SQL 迁移文件
+├── data/                  # 参考数据源文件（ICD-10 CSV/JSON、集采药品）
 ├── docs/                  # 本文档集
 ├── scripts/               # 运维/构建脚本
 └── tests/                 # 集成测试
