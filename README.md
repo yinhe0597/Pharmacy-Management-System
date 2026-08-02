@@ -21,7 +21,7 @@ Go 1.22+ / Gin / GORM / PostgreSQL 14+ / golang-migrate（SQL 迁移）/ JWT / r
 - **诊疗项目**：手法复位/注射等不入药房库存，独立计价 → 计费记录统一入口
 - **特殊药品「五专」**、**药学服务**、**报表**
 - **用户角色**：7 种角色分级权限，调配+核对由医生/药师兼任
-- **参考数据**：ICD-10 诊断编码（1,586 条）+ 国家集采药品目录（392 品种，第1-10批）
+- **参考数据**：ICD-10 诊断编码（1,586 条）+ 国家集采药品目录（392 品种，第1-10批）+ **医保药品目录（3,313条，甲/乙类）** + 医用耗材目录（141类）
 - **二期预留**：`port` 三接口 + 契约测试
 
 ## 快速开始
@@ -38,7 +38,7 @@ Go 1.22+ / Gin / GORM / PostgreSQL 14+ / golang-migrate（SQL 迁移）/ JWT / r
 psql -U postgres -h localhost -c "CREATE ROLE yaofang LOGIN PASSWORD 'yaofang123';"
 psql -U postgres -h localhost -c "CREATE DATABASE yaofang OWNER yaofang;"
 
-# 依次执行全部迁移与种子（migrations/NNNNNN_*.up.sql，共 16 个版本）
+# 依次执行全部迁移与种子（migrations/NNNNNN_*.up.sql，共 18 个版本）
 for f in migrations/*.up.sql; do
   echo "== $f"
   psql -U postgres -h localhost -d yaofang -v ON_ERROR_STOP=1 -f "$f"
@@ -77,7 +77,7 @@ python scripts/smoke_test.py           # HTTP 冒烟测试（需服务已启动�
 
 ## 项目状态
 
-一期已全部交付，v1.3.0 新增 ICD-10 诊断编码 + 国家集采药品参考目录。
+一期已全部交付，v1.3.0 新增 ICD-10 诊断编码 + 国家集采药品目录 + 国家医保药品目录（3,313条）+ 医用耗材目录（141类）。
 功能完整、测试全绿（38 单元 + 24 集成）。
 详见 [CHANGELOG.md](CHANGELOG.md)。
 

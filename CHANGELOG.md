@@ -8,11 +8,15 @@
 
 - **ICD-10 疾病诊断编码**（迁移 `000015`）：`diagnosis_codes` 表，1,586 条诊断编码，含 22 个一级章节 + 220 个二级分类的层级结构。数据来源 [ICD-10-CN](https://github.com/chaseliu/ICD-10-CN)。用于诊断名称模糊搜索/自动补全。
 - **国家集采药品目录**（迁移 `000016`）：`vbp_drug_catalog` 表，392 个品种（去重），覆盖第 1-10 批国家药品集中带量采购全部批次（2018-2025）。含药品通用名、剂型、剂型分类、集采批次。用于药品名称模糊搜索/自动补全，后续入库时再精确填列规格/厂家/价格。
+- **国家医保药品目录**（迁移 `000017`）：`nhsa_drug_catalog` 表，**3,313 条**（西药+中成药，按药品名称+剂型去重），含甲类 749 条 + 乙类 2,564 条。数据提取自国家医保局《2024年版国家医保药品目录》官方PDF（200页）。含药品名称、剂型、甲乙类、药品分类、子分类。覆盖药房日常用药的绝大部分品种。
+- **医用耗材目录**（迁移 `000018`）：`medical_consumables` 表，**141 类**常用耗材。涵盖注射器具、输液器具、采血器具、导管、敷料、缝合材料、麻醉耗材、手术室耗材、骨科耗材、眼科耗材、消毒用品、护理用品、检验耗材、影像耗材等分类。含NMPA管理类别（Ⅰ/Ⅱ/Ⅲ类/消字号）。
 
 ### 新增表
 
 - `diagnosis_codes` — ICD-10 诊断编码查找表（code, disease_name, chapter_code/name, category_code/name, py_code）
 - `vbp_drug_catalog` — 国家集采药品参考目录（generic_name, dosage_form, dosage_category, vbp_batch, py_code）
+- `nhsa_drug_catalog` — 国家医保药品目录（drug_name, dosage_form, insurance_class, drug_category, sub_category, notes）
+- `medical_consumables` — 医用耗材参考目录（item_name, sub_category, category, nmpa_class, description）
 
 ## [v1.2.0] - 2026-08-01
 
