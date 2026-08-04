@@ -10,6 +10,7 @@
 - **国家集采药品目录**（迁移 `000016`）：`vbp_drug_catalog` 表，392 个品种（去重），覆盖第 1-10 批国家药品集中带量采购全部批次（2018-2025）。含药品通用名、剂型、剂型分类、集采批次。用于药品名称模糊搜索/自动补全，后续入库时再精确填列规格/厂家/价格。
 - **国家医保药品目录**（迁移 `000017`）：`nhsa_drug_catalog` 表，**3,313 条**（西药+中成药，按药品名称+剂型去重），含甲类 749 条 + 乙类 2,564 条。数据提取自国家医保局《2024年版国家医保药品目录》官方PDF（200页）。含药品名称、剂型、甲乙类、药品分类、子分类。覆盖药房日常用药的绝大部分品种。
 - **医用耗材目录**（迁移 `000018`）：`medical_consumables` 表，**141 类**常用耗材。涵盖注射器具、输液器具、采血器具、导管、敷料、缝合材料、麻醉耗材、手术室耗材、骨科耗材、眼科耗材、消毒用品、护理用品、检验耗材、影像耗材等分类。含NMPA管理类别（Ⅰ/Ⅱ/Ⅲ类/消字号）。
+- **非医保常用药品**（迁移 `000019`）：`non_insurance_drugs` 表，**362 种**（已与医保目录去重，已排除罕见病药和抗癌药）。涵盖维生素/矿物质保健品、感冒咳嗽OTC、皮肤科外用药、五官科、消化系统、妇科儿科男科、镇痛、骨骼肌肉、神经系统、戒烟减肥、中成药外用贴膏等品类。区分处方药/OTC/保健品/消杀类。弥补医保目录外药店常见的自费品种缺口。
 
 ### 新增表
 
@@ -17,6 +18,7 @@
 - `vbp_drug_catalog` — 国家集采药品参考目录（generic_name, dosage_form, dosage_category, vbp_batch, py_code）
 - `nhsa_drug_catalog` — 国家医保药品目录（drug_name, dosage_form, insurance_class, drug_category, sub_category, notes）
 - `medical_consumables` — 医用耗材参考目录（item_name, sub_category, category, nmpa_class, description）
+- `non_insurance_drugs` — 非医保常用药品参考目录（drug_name, dosage_form, rx_otc_class, category, sub_category, description）
 
 ## [v1.2.0] - 2026-08-01
 
