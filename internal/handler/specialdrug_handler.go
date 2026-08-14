@@ -23,13 +23,13 @@ func NewSpecialDrugHandler(svc *service.SpecialDrugService) *SpecialDrugHandler 
 }
 
 // Register 注册路由。
-func (h *SpecialDrugHandler) Register(r *gin.RouterGroup, _ *gin.RouterGroup, _ *gin.RouterGroup) {
-	r.POST("/special-drugs/dispense-register", h.RegisterDispense)
-	r.POST("/special-drugs/ampoule-returns", h.CreateAmpouleReturn)
-	r.POST("/special-drugs/ampoule-returns/:id/verify", h.VerifyAmpouleReturn)
-	r.GET("/special-drugs/ampoule-returns", h.ListAmpouleReturns)
-	r.GET("/special-drugs/ledgers", h.ListLedgers)
-	r.GET("/special-drugs/prescriptions", h.ListSpecialPrescriptions)
+func (h *SpecialDrugHandler) Register(g Groups) {
+	g.DrugAdmin.POST("/special-drugs/dispense-register", h.RegisterDispense)
+	g.Pharmacy.POST("/special-drugs/ampoule-returns", h.CreateAmpouleReturn)
+	g.DrugAdmin.POST("/special-drugs/ampoule-returns/:id/verify", h.VerifyAmpouleReturn)
+	g.Authed.GET("/special-drugs/ampoule-returns", h.ListAmpouleReturns)
+	g.Authed.GET("/special-drugs/ledgers", h.ListLedgers)
+	g.Authed.GET("/special-drugs/prescriptions", h.ListSpecialPrescriptions)
 }
 
 // RegisterDispense godoc

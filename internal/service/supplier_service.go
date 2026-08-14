@@ -87,7 +87,7 @@ func (s *SupplierService) BindDrug(ctx context.Context, drugID, supplierID int64
 	}
 	dsRepo := repository.NewDrugSupplierRepo(s.db)
 	if _, err := dsRepo.GetByDrugSupplier(ctx, drugID, supplierID); err == nil {
-		return errs.New(1007, "该供货关系已存在", 409)
+		return errs.ErrDrugSupplierExists
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}

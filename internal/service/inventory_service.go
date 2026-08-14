@@ -29,12 +29,6 @@ type StockEntry struct {
 	UnitPrice  int64     `json:"unit_price"`
 }
 
-// drugUnit 药品 + 口径 组合键。
-type drugUnit struct {
-	drugID  int64
-	isSplit bool
-}
-
 // AdjustRequest 库存调整（报损/修正）。
 type AdjustRequest struct {
 	InventoryID int64
@@ -139,15 +133,17 @@ func (s *InventoryService) Requisition(ctx context.Context, drugID, locationID, 
 				return errs.ErrNegativeStock
 			}
 			before := batches[i].Quantity
-			txnRepo.Create(ctx, &model.InventoryTransaction{
+			if err := txnRepo.Create(ctx, &model.InventoryTransaction{
 				TransactionNo: seq.Next("ITN"),
-				DrugID: drugID, LocationID: locationID,
+				DrugID:        drugID, LocationID: locationID,
 				BatchNo: batches[i].BatchNo, ExpiryDate: &batches[i].ExpiryDate,
 				Quantity: -take, IsSplit: batches[i].IsSplit,
 				BeforeQuantity: before, AfterQuantity: before - take,
 				TxnType: "requisition", RefType: "requisition", RefID: 0,
 				OperatorID: operatorID, OperatorName: operatorName, Remarks: remarks,
-			})
+			}); err != nil {
+				return err
+			}
 			remaining -= take
 		}
 		if remaining > 0 {
@@ -281,23 +277,27 @@ func (s *InventoryService) Transfer(ctx context.Context, fromLoc, toLoc int64, i
 
 // SplitRequest 按盒拆零（整盒行扣减 Packs 盒，拆零行累加 Packs×pack_size）。
 type SplitRequest struct {
-	InventoryID int64
-	Packs       int64
+	InventoryID  int64
+	Packs        int64
+	ReviewerID   int64 // 复核人（麻精强制双人）
+	ReviewerName string
 }
 
 // SplitUnitsRequest 按片拆零：开盒零头入账 + 损耗登记。
 // 约束：Units + Damaged == Boxes × pack_size（账目平齐）；Damaged 走报损记录。
 type SplitUnitsRequest struct {
-	InventoryID int64
-	Boxes       int64 // 本次拆几盒
-	Units       int64 // 入拆零行片数（零头）
-	Damaged     int64 // 破损报损片数
+	InventoryID  int64
+	Boxes        int64 // 本次拆几盒
+	Units        int64 // 入拆零行片数（零头）
+	Damaged      int64 // 破损报损片数
+	ReviewerID   int64 // 复核人（麻精强制双人）
+	ReviewerName string
 }
 
 // Split 按盒拆零（等价 SplitUnits(Packs, Packs×pack_size, 0)）。
 func (s *InventoryService) Split(ctx context.Context, req SplitRequest, operatorID int64, operatorName string) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		return s.doSplit(ctx, tx, req.InventoryID, req.Packs, -1, 0, operatorID, operatorName)
+		return s.doSplit(ctx, tx, req.InventoryID, req.Packs, -1, 0, operatorID, operatorName, req.ReviewerID, req.ReviewerName)
 	})
 }
 
@@ -307,13 +307,14 @@ func (s *InventoryService) SplitUnits(ctx context.Context, req SplitUnitsRequest
 		return errs.ErrBadRequest
 	}
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		return s.doSplit(ctx, tx, req.InventoryID, req.Boxes, req.Units, req.Damaged, operatorID, operatorName)
+		return s.doSplit(ctx, tx, req.InventoryID, req.Boxes, req.Units, req.Damaged, operatorID, operatorName, req.ReviewerID, req.ReviewerName)
 	})
 }
 
 // doSplit 拆零核心：整盒行扣 Boxes 盒 → 拆零行入 Units 片 → 破损 Damaged 片登记报损。
 // 拆零行进价 = round(整盒行实际进价 / pack_size)，保证批次成本一致。
-func (s *InventoryService) doSplit(ctx context.Context, tx *gorm.DB, invID, boxes, units, damaged int64, operatorID int64, operatorName string) error {
+// 同时落拆零操作单（split_orders）；麻精药品强制双人复核。
+func (s *InventoryService) doSplit(ctx context.Context, tx *gorm.DB, invID, boxes, units, damaged int64, operatorID int64, operatorName string, reviewerID int64, reviewerName string) error {
 	invRepo := repository.NewInventoryRepo(tx)
 	inv, err := invRepo.LockForUpdate(ctx, invID)
 	if err != nil {
@@ -339,6 +340,10 @@ func (s *InventoryService) doSplit(ctx context.Context, tx *gorm.DB, invID, boxe
 	if !drug.IsSplitAllowed || drug.PackSize <= 1 {
 		return errs.ErrSplitNotAllowed
 	}
+	// 麻精药品拆零强制双人复核（五专：专人负责 + 双人核对）
+	if enum.IsSpecialControlled(drug.SpecialControlType) && (reviewerID == 0 || reviewerID == operatorID) {
+		return errs.ErrSplitDualCheck
+	}
 	if units < 0 {
 		// 按盒拆：整盒整入，无损耗
 		units = boxes * int64(drug.PackSize)
@@ -346,7 +351,7 @@ func (s *InventoryService) doSplit(ctx context.Context, tx *gorm.DB, invID, boxe
 	} else {
 		// 账目平齐：开出的盒数所包含片数 = 入拆零行 + 破损
 		if units+damaged != boxes*int64(drug.PackSize) {
-			return errs.New(2012, "拆零数量不平齐：入拆零+破损 应等于 拆盒数×包装含量", 400)
+			return errs.ErrSplitUnbalanced
 		}
 	}
 	// 扣整盒
@@ -375,11 +380,22 @@ func (s *InventoryService) doSplit(ctx context.Context, tx *gorm.DB, invID, boxe
 	if err := repository.NewInventoryTransactionRepo(tx).Create(ctx, out); err != nil {
 		return err
 	}
+	// 拆零行进价 = round(批次实际进价 / pack_size)；落拆零操作单
+	unitPrice := money.Cents(inv.UnitPrice).SplitPrice(drug.PackSize).Int64()
+	expiryDate := inv.ExpiryDate
+	if err := repository.NewSplitOrderRepo(tx).Create(ctx, &model.SplitOrder{
+		SplitNo: seq.Next("SPL"), InventoryID: inv.ID, DrugID: inv.DrugID,
+		LocationID: inv.LocationID, BatchNo: inv.BatchNo, ExpiryDate: &expiryDate,
+		Boxes: boxes, Units: units, Damaged: damaged, SplitUnitCost: unitPrice,
+		OperatorID: operatorID, OperatorName: operatorName,
+		ReviewerID: reviewerID, ReviewerName: reviewerName, Remarks: remarks,
+	}); err != nil {
+		return err
+	}
 	if units <= 0 {
 		return nil
 	}
 	// 入拆零行：进价取「该批次实际进价」折算，而非主数据价（保证批次成本一致）
-	unitPrice := money.Cents(inv.UnitPrice).SplitPrice(drug.PackSize).Int64()
 	return s.addStockTx(ctx, tx, []StockEntry{{
 		DrugID: inv.DrugID, LocationID: inv.LocationID, BatchNo: inv.BatchNo,
 		ExpiryDate: inv.ExpiryDate, IsSplit: true, Quantity: units, UnitPrice: unitPrice,
@@ -871,9 +887,12 @@ func (s *InventoryService) ListAlerts(ctx context.Context, alertType, status str
 	return repository.NewStockAlertRepo(s.db).List(ctx, alertType, status, (page-1)*pageSize, pageSize)
 }
 
-// ResolveAlert 处理预警。
-func (s *InventoryService) ResolveAlert(ctx context.Context, id int64) error {
-	return repository.NewStockAlertRepo(s.db).Resolve(ctx, id)
+// ResolveAlert 处理预警：action=resolved(已处理)/ignored(忽略)，记录处理人与时间。
+func (s *InventoryService) ResolveAlert(ctx context.Context, id int64, action string, operatorID int64, operatorName string) error {
+	if action != "resolved" && action != "ignored" {
+		return errs.ErrBadRequest
+	}
+	return repository.NewStockAlertRepo(s.db).UpdateStatus(ctx, id, action, operatorID, operatorName)
 }
 
 // ListStocktakes 盘点单列表。
@@ -901,6 +920,23 @@ func (s *InventoryService) GetStocktake(ctx context.Context, id int64) (*Stockta
 type StocktakeDetail struct {
 	model.Stocktake
 	Items []model.StocktakeItem `json:"items"`
+}
+
+// ListSplitOrders 拆零操作单列表。
+func (s *InventoryService) ListSplitOrders(ctx context.Context, drugID, locationID int64, page, pageSize int) ([]model.SplitOrder, int64, error) {
+	return repository.NewSplitOrderRepo(s.db).List(ctx, drugID, locationID, (page-1)*pageSize, pageSize)
+}
+
+// GetSplitOrder 拆零操作单详情。
+func (s *InventoryService) GetSplitOrder(ctx context.Context, id int64) (*model.SplitOrder, error) {
+	o, err := repository.NewSplitOrderRepo(s.db).GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errs.ErrNotFound
+		}
+		return nil, err
+	}
+	return o, nil
 }
 
 // AvailablePacks 某药品某库房的可用整盒数（未预占），用于拆零缺货提示。

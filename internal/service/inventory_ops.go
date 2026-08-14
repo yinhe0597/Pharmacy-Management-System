@@ -36,7 +36,7 @@ func (s *InventoryService) CreateStocktake(ctx context.Context, locationID int64
 			return err
 		}
 		if n > 0 {
-			return errs.New(2009, "该库房已有进行中的盘点", 409)
+			return errs.ErrStocktakeAlreadyOpen
 		}
 		st = &model.Stocktake{
 			StocktakeNo: seq.Next("STK"), LocationID: locationID,
@@ -139,7 +139,7 @@ func (s *InventoryService) AdjustStocktake(ctx context.Context, id int64, operat
 			return errs.ErrStateConflict
 		}
 		if st.Status == "adjusted" {
-			return errs.New(2010, "该盘点单已完成调整，不能重复调整", 409)
+			return errs.ErrStocktakeAdjusted
 		}
 		itemRepo := repository.NewStocktakeItemRepo(tx)
 		items, err := itemRepo.ListPending(ctx, id)

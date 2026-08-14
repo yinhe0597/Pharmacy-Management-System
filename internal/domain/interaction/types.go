@@ -31,9 +31,9 @@ type PatientProfile struct {
 
 // AllergyInfo 过敏信息。
 type AllergyInfo struct {
-	DrugName  string
-	Reaction  string
-	Severity  int // 1轻 2中 3重
+	DrugName string
+	Reaction string
+	Severity int // 1轻 2中 3重
 }
 
 // PrescriptionItemInfo 处方明细（用于极量/重复用药检查）。
@@ -46,15 +46,15 @@ type PrescriptionItemInfo struct {
 
 // InteractionFinding 单条交互检测结果。
 type InteractionFinding struct {
-	DrugAID        int64  `json:"drug_a_id"`
-	DrugBID        int64  `json:"drug_b_id"`
-	DrugAName      string `json:"drug_a_name"`
-	DrugBName      string `json:"drug_b_name"`
-	Strategy       string `json:"strategy"` // explicit / ingredient / class / tag
-	Level          int    `json:"level"`    // 1禁忌 2慎用 3注意
-	Mechanism      string `json:"mechanism"`
-	EvidenceLevel  string `json:"evidence_level"`
-	Description    string `json:"description"`
+	DrugAID       int64  `json:"drug_a_id"`
+	DrugBID       int64  `json:"drug_b_id"`
+	DrugAName     string `json:"drug_a_name"`
+	DrugBName     string `json:"drug_b_name"`
+	Strategy      string `json:"strategy"` // explicit / ingredient / class / tag
+	Level         int    `json:"level"`    // 1禁忌 2慎用 3注意
+	Mechanism     string `json:"mechanism"`
+	EvidenceLevel string `json:"evidence_level"`
+	Description   string `json:"description"`
 }
 
 // PairWarning 药品对级别的提醒。

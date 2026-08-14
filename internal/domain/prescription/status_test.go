@@ -44,3 +44,43 @@ func TestTerminal(t *testing.T) {
 		t.Fatal("dispensed 不是终态（可退药）")
 	}
 }
+
+func TestString(t *testing.T) {
+	cases := map[Status]string{
+		StatusPendingReview:    "pending_review",
+		StatusReviewedPassed:   "reviewed_passed",
+		StatusReviewedRejected: "reviewed_rejected",
+		StatusDispensing:       "dispensing",
+		StatusDispensed:        "dispensed",
+		StatusReturned:         "returned",
+		StatusCancelled:        "cancelled",
+	}
+	for s, want := range cases {
+		if got := s.String(); got != want {
+			t.Fatalf("%v.String() = %s, want %s", s, got, want)
+		}
+	}
+}
+
+func TestValid(t *testing.T) {
+	for _, s := range []Status{
+		StatusPendingReview, StatusReviewedPassed, StatusReviewedRejected,
+		StatusDispensing, StatusDispensed, StatusReturned, StatusCancelled,
+	} {
+		if !s.Valid() {
+			t.Fatalf("%s 应为合法状态", s)
+		}
+	}
+	if Status("unknown").Valid() {
+		t.Fatal("未知状态不应合法")
+	}
+}
+
+func TestCanTransitToUnknownState(t *testing.T) {
+	if _, ok := StatusDispensed.CanTransitTo(Status("unknown")); ok {
+		t.Fatal("流转到未定义状态应被拒绝")
+	}
+	if _, ok := Status("unknown").CanTransitTo(StatusDispensed); ok {
+		t.Fatal("从未定义状态流转应被拒绝")
+	}
+}

@@ -25,31 +25,33 @@ func NewInventoryHandler(svc *service.InventoryService) *InventoryHandler {
 }
 
 // Register 注册路由。
-func (h *InventoryHandler) Register(r *gin.RouterGroup, _ *gin.RouterGroup, adminOnly *gin.RouterGroup) {
-	r.GET("/inventory", h.List)
-	r.GET("/inventory/:id", h.GetDetail)
-	r.GET("/inventory/locations", h.ListLocations)
-	adminOnly.POST("/inventory/locations", h.CreateLocation)
-	adminOnly.PUT("/inventory/locations/:id", h.UpdateLocation)
-	r.POST("/inventory/transfer", h.Transfer)
-	r.POST("/inventory/split", h.Split)
-	r.POST("/inventory/split-units", h.SplitUnits)
-	r.POST("/inventory/adjust", h.Adjust)
-	r.POST("/inventory/stock-in", h.StockIn)
-	r.POST("/inventory/requisition", h.Requisition)
-	r.GET("/inventory/transactions", h.ListTransactions)
-	r.GET("/inventory/expiry-warnings", h.ListExpiryWarnings)
-	r.GET("/inventory/stock-warnings", h.ListStockWarnings)
-	r.POST("/inventory/alerts/:id/resolve", h.ResolveAlert)
-	r.GET("/inventory/drugs/:id/availability", h.Availability)
-	r.GET("/inventory/stocktakes", h.ListStocktakes)
-	r.POST("/inventory/stocktakes", h.CreateStocktake)
-	r.GET("/inventory/stocktakes/:id", h.GetStocktake)
-	r.POST("/inventory/stocktakes/:id/start", h.StartStocktake)
-	r.POST("/inventory/stocktakes/:id/items", h.EnterCounted)
-	r.POST("/inventory/stocktakes/:id/adjust", h.AdjustStocktake)
-	r.POST("/inventory/stocktakes/:id/complete", h.CompleteStocktake)
-	r.POST("/inventory/stocktakes/:id/cancel", h.CancelStocktake)
+func (h *InventoryHandler) Register(g Groups) {
+	g.Authed.GET("/inventory", h.List)
+	g.Authed.GET("/inventory/:id", h.GetDetail)
+	g.Authed.GET("/inventory/locations", h.ListLocations)
+	g.UserAdmin.POST("/inventory/locations", h.CreateLocation)
+	g.UserAdmin.PUT("/inventory/locations/:id", h.UpdateLocation)
+	g.Pharmacy.POST("/inventory/transfer", h.Transfer)
+	g.Pharmacy.POST("/inventory/split", h.Split)
+	g.Pharmacy.POST("/inventory/split-units", h.SplitUnits)
+	g.Authed.GET("/inventory/split-orders", h.ListSplitOrders)
+	g.Authed.GET("/inventory/split-orders/:id", h.GetSplitOrder)
+	g.Pharmacy.POST("/inventory/adjust", h.Adjust)
+	g.Pharmacy.POST("/inventory/stock-in", h.StockIn)
+	g.Pharmacy.POST("/inventory/requisition", h.Requisition)
+	g.Authed.GET("/inventory/transactions", h.ListTransactions)
+	g.Authed.GET("/inventory/expiry-warnings", h.ListExpiryWarnings)
+	g.Authed.GET("/inventory/stock-warnings", h.ListStockWarnings)
+	g.Pharmacy.POST("/inventory/alerts/:id/resolve", h.ResolveAlert)
+	g.Authed.GET("/inventory/drugs/:id/availability", h.Availability)
+	g.Authed.GET("/inventory/stocktakes", h.ListStocktakes)
+	g.Pharmacy.POST("/inventory/stocktakes", h.CreateStocktake)
+	g.Authed.GET("/inventory/stocktakes/:id", h.GetStocktake)
+	g.Pharmacy.POST("/inventory/stocktakes/:id/start", h.StartStocktake)
+	g.Pharmacy.POST("/inventory/stocktakes/:id/items", h.EnterCounted)
+	g.Pharmacy.POST("/inventory/stocktakes/:id/adjust", h.AdjustStocktake)
+	g.Pharmacy.POST("/inventory/stocktakes/:id/complete", h.CompleteStocktake)
+	g.Pharmacy.POST("/inventory/stocktakes/:id/cancel", h.CancelStocktake)
 }
 
 // List godoc
@@ -198,8 +200,10 @@ func (h *InventoryHandler) Transfer(c *gin.Context) {
 }
 
 type splitRequest struct {
-	InventoryID int64 `json:"inventory_id" binding:"required"`
-	Packs       int64 `json:"packs" binding:"required"`
+	InventoryID  int64  `json:"inventory_id" binding:"required"`
+	Packs        int64  `json:"packs" binding:"required"`
+	ReviewerID   int64  `json:"reviewer_id"` // 复核人（麻精强制双人）
+	ReviewerName string `json:"reviewer_name"`
 }
 
 // Split godoc
@@ -216,8 +220,10 @@ func (h *InventoryHandler) Split(c *gin.Context) {
 		Error(c, errs.ErrBadRequest)
 		return
 	}
-	if err := h.svc.Split(c.Request.Context(), service.SplitRequest{InventoryID: req.InventoryID, Packs: req.Packs},
-		middleware.UserIDFromCtx(c), middleware.UserNameFromCtx(c)); err != nil {
+	if err := h.svc.Split(c.Request.Context(), service.SplitRequest{
+		InventoryID: req.InventoryID, Packs: req.Packs,
+		ReviewerID: req.ReviewerID, ReviewerName: req.ReviewerName,
+	}, middleware.UserIDFromCtx(c), middleware.UserNameFromCtx(c)); err != nil {
 		Error(c, err)
 		return
 	}
@@ -225,10 +231,12 @@ func (h *InventoryHandler) Split(c *gin.Context) {
 }
 
 type splitUnitsRequest struct {
-	InventoryID int64 `json:"inventory_id" binding:"required"`
-	Boxes       int64 `json:"boxes" binding:"required"`
-	Units       int64 `json:"units" binding:"required"`
-	Damaged     int64 `json:"damaged"`
+	InventoryID  int64  `json:"inventory_id" binding:"required"`
+	Boxes        int64  `json:"boxes" binding:"required"`
+	Units        int64  `json:"units" binding:"required"`
+	Damaged      int64  `json:"damaged"`
+	ReviewerID   int64  `json:"reviewer_id"` // 复核人（麻精强制双人）
+	ReviewerName string `json:"reviewer_name"`
 }
 
 // SplitUnits godoc
@@ -247,11 +255,59 @@ func (h *InventoryHandler) SplitUnits(c *gin.Context) {
 	}
 	if err := h.svc.SplitUnits(c.Request.Context(), service.SplitUnitsRequest{
 		InventoryID: req.InventoryID, Boxes: req.Boxes, Units: req.Units, Damaged: req.Damaged,
+		ReviewerID: req.ReviewerID, ReviewerName: req.ReviewerName,
 	}, middleware.UserIDFromCtx(c), middleware.UserNameFromCtx(c)); err != nil {
 		Error(c, err)
 		return
 	}
 	OK(c, nil)
+}
+
+// ListSplitOrders godoc
+// @Summary 拆零操作单列表
+// @Tags inventory
+// @Security BearerAuth
+// @Param drug_id query int false "药品ID"
+// @Param location_id query int false "库房ID"
+// @Param page query int false "页码"
+// @Param page_size query int false "每页条数"
+// @Success 200 {object} Body
+// @Router /inventory/split-orders [get]
+func (h *InventoryHandler) ListSplitOrders(c *gin.Context) {
+	var q pagination.Query
+	if err := c.ShouldBindQuery(&q); err != nil {
+		Error(c, errs.ErrBadRequest)
+		return
+	}
+	q.Normalize()
+	list, total, err := h.svc.ListSplitOrders(c.Request.Context(),
+		int64(atoi(c.Query("drug_id"))), int64(atoi(c.Query("location_id"))), q.Page, q.PageSize)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+	OK(c, pagination.Of(list, total, &q))
+}
+
+// GetSplitOrder godoc
+// @Summary 拆零操作单详情
+// @Tags inventory
+// @Security BearerAuth
+// @Param id path int true "拆零单ID"
+// @Success 200 {object} Body
+// @Router /inventory/split-orders/{id} [get]
+func (h *InventoryHandler) GetSplitOrder(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		Error(c, errs.ErrBadRequest)
+		return
+	}
+	o, err := h.svc.GetSplitOrder(c.Request.Context(), id)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+	OK(c, o)
 }
 
 type adjustRequest struct {
@@ -410,11 +466,17 @@ func (h *InventoryHandler) listAlerts(c *gin.Context, alertType string) {
 	OK(c, pagination.Of(list, total, &q))
 }
 
+type resolveAlertRequest struct {
+	Action string `json:"action"` // resolved / ignored
+}
+
 // ResolveAlert godoc
-// @Summary 处理预警
+// @Summary 处理预警（已处理/忽略）
 // @Tags inventory
+// @Accept json
 // @Security BearerAuth
 // @Param id path int true "预警ID"
+// @Param body body resolveAlertRequest false "处理动作"
 // @Success 200 {object} Body
 // @Router /inventory/alerts/{id}/resolve [post]
 func (h *InventoryHandler) ResolveAlert(c *gin.Context) {
@@ -423,7 +485,13 @@ func (h *InventoryHandler) ResolveAlert(c *gin.Context) {
 		Error(c, errs.ErrBadRequest)
 		return
 	}
-	if err := h.svc.ResolveAlert(c.Request.Context(), id); err != nil {
+	var req resolveAlertRequest
+	_ = c.ShouldBindJSON(&req)
+	action := req.Action
+	if action == "" {
+		action = "resolved"
+	}
+	if err := h.svc.ResolveAlert(c.Request.Context(), id, action, middleware.UserIDFromCtx(c), middleware.UserNameFromCtx(c)); err != nil {
 		Error(c, err)
 		return
 	}

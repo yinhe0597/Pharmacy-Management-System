@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+
+	"yaofang/internal/model"
 )
 
 // ReportRepo 报表聚合仓储（汇总口径见 docs/04 §8）。
@@ -153,6 +155,88 @@ func (r *ReportRepo) DispensingWorkload(ctx context.Context, start, end *time.Ti
 		ORDER BY date, dispensed_name`
 	if err := r.db.WithContext(ctx).Raw(sql, start, end).Scan(&rows).Error; err != nil {
 		return nil, err
+	}
+	return rows, nil
+}
+
+// SplitStatRow 拆零统计行（docs/13 F5：拆零量/损耗/毛利）。
+type SplitStatRow struct {
+	DrugID       int64  `json:"drug_id"`
+	DrugName     string `json:"drug_name"`
+	SplitBoxes   int64  `json:"split_boxes"`   // 拆零盒数（split_out）
+	SplitUnits   int64  `json:"split_units"`   // 拆零入片数（split_in）
+	LossUnits    int64  `json:"loss_units"`    // 拆零损耗片数 = 拆盒数×包装含量 − 入片数
+	SplitCost    int64  `json:"split_cost"`    // 拆零成本（分，拆零操作单进价口径）
+	SplitRevenue int64  `json:"split_revenue"` // 拆零收入（分，拆零发药记录金额）
+	Margin       int64  `json:"margin"`        // 拆零毛利（分）= 收入 − 成本
+}
+
+// SplitStatistics 期间拆零统计（按药品聚合）。损耗按「应拆出片数 − 实际入片数」估算；
+// 成本来自拆零操作单（split_orders），收入来自拆零发药记录（is_split=true）。
+func (r *ReportRepo) SplitStatistics(ctx context.Context, start, end *time.Time) ([]SplitStatRow, error) {
+	rows := []SplitStatRow{}
+	sql := `
+		WITH stats AS (
+			SELECT t.drug_id,
+			       COALESCE(SUM(CASE WHEN t.txn_type = 'split_out' THEN -t.quantity ELSE 0 END), 0) AS split_boxes,
+			       COALESCE(SUM(CASE WHEN t.txn_type = 'split_in' THEN t.quantity ELSE 0 END), 0) AS split_units
+			FROM inventory_transactions t
+			WHERE t.txn_type IN ('split_out', 'split_in')
+			  AND t.created_at >= ? AND t.created_at <= ?
+			GROUP BY t.drug_id
+		),
+		cost AS (
+			SELECT drug_id, SUM(units * split_unit_cost) AS split_cost
+			FROM split_orders
+			WHERE created_at >= ? AND created_at <= ?
+			GROUP BY drug_id
+		),
+		revenue AS (
+			SELECT rec.drug_id, SUM(rec.amount) AS split_revenue
+			FROM prescription_dispense_records rec
+			WHERE rec.is_split = TRUE AND rec.created_at >= ? AND rec.created_at <= ?
+			GROUP BY rec.drug_id
+		)
+		SELECT s.drug_id,
+		       COALESCE(d.generic_name, '') AS drug_name,
+		       s.split_boxes,
+		       s.split_units,
+		       COALESCE(c.split_cost, 0)    AS split_cost,
+		       COALESCE(r.split_revenue, 0) AS split_revenue,
+		       0 AS loss_units,
+		       0 AS margin
+		FROM stats s
+		JOIN drugs d ON d.id = s.drug_id
+		LEFT JOIN cost c ON c.drug_id = s.drug_id
+		LEFT JOIN revenue r ON r.drug_id = s.drug_id
+		ORDER BY s.drug_id`
+	if err := r.db.WithContext(ctx).Raw(sql, start, end, start, end, start, end).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	// 损耗 = 拆盒数 × 包装含量 − 入片数（需按药品取 pack_size）
+	var packs []struct {
+		DrugID   int64
+		PackSize int
+	}
+	if err := r.db.WithContext(ctx).Model(&model.Drug{}).
+		Select("id AS drug_id, pack_size").Scan(&packs).Error; err != nil {
+		return nil, err
+	}
+	packByID := make(map[int64]int, len(packs))
+	for _, p := range packs {
+		packByID[p.DrugID] = p.PackSize
+	}
+	for i := range rows {
+		ps := packByID[rows[i].DrugID]
+		if ps <= 0 {
+			ps = 1
+		}
+		loss := rows[i].SplitBoxes*int64(ps) - rows[i].SplitUnits
+		if loss < 0 {
+			loss = 0
+		}
+		rows[i].LossUnits = loss
+		rows[i].Margin = rows[i].SplitRevenue - rows[i].SplitCost
 	}
 	return rows, nil
 }

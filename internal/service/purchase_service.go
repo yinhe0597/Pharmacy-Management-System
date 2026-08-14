@@ -66,7 +66,7 @@ func (s *PurchaseService) CreateOrder(ctx context.Context, supplierID int64, ite
 		drug, err := drugRepo.GetByID(ctx, it.DrugID)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil, errs.New(1008, "药品不存在", 404)
+				return nil, errs.ErrDrugNotFound
 			}
 			return nil, err
 		}
@@ -172,7 +172,7 @@ func (s *PurchaseService) Receive(ctx context.Context, orderID int64, items []Re
 				return errs.ErrBadRequest
 			}
 			if it.ReceivedQuantity <= 0 || it.ReceivedQuantity > poIt.Quantity-poIt.ReceivedQuantity {
-				return errs.New(2011, "收货数量超过未收数量", 400)
+				return errs.ErrReceiveExceeded
 			}
 			if it.BatchNo == "" || it.ExpiryDate.IsZero() {
 				return errs.ErrBadRequest
@@ -203,6 +203,8 @@ func (s *PurchaseService) Receive(ctx context.Context, orderID int64, items []Re
 
 // CompleteReceipt 收货确认入库：质检合格才允许，批次写入库存。
 // 质检不合格时在独立事务中落库 qc_failed（避免被回滚）。
+//
+//nolint:gocyclo // 两阶段质检入库须整体原子完成，拆分会破坏「不合格落库+主事务回滚」语义
 func (s *PurchaseService) CompleteReceipt(ctx context.Context, receiptID int64, operatorID int64, operatorName string) error {
 	// 阶段一：锁定收货单并校验状态与质检；质检不合格则落库 qc_failed 并返回。
 	var qcFailed bool
@@ -271,7 +273,7 @@ func (s *PurchaseService) CompleteReceipt(ctx context.Context, receiptID int64, 
 					return err
 				}
 				if poIt.ReceivedQuantity+it.ReceivedQuantity > poIt.Quantity {
-					return errs.New(2011, "收货数量超过未收数量", 400)
+					return errs.ErrReceiveExceeded
 				}
 				if err := poItemRepo.UpdateReceived(ctx, poIt.ID, it.ReceivedQuantity); err != nil {
 					return err

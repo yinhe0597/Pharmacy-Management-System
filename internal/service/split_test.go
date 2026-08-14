@@ -190,10 +190,10 @@ func TestMixedDispense(t *testing.T) {
 	if _, err := presc.Review(ctx, p.ID, service.AuditInput{Action: "pass"}, 2, "药师B"); err != nil {
 		t.Fatalf("审核失败: %v", err)
 	}
-	if err := presc.Dispense(ctx, p.ID, 3, "调配员"); err != nil {
+	if err := presc.Dispense(ctx, p.ID, 3, "调配员", "pharmacist"); err != nil {
 		t.Fatalf("调配失败: %v", err)
 	}
-	if err := presc.ConfirmDispense(ctx, p.ID, 4, "核对员"); err != nil {
+	if err := presc.ConfirmDispense(ctx, p.ID, 4, "核对员", "pharmacist"); err != nil {
 		t.Fatalf("发药确认失败: %v", err)
 	}
 
@@ -268,10 +268,10 @@ func TestAutoSplit(t *testing.T) {
 	if _, err := presc.Review(ctx, p.ID, service.AuditInput{Action: "pass"}, 2, "药师B"); err != nil {
 		t.Fatalf("审核失败: %v", err)
 	}
-	if err := presc.Dispense(ctx, p.ID, 3, "调配员"); err != nil {
+	if err := presc.Dispense(ctx, p.ID, 3, "调配员", "pharmacist"); err != nil {
 		t.Fatalf("调配失败: %v", err)
 	}
-	if err := presc.ConfirmDispense(ctx, p.ID, 4, "核对员"); err != nil {
+	if err := presc.ConfirmDispense(ctx, p.ID, 4, "核对员", "pharmacist"); err != nil {
 		t.Fatalf("发药确认失败: %v", err)
 	}
 
@@ -357,10 +357,10 @@ func TestAutoSplitPartialSplit(t *testing.T) {
 	if _, err := presc.Review(ctx, p.ID, service.AuditInput{Action: "pass"}, 2, "药师B"); err != nil {
 		t.Fatalf("审核失败: %v", err)
 	}
-	if err := presc.Dispense(ctx, p.ID, 3, "调配员"); err != nil {
+	if err := presc.Dispense(ctx, p.ID, 3, "调配员", "pharmacist"); err != nil {
 		t.Fatalf("调配失败: %v", err)
 	}
-	if err := presc.ConfirmDispense(ctx, p.ID, 4, "核对员"); err != nil {
+	if err := presc.ConfirmDispense(ctx, p.ID, 4, "核对员", "pharmacist"); err != nil {
 		t.Fatalf("发药确认失败: %v", err)
 	}
 	// 发药后：拆零柜 6-6(用掉)+18(待拆盒余片)=18，整盒剩 0
@@ -426,9 +426,12 @@ func TestReturnSplitScenario(t *testing.T) {
 		t.Fatal("拆零不足时应规划待拆盒")
 	}
 	for _, fn := range []func() error{
-		func() error { _, err := presc.Review(ctx, p1.ID, service.AuditInput{Action: "pass"}, 2, "药师B"); return err },
-		func() error { return presc.Dispense(ctx, p1.ID, 3, "调配员") },
-		func() error { return presc.ConfirmDispense(ctx, p1.ID, 4, "核对员") },
+		func() error {
+			_, err := presc.Review(ctx, p1.ID, service.AuditInput{Action: "pass"}, 2, "药师B")
+			return err
+		},
+		func() error { return presc.Dispense(ctx, p1.ID, 3, "调配员", "pharmacist") },
+		func() error { return presc.ConfirmDispense(ctx, p1.ID, 4, "核对员", "pharmacist") },
 	} {
 		if err := fn(); err != nil {
 			t.Fatalf("Rx1流程失败: %v", err)
@@ -453,10 +456,10 @@ func TestReturnSplitScenario(t *testing.T) {
 	if _, err := presc.Review(ctx, p2.ID, service.AuditInput{Action: "pass"}, 2, "药师B"); err != nil {
 		t.Fatalf("Rx2审核失败: %v", err)
 	}
-	if err := presc.Dispense(ctx, p2.ID, 3, "调配员"); err != nil {
+	if err := presc.Dispense(ctx, p2.ID, 3, "调配员", "pharmacist"); err != nil {
 		t.Fatalf("Rx2调配失败: %v", err)
 	}
-	if err := presc.ConfirmDispense(ctx, p2.ID, 4, "核对员"); err != nil {
+	if err := presc.ConfirmDispense(ctx, p2.ID, 4, "核对员", "pharmacist"); err != nil {
 		t.Fatalf("Rx2发药失败: %v", err)
 	}
 	if splitQty, _ := splitRowQty(t, db, drug.ID); splitQty != 9 {

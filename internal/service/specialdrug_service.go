@@ -136,8 +136,8 @@ func (s *SpecialDrugService) RegisterDispense(ctx context.Context, l *model.Spec
 func (s *SpecialDrugService) ListSpecialPrescriptions(ctx context.Context, status string, keyword string, page, pageSize int) ([]model.Prescription, int64, error) {
 	repo := repository.NewPrescriptionRepo(s.db)
 	f := repository.PrescriptionFilter{
-		Status:           status,
-		SpecialOnly:      true, // 仅特殊类型（prescription_type > 0）
+		Status:      status,
+		SpecialOnly: true, // 仅特殊类型（prescription_type > 0）
 	}
 	if keyword != "" {
 		f.PatientName = keyword

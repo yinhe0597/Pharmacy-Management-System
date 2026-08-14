@@ -1,0 +1,39 @@
+# 本地开发/集成测试环境：PostgreSQL 16 + 自动执行全部迁移
+# 用法：
+#   docker compose up -d db          # 仅启动数据库
+#   docker compose run --rm migrate  # 执行 migrations/*.up.sql（可重复）
+#   make db-up                       # 等价上面两步
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: yaofang
+      POSTGRES_PASSWORD: yaofang123
+      POSTGRES_DB: yaofang
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yaofang"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  migrate:
+    image: postgres:16
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: yaofang123
+    volumes:
+      - ./migrations:/migrations:ro
+    command: >
+      bash -c "for f in /migrations/*.up.sql; do
+        echo \"== $$f\";
+        psql -h db -U yaofang -d yaofang -v ON_ERROR_STOP=1 -f \"$$f\" || exit 1;
+      done"
+
+volumes:
+  pgdata:

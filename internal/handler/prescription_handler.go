@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"yaofang/internal/domain/enum"
 	"yaofang/internal/middleware"
 	"yaofang/internal/pkg/errs"
 	"yaofang/internal/pkg/pagination"
@@ -14,27 +15,28 @@ import (
 
 // PrescriptionHandler 处方接口。
 type PrescriptionHandler struct {
-	svc *service.PrescriptionService
+	svc      *service.PrescriptionService
+	clinical *service.ClinicalService
 }
 
 // NewPrescriptionHandler 构建处方 Handler。
-func NewPrescriptionHandler(svc *service.PrescriptionService) *PrescriptionHandler {
-	return &PrescriptionHandler{svc: svc}
+func NewPrescriptionHandler(svc *service.PrescriptionService, clinical *service.ClinicalService) *PrescriptionHandler {
+	return &PrescriptionHandler{svc: svc, clinical: clinical}
 }
 
 // Register 注册路由。
-func (h *PrescriptionHandler) Register(r *gin.RouterGroup, _ *gin.RouterGroup, _ *gin.RouterGroup) {
-	r.POST("/prescriptions", h.Create)
-	r.PUT("/prescriptions/:id", h.Update)
-	r.POST("/prescriptions/:id/submit", h.Submit)
-	r.POST("/prescriptions/:id/review", h.Review)
-	r.POST("/prescriptions/:id/dispense", h.Dispense)
-	r.POST("/prescriptions/:id/confirm-dispense", h.ConfirmDispense)
-	r.POST("/prescriptions/:id/return", h.Return)
-	r.POST("/prescriptions/:id/cancel", h.Cancel)
-	r.GET("/prescriptions", h.List)
-	r.GET("/prescriptions/:id", h.Get)
-	r.GET("/prescriptions/:id/audit-log", h.AuditLog)
+func (h *PrescriptionHandler) Register(g Groups) {
+	g.Clinical.POST("/prescriptions", h.Create)
+	g.Clinical.PUT("/prescriptions/:id", h.Update)
+	g.Clinical.POST("/prescriptions/:id/submit", h.Submit)
+	g.DrugAdmin.POST("/prescriptions/:id/review", h.Review)
+	g.Pharmacy.POST("/prescriptions/:id/dispense", h.Dispense)
+	g.Pharmacy.POST("/prescriptions/:id/confirm-dispense", h.ConfirmDispense)
+	g.Pharmacy.POST("/prescriptions/:id/return", h.Return)
+	g.Pharmacy.POST("/prescriptions/:id/cancel", h.Cancel)
+	g.Authed.GET("/prescriptions", h.List)
+	g.Authed.GET("/prescriptions/:id", h.Get)
+	g.Authed.GET("/prescriptions/:id/audit-log", h.AuditLog)
 }
 
 // Create godoc
@@ -108,7 +110,7 @@ func (h *PrescriptionHandler) Submit(c *gin.Context) {
 
 // Review godoc
 // @Summary 处方审核（仅药师/药房主任可执行）
-// @Description 审核动作：pass(通过)→调配中；reject(驳回)→释放预占；return(退回医生)→保持待审核+保留预占，医生可修改后重提交。
+// @Description 审核动作：pass(通过)→调配中；reject(驳回)→释放预占；return(退回医生)→保持待审核+释放预占，医生修改后重新提交再预占。
 // @Tags prescriptions
 // @Accept json
 // @Security BearerAuth
@@ -117,9 +119,8 @@ func (h *PrescriptionHandler) Submit(c *gin.Context) {
 // @Success 200 {object} Body
 // @Router /prescriptions/{id}/review [post]
 func (h *PrescriptionHandler) Review(c *gin.Context) {
-	// 仅药师和药房主任可审核处方
-	role := middleware.UserRoleFromCtx(c)
-	if role != "pharmacist" && role != "pharmacy_director" && role != "admin" {
+	// 仅药师和药房主任可审核处方（路由分组已限制，此处双保险）
+	if !enum.IsPharmacistRole(middleware.UserRoleFromCtx(c)) {
 		Error(c, errs.ErrForbidden)
 		return
 	}
@@ -154,15 +155,11 @@ func (h *PrescriptionHandler) Dispense(c *gin.Context) {
 		Error(c, errs.ErrBadRequest)
 		return
 	}
-	if err := h.svc.Dispense(c.Request.Context(), id, middleware.UserIDFromCtx(c), middleware.UserNameFromCtx(c)); err != nil {
+	if err := h.svc.Dispense(c.Request.Context(), id, middleware.UserIDFromCtx(c), middleware.UserNameFromCtx(c), middleware.UserRoleFromCtx(c)); err != nil {
 		Error(c, err)
 		return
 	}
 	OK(c, nil)
-}
-
-type confirmDispenseRequest struct {
-	CheckerID int64 `json:"checker_id"`
 }
 
 // ConfirmDispense godoc
@@ -171,7 +168,6 @@ type confirmDispenseRequest struct {
 // @Accept json
 // @Security BearerAuth
 // @Param id path int true "处方ID"
-// @Param body body confirmDispenseRequest true "核对药师"
 // @Success 200 {object} Body
 // @Router /prescriptions/{id}/confirm-dispense [post]
 func (h *PrescriptionHandler) ConfirmDispense(c *gin.Context) {
@@ -180,13 +176,9 @@ func (h *PrescriptionHandler) ConfirmDispense(c *gin.Context) {
 		Error(c, errs.ErrBadRequest)
 		return
 	}
-	var req confirmDispenseRequest
-	_ = c.ShouldBindJSON(&req)
-	checkerID := req.CheckerID
-	if checkerID == 0 {
-		checkerID = middleware.UserIDFromCtx(c)
-	}
-	if err := h.svc.ConfirmDispense(c.Request.Context(), id, checkerID, middleware.UserNameFromCtx(c)); err != nil {
+	// 核对人 = 当前登录用户（双人核对由服务层校验与调配人分离；checker_id 不再由客户端指定）
+	checkerID := middleware.UserIDFromCtx(c)
+	if err := h.svc.ConfirmDispense(c.Request.Context(), id, checkerID, middleware.UserNameFromCtx(c), middleware.UserRoleFromCtx(c)); err != nil {
 		Error(c, err)
 		return
 	}
@@ -216,6 +208,13 @@ func (h *PrescriptionHandler) Return(c *gin.Context) {
 	if err := h.svc.Return(c.Request.Context(), id, req.Items, middleware.UserIDFromCtx(c), middleware.UserNameFromCtx(c)); err != nil {
 		Error(c, err)
 		return
+	}
+	// 退药成功后联动冲正计费（负金额计费记录；失败不影响退药，可重试）
+	if h.clinical != nil {
+		if err := h.clinical.RefundPrescription(c.Request.Context(), id, req.Items, middleware.UserIDFromCtx(c), middleware.UserNameFromCtx(c)); err != nil {
+			Error(c, err)
+			return
+		}
 	}
 	OK(c, nil)
 }

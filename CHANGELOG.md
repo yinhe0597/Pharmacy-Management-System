@@ -2,6 +2,53 @@
 
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 与 [Keep a Changelog](https://keepachangelog.com/zh-CN/)。
 
+## [Unreleased]
+
+### 修复（针对 docs/14 审阅发现的问题）
+
+- **RBAC 角色权限落地**：所有业务模块写操作按角色矩阵分组——处方开立（ClinicalStaff）、
+  处方执行/库存写/药学服务/计费（PharmacyStaff）、药品/分类/配伍/交互规则/特殊药品目录（DrugAdmin）、
+  采购/供应商（PurchaseStaff）、报表（ReportAccess）、用户管理（UserAdmin，含药房主任）。
+  此前除用户管理与处方审核外，所有路由实际对任意登录用户开放（护士可开方、采购员可改库存等越权）。
+- **修复「退回医生」死路**：`Review(action=return)` 由「保留预占」改为**释放预占**（保持 `pending_review`），
+  与 `Update` 的「无预占才可改」不变量一致，医生修改后可重新提交再预占（此前退回后因存在预占而无法修改）。
+- **麻精「双人核对」强制**：`confirm-dispense` 的核对人改为当前登录用户（不再由客户端指定 `checker_id`）；
+  特殊药品（麻醉/精神）发药强制「调配人 ≠ 核对人」双人分离（`4003`）且调配/核对须为药师角色。
+- **v1.3 参考数据接线**：ICD-10/集采/医保/耗材/非医保 5 张参考表新增只读查询 API
+  （`GET /reference/*`，keyword/拼音码模糊搜索 + 分页），此前数据已入库但零代码接入。
+- **工程化清理**：错误码内联魔法数集中到 `pkg/errs`（1006-1009、2009-2012、4003）；
+  审核角色判断改枚举；Swagger 版本统一为 1.3.0；全库 `gofmt` 对齐。
+
+### 新增（P1 功能补强）
+
+- **患者档案落地**（迁移 `000020`）：`patients` + `patient_allergies` 表，`prescriptions` 增加 `is_lactating`；
+  完整实现 `port.IPatientService`（替换 `SimplePatientService`），新增患者档案/过敏史 CRUD 接口
+  （`/patients`、`/patients/:id/allergies`）。处方录入支持 `patient_id` 与 `is_lactating`，
+  审核时自动带入过敏史（3010）与哺乳期慎用（3011）检查——激活交互引擎此前「能力就绪但无数据入口」的患者级检查。
+- **预警处置闭环**（迁移 `000021`）：`stock_alerts` 记录处理人与处理时间，
+  `POST /inventory/alerts/:id/resolve` 支持 `resolved`/`ignored` 状态流转（操作人取自 JWT）。
+- **药品↔医保/集采目录匹配标注**（迁移 `000022`）：`drugs` 增加 `insurance_class`/`vbp_batch` 字段，
+  新增 `GET /reference/drug-match?name=` 按药品名精确匹配医保类别与集采批次，供录入端自动标注。
+- **计费闭环**（迁移 `000023`）：`charge_records` 增加来源单据字段（`ref_type`/`ref_id`），
+  新增 `POST /charge-records/from-prescription/:id` 从已发药处方按发药快照价生成计费（幂等）；
+  退药时联动写入负金额冲正记录（按处方快照价，混合口径与开方计价一致）。
+- **拆零统计报表**（docs/13 F5）：`GET /reports/split-statistics` 按药品聚合期间拆零盒数/入片数/损耗片数，
+  含拆零成本/收入/毛利（成本来自拆零操作单、收入来自拆零发药记录）。
+- **拆零操作单**（docs/13 F4，迁移 `000024`）：`split_orders` 表记录操作人/复核人/原因/来源行/结果行，
+  拆零接口支持 `reviewer_id` 复核人；麻精药品拆零强制双人复核（`2013`，复核人 ≠ 操作人）。
+  新增 `GET /inventory/split-orders` 列表与详情。
+- **处方剂量一致性校验**：明细 `single_dose`/`total_daily_dose`/`days` 非负校验；
+  数量不超过「日总剂量 × 天数」上限（`3012`），防录入错误。
+
+### 工程化（P2 收尾）
+
+- **CI 接入 golangci-lint**（`.golangci.yml`：govet/errcheck/staticcheck/ineffassign/unused/gosimple/gocyclo/misspell），
+  本轮清零全部问题（含 1 处领用出库流水未检错误、1 处无效赋值、2 处死代码）。
+- **CI 覆盖率门槛**：`scripts/check_domain_coverage.sh` 校验 domain 包 ≥ 85%
+  （补齐 enum/prescription/rule 测试至 100%、interaction 至 92.7%）。
+- **本地集成测试环境**：`docker-compose.yml`（postgres:16 + 自动迁移）+ `make db-up/db-down`。
+- **补测试**：中间件 RBAC 403 用例、`itemAmount` 计价口径用例、过敏匹配/去重/状态机/角色分组用例。
+
 ## [v1.3.0] - 2026-08-02
 
 ### 基础参考数据（种子）

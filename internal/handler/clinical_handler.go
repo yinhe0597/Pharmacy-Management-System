@@ -21,15 +21,16 @@ func NewClinicalHandler(svc *service.ClinicalService) *ClinicalHandler {
 	return &ClinicalHandler{svc: svc}
 }
 
-func (h *ClinicalHandler) Register(authed *gin.RouterGroup, _ *gin.RouterGroup, _ *gin.RouterGroup) {
-	// 诊疗项目目录
-	authed.GET("/clinical-services", h.ListServices)
-	authed.POST("/clinical-services", h.CreateService)
-	authed.PUT("/clinical-services/:id", h.UpdateService)
-	authed.DELETE("/clinical-services/:id", h.DeleteService)
-	// 计费记录
-	authed.GET("/charge-records", h.ListCharges)
-	authed.POST("/charge-records", h.CreateCharge)
+func (h *ClinicalHandler) Register(g Groups) {
+	// 诊疗项目目录（目录维护为药房专业角色；录入计费为药房工作人员）
+	g.Authed.GET("/clinical-services", h.ListServices)
+	g.DrugAdmin.POST("/clinical-services", h.CreateService)
+	g.DrugAdmin.PUT("/clinical-services/:id", h.UpdateService)
+	g.DrugAdmin.DELETE("/clinical-services/:id", h.DeleteService)
+	// 计费记录（护士/医生/药师/管理员可录入）
+	g.Authed.GET("/charge-records", h.ListCharges)
+	g.Pharmacy.POST("/charge-records", h.CreateCharge)
+	g.Pharmacy.POST("/charge-records/from-prescription/:id", h.ChargePrescription)
 }
 
 // ---- 诊疗项目 ----
@@ -172,4 +173,25 @@ func (h *ClinicalHandler) CreateCharge(c *gin.Context) {
 		return
 	}
 	OK(c, cr)
+}
+
+// ChargePrescription godoc
+// @Summary 从已发药处方生成计费记录（幂等）
+// @Tags charge-records
+// @Security BearerAuth
+// @Param id path int true "处方ID"
+// @Success 200 {object} Body
+// @Router /charge-records/from-prescription/{id} [post]
+func (h *ClinicalHandler) ChargePrescription(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		Error(c, errs.ErrBadRequest)
+		return
+	}
+	list, err := h.svc.ChargePrescription(c.Request.Context(), id, middleware.UserIDFromCtx(c), middleware.UserNameFromCtx(c))
+	if err != nil {
+		Error(c, err)
+		return
+	}
+	OK(c, list)
 }

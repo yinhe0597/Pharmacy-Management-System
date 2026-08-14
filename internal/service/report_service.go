@@ -60,3 +60,12 @@ func (s *ReportService) DispensingWorkload(ctx context.Context, start, end *time
 	}
 	return repository.NewReportRepo(s.db).DispensingWorkload(ctx, st, ed)
 }
+
+// SplitStatistics 拆零统计（拆零量/损耗）。
+func (s *ReportService) SplitStatistics(ctx context.Context, start, end *time.Time) ([]repository.SplitStatRow, error) {
+	st, ed, err := parsePeriod(start, end)
+	if err != nil {
+		return nil, err
+	}
+	return repository.NewReportRepo(s.db).SplitStatistics(ctx, st, ed)
+}

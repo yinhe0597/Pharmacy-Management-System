@@ -70,4 +70,7 @@ func TestToLDU(t *testing.T) {
 	if SplitFromLDU(125, 24) != 5 {
 		t.Fatal("125 LDU / 24 向下取整应为 5 盒")
 	}
+	if SplitFromLDU(100, 0) != 0 {
+		t.Fatal("packSize 非法应返回 0")
+	}
 }

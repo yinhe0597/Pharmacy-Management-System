@@ -13,15 +13,16 @@ Go 1.22+ / Gin / GORM / PostgreSQL 14+ / golang-migrate（SQL 迁移）/ JWT / r
 ## 功能概览
 
 - **药房物品**：药品+耗材统一管理（item_type），批号效期/FEFO/拆零/配伍禁忌
-- **药物相互作用引擎**：4 策略分层匹配（显式→成分→分类→标签）、患者个体化禁忌、37 条种子规则
+- **药物相互作用引擎**：4 策略分层匹配（显式→成分→分类→标签）、患者个体化禁忌（年龄/妊娠/哺乳/过敏史）、37 条种子规则
 - **采购**：供应商、采购单状态机、质检收货（批次/效期绑定）
-- **库存**：FEFO 发药、预占/实扣/释放、调拨、盘点、预警、**领用出库**（内部消耗不计费）
-- **拆零**：按盒/按片拆零、混合发药（LDU 精确计价）、自动拆零
-- **处方**：录入→药师审核（pass/reject/return）→调配→发药→退药全状态机
-- **诊疗项目**：手法复位/注射等不入药房库存，独立计价 → 计费记录统一入口
+- **库存**：FEFO 发药、预占/实扣/释放、调拨、盘点、预警处置闭环、**领用出库**（内部消耗不计费）
+- **拆零**：按盒/按片拆零、混合发药（LDU 精确计价）、自动拆零、**拆零操作单（麻精双人复核）**、拆零统计（量/损耗/毛利）
+- **处方**：录入→药师审核（pass/reject/return）→调配→发药→退药全状态机；麻精「调配+核对」双人强制；退药联动计费冲正
+- **患者档案**：建档/过敏史/哺乳史，处方审核自动带入过敏史禁忌（3010）与哺乳期慎用（3011）
+- **诊疗项目**：手法复位/注射等不入药房库存，独立计价 → 计费记录统一入口（从已发药处方一键计费）
 - **特殊药品「五专」**、**药学服务**、**报表**
-- **用户角色**：7 种角色分级权限，调配+核对由医生/药师兼任
-- **参考数据**：ICD-10 诊断编码（1,586 条）+ 国家集采药品目录（392 品种）+ 医保药品目录（3,313条）+ **非医保常用药品（362种）** + 医用耗材目录（141类）
+- **用户角色**：7 种角色分级权限（RBAC 按角色矩阵强制），调配+核对由医生/药师兼任
+- **参考数据**：ICD-10 诊断编码（1,586 条）+ 国家集采药品目录（392 品种）+ 医保药品目录（3,313条）+ **非医保常用药品（362种）** + 医用耗材目录（141类），提供只读查询与目录匹配 API
 - **二期预留**：`port` 三接口 + 契约测试
 
 ## 快速开始
@@ -34,11 +35,13 @@ Go 1.22+ / Gin / GORM / PostgreSQL 14+ / golang-migrate（SQL 迁移）/ JWT / r
 ### 2. 初始化数据库
 
 ```bash
-# 创建角色与数据库（postgres 超级用户）
+# 方式一：Docker 一键起库并执行全部迁移（推荐，含集成测试环境）
+make db-up                                   # 需 Docker Compose
+# 方式二：本机 PostgreSQL（postgres 超级用户）
 psql -U postgres -h localhost -c "CREATE ROLE yaofang LOGIN PASSWORD 'yaofang123';"
 psql -U postgres -h localhost -c "CREATE DATABASE yaofang OWNER yaofang;"
 
-# 依次执行全部迁移与种子（migrations/NNNNNN_*.up.sql，共 19 个版本）
+# 依次执行全部迁移与种子（migrations/NNNNNN_*.up.sql，共 25 个版本）
 for f in migrations/*.up.sql; do
   echo "== $f"
   psql -U postgres -h localhost -d yaofang -v ON_ERROR_STOP=1 -f "$f"
@@ -70,17 +73,20 @@ go build -o bin/yaofang.exe ./cmd/server && ./bin/yaofang.exe
 ### 5. 测试
 
 ```bash
-go test ./...                          # 单元测试（domain/money/rule）
-go test -tags=integration ./internal/service/   # 集成测试（需 PostgreSQL，走全链路）
+go test ./...                          # 单元测试（domain/service/middleware）
+go test -tags=integration ./internal/service/   # 集成测试（需 PostgreSQL，走全链路；先 make db-up）
+golangci-lint run ./...                # 静态检查（CI 门槛）
+bash scripts/check_domain_coverage.sh  # domain 覆盖率门槛（≥85%）
 python scripts/smoke_test.py           # HTTP 冒烟测试（需服务已启动）
 ```
 
 ## 项目状态
 
-一期已全部交付，v1.3.0 新增 5 张参考数据表（ICD-10 + 集采 + 医保 + 非医保 + 耗材），共计 **6,794 条**种子数据。
-功能完整、测试全绿（38 单元 + 24 集成）。
-详见 [CHANGELOG.md](CHANGELOG.md)。
+一期已全部交付：v1.3.0 新增 5 张参考数据表（ICD-10 + 集采 + 医保 + 非医保 + 耗材，共计 **6,794 条**种子数据），
+并已接线只读查询与目录匹配 API；后续迭代完成 RBAC 落地、麻精双人核对强制、患者档案、计费闭环、
+拆零操作单/统计、预警处置闭环与 CI lint/覆盖率门槛（迁移至 `000024`，共 25 个版本）。
+详见 [CHANGELOG.md](CHANGELOG.md) 与 [docs/14-现状分析与下一步建议.md](docs/14-现状分析与下一步建议.md)。
 
 ## 二期预留
 
-患者/计价/库存能力通过 `internal/service/port` 接口抽象，详见 [docs/05-二期预留接口设计.md](docs/05-二期预留接口设计.md)。
+患者/计价/库存能力通过 `internal/service/port` 接口抽象（患者服务已完整实现），详见 [docs/05-二期预留接口设计.md](docs/05-二期预留接口设计.md)。

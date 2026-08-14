@@ -1,5 +1,5 @@
 # 药房管理系统 Makefile（Linux / Git Bash）
-.PHONY: build run vet fmt fmt-check lint test test-integration swag ci db-migrate
+.PHONY: build run vet fmt fmt-check lint test test-integration swag ci db-migrate db-up db-down
 
 APP := bin/yaofang
 
@@ -26,8 +26,17 @@ lint:
 test:
 	go test ./...
 
+# 集成测试（需 PostgreSQL；本地可先 make db-up 用 Docker 起库并迁移）
 test-integration:
 	go test -tags=integration ./internal/service/
+
+# 本地集成测试环境：Docker 起 PG + 执行迁移（需 Docker Compose）
+db-up:
+	docker compose up -d db
+	docker compose run --rm migrate
+
+db-down:
+	docker compose down
 
 swag:
 	swag init -g cmd/server/main.go -o docs --parseDependency --parseInternal

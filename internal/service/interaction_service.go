@@ -226,8 +226,9 @@ func (s *InteractionService) buildPatientProfileFromPrescription(
 	ps port.IPatientService,
 ) *interaction.PatientProfile {
 	profile := &interaction.PatientProfile{
-		Gender:     p.PatientGender,
-		IsPregnant: p.IsPregnant,
+		Gender:      p.PatientGender,
+		IsPregnant:  p.IsPregnant,
+		IsLactating: p.IsLactating,
 	}
 	// 从年龄字符串解析年龄数值
 	if p.PatientAge != "" {
@@ -250,38 +251,6 @@ func (s *InteractionService) buildPatientProfileFromPrescription(
 					Severity: a.Severity,
 				})
 			}
-		}
-	}
-	return profile
-}
-
-// buildPatientProfile 构建患者画像（从 IPatientService 加载，二期使用）。
-func (s *InteractionService) buildPatientProfile(
-	ctx context.Context, patientID int64, ps port.IPatientService,
-) *interaction.PatientProfile {
-	profile := &interaction.PatientProfile{}
-	patient, err := ps.GetPatient(ctx, patientID)
-	if err == nil && patient != nil {
-		// 从年龄字符串解析年龄（简化处理）
-		if patient.Age != "" {
-			for _, c := range patient.Age {
-				if c >= '0' && c <= '9' {
-					profile.Age = profile.Age*10 + int(c-'0')
-				} else {
-					break
-				}
-			}
-		}
-		profile.Gender = patient.Gender
-	}
-	allergies, err := ps.GetAllergies(ctx, patientID)
-	if err == nil {
-		for _, a := range allergies {
-			profile.Allergies = append(profile.Allergies, interaction.AllergyInfo{
-				DrugName: a.DrugName,
-				Reaction: a.Reaction,
-				Severity: a.Severity,
-			})
 		}
 	}
 	return profile

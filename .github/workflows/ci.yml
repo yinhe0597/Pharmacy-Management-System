@@ -48,8 +48,17 @@ jobs:
           gofmt -l . | tee /dev/stderr
           test -z "$(gofmt -l .)"
 
+      - name: golangci-lint（docs/06 CI 门槛）
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.62.2
+          args: --timeout=5m
+
       - name: 单元测试
         run: go test ./...
+
+      - name: 覆盖率门槛（domain ≥ 85%）
+        run: bash scripts/check_domain_coverage.sh
 
       - name: 集成测试（真实 PostgreSQL）
         run: go test -tags=integration -count=1 ./internal/service/

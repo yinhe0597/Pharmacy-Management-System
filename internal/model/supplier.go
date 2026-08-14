@@ -26,13 +26,13 @@ func (Supplier) TableName() string { return "suppliers" }
 
 // DrugSupplier 药品-供应商供货关系。
 type DrugSupplier struct {
-	ID             int64     `gorm:"primaryKey" json:"id"`
-	DrugID         int64     `gorm:"not null;uniqueIndex:uq_drug_supplier" json:"drug_id"`
-	SupplierID     int64     `gorm:"not null;uniqueIndex:uq_drug_supplier" json:"supplier_id"`
-	IsDefault      bool      `gorm:"not null;default:false" json:"is_default"`
-	PurchasePrice  int64     `json:"purchase_price"`
-	LastPurchaseAt time.Time `json:"last_purchase_at"`
-	Status         int       `gorm:"not null;default:1" json:"status"`
+	ID             int64          `gorm:"primaryKey" json:"id"`
+	DrugID         int64          `gorm:"not null;uniqueIndex:uq_drug_supplier" json:"drug_id"`
+	SupplierID     int64          `gorm:"not null;uniqueIndex:uq_drug_supplier" json:"supplier_id"`
+	IsDefault      bool           `gorm:"not null;default:false" json:"is_default"`
+	PurchasePrice  int64          `json:"purchase_price"`
+	LastPurchaseAt time.Time      `json:"last_purchase_at"`
+	Status         int            `gorm:"not null;default:1" json:"status"`
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
 	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`

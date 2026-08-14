@@ -1,0 +1,30 @@
+# golangci-lint 配置（docs/06 §1 要求的 CI 门槛）
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  disable-all: true
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - ineffassign
+    - unused
+    - gosimple
+    - gocyclo
+    - misspell
+
+linters-settings:
+  gocyclo:
+    # 事务型方法复杂度阈值放宽到 25；超出者须显式 //nolint 并注明理由
+    min-complexity: 25
+  misspell:
+    locale: US
+    ignore-words:
+      - cancelled # 领域术语（状态值 cancelled 与数据库存储一致，不可改拼写）
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0

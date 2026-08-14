@@ -503,4 +503,3 @@ func (eng *Engine) checkDuplicateDrugs(items []PrescriptionItemInfo, drugs []Dru
 		})
 	}
 }
-

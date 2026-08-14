@@ -22,26 +22,26 @@ func NewInteractionHandler(svc *service.InteractionService) *InteractionHandler 
 }
 
 // Register 注册路由。
-func (h *InteractionHandler) Register(authed *gin.RouterGroup, _ *gin.RouterGroup, _ *gin.RouterGroup) {
+func (h *InteractionHandler) Register(g Groups) {
 	// 成分交互规则
-	authed.GET("/ingredient-interactions", h.ListIngredientInteractions)
-	authed.POST("/ingredient-interactions", h.CreateIngredientInteraction)
-	authed.PUT("/ingredient-interactions/:id", h.UpdateIngredientInteraction)
-	authed.DELETE("/ingredient-interactions/:id", h.DeleteIngredientInteraction)
+	g.Authed.GET("/ingredient-interactions", h.ListIngredientInteractions)
+	g.DrugAdmin.POST("/ingredient-interactions", h.CreateIngredientInteraction)
+	g.DrugAdmin.PUT("/ingredient-interactions/:id", h.UpdateIngredientInteraction)
+	g.DrugAdmin.DELETE("/ingredient-interactions/:id", h.DeleteIngredientInteraction)
 	// 分类交互规则
-	authed.GET("/class-interactions", h.ListClassInteractions)
-	authed.POST("/class-interactions", h.CreateClassInteraction)
-	authed.PUT("/class-interactions/:id", h.UpdateClassInteraction)
-	authed.DELETE("/class-interactions/:id", h.DeleteClassInteraction)
+	g.Authed.GET("/class-interactions", h.ListClassInteractions)
+	g.DrugAdmin.POST("/class-interactions", h.CreateClassInteraction)
+	g.DrugAdmin.PUT("/class-interactions/:id", h.UpdateClassInteraction)
+	g.DrugAdmin.DELETE("/class-interactions/:id", h.DeleteClassInteraction)
 	// 标签交互规则
-	authed.GET("/tag-interactions", h.ListTagInteractions)
-	authed.POST("/tag-interactions", h.CreateTagInteraction)
-	authed.PUT("/tag-interactions/:id", h.UpdateTagInteraction)
-	authed.DELETE("/tag-interactions/:id", h.DeleteTagInteraction)
+	g.Authed.GET("/tag-interactions", h.ListTagInteractions)
+	g.DrugAdmin.POST("/tag-interactions", h.CreateTagInteraction)
+	g.DrugAdmin.PUT("/tag-interactions/:id", h.UpdateTagInteraction)
+	g.DrugAdmin.DELETE("/tag-interactions/:id", h.DeleteTagInteraction)
 	// 药品成分映射
-	authed.GET("/drugs/:id/ingredients", h.ListDrugIngredients)
-	authed.POST("/drugs/:id/ingredients", h.AddDrugIngredient)
-	authed.DELETE("/drug-ingredients/:id", h.RemoveDrugIngredient)
+	g.Authed.GET("/drugs/:id/ingredients", h.ListDrugIngredients)
+	g.DrugAdmin.POST("/drugs/:id/ingredients", h.AddDrugIngredient)
+	g.DrugAdmin.DELETE("/drug-ingredients/:id", h.RemoveDrugIngredient)
 }
 
 // ---- 成分交互规则 ----

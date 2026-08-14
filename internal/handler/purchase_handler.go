@@ -24,17 +24,17 @@ func NewPurchaseHandler(svc *service.PurchaseService, inv *service.InventoryServ
 }
 
 // Register 注册路由。
-func (h *PurchaseHandler) Register(r *gin.RouterGroup, _ *gin.RouterGroup, _ *gin.RouterGroup) {
-	r.GET("/purchase/suggestions", h.Suggestions)
-	r.POST("/purchase-orders", h.CreateOrder)
-	r.GET("/purchase-orders", h.ListOrders)
-	r.GET("/purchase-orders/:id", h.GetOrder)
-	r.POST("/purchase-orders/:id/submit", h.SubmitOrder)
-	r.POST("/purchase-orders/:id/cancel", h.CancelOrder)
-	r.POST("/purchase-orders/:id/receive", h.Receive)
-	r.GET("/purchase-receipts", h.ListReceipts)
-	r.GET("/purchase-receipts/:id", h.GetReceipt)
-	r.POST("/purchase-receipts/:id/complete", h.CompleteReceipt)
+func (h *PurchaseHandler) Register(g Groups) {
+	g.Authed.GET("/purchase/suggestions", h.Suggestions)
+	g.Purchase.POST("/purchase-orders", h.CreateOrder)
+	g.Authed.GET("/purchase-orders", h.ListOrders)
+	g.Authed.GET("/purchase-orders/:id", h.GetOrder)
+	g.Purchase.POST("/purchase-orders/:id/submit", h.SubmitOrder)
+	g.Purchase.POST("/purchase-orders/:id/cancel", h.CancelOrder)
+	g.Purchase.POST("/purchase-orders/:id/receive", h.Receive)
+	g.Authed.GET("/purchase-receipts", h.ListReceipts)
+	g.Authed.GET("/purchase-receipts/:id", h.GetReceipt)
+	g.Purchase.POST("/purchase-receipts/:id/complete", h.CompleteReceipt)
 }
 
 type createOrderRequest struct {

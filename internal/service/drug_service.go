@@ -50,7 +50,7 @@ func (s *DrugService) Create(ctx context.Context, d *model.Drug) error {
 	}
 	// 一品一规一商唯一性
 	if _, err := drugRepo.FindByUnique(ctx, d.GenericName, d.Specification, d.Manufacturer, d.DosageForm); err == nil {
-		return errs.New(1009, "同规格同厂家的药品已存在", 409)
+		return errs.ErrDuplicateDrugUnique
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
@@ -162,7 +162,7 @@ func (s *DrugService) DeleteCategory(ctx context.Context, id int64) error {
 		return err
 	}
 	if n > 0 {
-		return errs.New(1006, "分类下存在药品，无法删除", 409)
+		return errs.ErrCategoryHasDrugs
 	}
 	return repository.NewCategoryRepo(s.db).Delete(ctx, id)
 }

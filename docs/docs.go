@@ -56,7 +56,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -81,7 +81,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.AdverseReaction"
+                            "$ref": "#/definitions/yaofang_internal_model.AdverseReaction"
                         }
                     }
                 ],
@@ -89,7 +89,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -120,7 +120,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.AdverseReaction"
+                            "$ref": "#/definitions/yaofang_internal_model.AdverseReaction"
                         }
                     }
                 ],
@@ -128,7 +128,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -156,7 +156,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -181,7 +181,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.loginRequest"
+                            "$ref": "#/definitions/internal_handler.loginRequest"
                         }
                     }
                 ],
@@ -189,7 +189,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -213,7 +213,42 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/password": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "修改当前用户密码",
+                "parameters": [
+                    {
+                        "description": "新旧密码",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.changePasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -237,7 +272,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -258,7 +293,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -283,7 +318,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.DrugCategory"
+                            "$ref": "#/definitions/yaofang_internal_model.DrugCategory"
                         }
                     }
                 ],
@@ -291,7 +326,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -322,7 +357,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.DrugCategory"
+                            "$ref": "#/definitions/yaofang_internal_model.DrugCategory"
                         }
                     }
                 ],
@@ -330,7 +365,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -358,7 +393,111 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/charge-records": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "charge-records"
+                ],
+                "summary": "计费记录列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "患者姓名/项目名",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "charge-records"
+                ],
+                "summary": "新建计费记录（药品/耗材/诊疗项目）",
+                "parameters": [
+                    {
+                        "description": "计费信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/yaofang_internal_service.ChargeInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/charge-records/from-prescription/{id}": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "charge-records"
+                ],
+                "summary": "从已发药处方生成计费记录（幂等）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "处方ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -393,7 +532,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -418,7 +557,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.ClassInteractionRule"
+                            "$ref": "#/definitions/yaofang_internal_model.ClassInteractionRule"
                         }
                     }
                 ],
@@ -426,7 +565,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -460,7 +599,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.ClassInteractionRule"
+                            "$ref": "#/definitions/yaofang_internal_model.ClassInteractionRule"
                         }
                     }
                 ],
@@ -468,7 +607,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -496,7 +635,151 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/clinical-services": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "clinical-services"
+                ],
+                "summary": "诊疗项目列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "关键字",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clinical-services"
+                ],
+                "summary": "新建诊疗项目",
+                "parameters": [
+                    {
+                        "description": "诊疗项目",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/yaofang_internal_model.ClinicalService"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/clinical-services/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clinical-services"
+                ],
+                "summary": "更新诊疗项目",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "项目ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "诊疗项目",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/yaofang_internal_model.ClinicalService"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "clinical-services"
+                ],
+                "summary": "删除诊疗项目",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "项目ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -537,7 +820,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -562,7 +845,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.Consultation"
+                            "$ref": "#/definitions/yaofang_internal_model.Consultation"
                         }
                     }
                 ],
@@ -570,7 +853,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -601,7 +884,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.Consultation"
+                            "$ref": "#/definitions/yaofang_internal_model.Consultation"
                         }
                     }
                 ],
@@ -609,7 +892,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -637,7 +920,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -667,7 +950,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -697,7 +980,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -762,7 +1045,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -790,7 +1073,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.Drug"
+                            "$ref": "#/definitions/yaofang_internal_model.Drug"
                         }
                     }
                 ],
@@ -798,7 +1081,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -828,7 +1111,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -860,7 +1143,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.Drug"
+                            "$ref": "#/definitions/yaofang_internal_model.Drug"
                         }
                     }
                 ],
@@ -868,7 +1151,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -896,7 +1179,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -926,7 +1209,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -958,7 +1241,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.DrugIngredient"
+                            "$ref": "#/definitions/yaofang_internal_model.DrugIngredient"
                         }
                     }
                 ],
@@ -966,7 +1249,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1000,7 +1283,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.statusRequest"
+                            "$ref": "#/definitions/internal_handler.statusRequest"
                         }
                     }
                 ],
@@ -1008,7 +1291,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1038,7 +1321,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1070,7 +1353,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.bindDrugSupplierRequest"
+                            "$ref": "#/definitions/internal_handler.bindDrugSupplierRequest"
                         }
                     }
                 ],
@@ -1078,7 +1361,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1113,7 +1396,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1138,7 +1421,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.IngredientInteraction"
+                            "$ref": "#/definitions/yaofang_internal_model.IngredientInteraction"
                         }
                     }
                 ],
@@ -1146,7 +1429,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1180,7 +1463,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.IngredientInteraction"
+                            "$ref": "#/definitions/yaofang_internal_model.IngredientInteraction"
                         }
                     }
                 ],
@@ -1188,7 +1471,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1216,7 +1499,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1251,7 +1534,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1276,7 +1559,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.DrugInteraction"
+                            "$ref": "#/definitions/yaofang_internal_model.DrugInteraction"
                         }
                     }
                 ],
@@ -1284,7 +1567,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1315,7 +1598,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.DrugInteraction"
+                            "$ref": "#/definitions/yaofang_internal_model.DrugInteraction"
                         }
                     }
                 ],
@@ -1323,7 +1606,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1351,7 +1634,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1410,7 +1693,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1437,7 +1720,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.adjustRequest"
+                            "$ref": "#/definitions/internal_handler.adjustRequest"
                         }
                     }
                 ],
@@ -1445,7 +1728,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1458,10 +1741,13 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "consumes": [
+                    "application/json"
+                ],
                 "tags": [
                     "inventory"
                 ],
-                "summary": "处理预警",
+                "summary": "处理预警（已处理/忽略）",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1469,13 +1755,21 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "处理动作",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.resolveAlertRequest"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1505,7 +1799,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1540,7 +1834,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1561,7 +1855,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1586,7 +1880,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.InventoryLocation"
+                            "$ref": "#/definitions/yaofang_internal_model.InventoryLocation"
                         }
                     }
                 ],
@@ -1594,7 +1888,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1625,7 +1919,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.InventoryLocation"
+                            "$ref": "#/definitions/yaofang_internal_model.InventoryLocation"
                         }
                     }
                 ],
@@ -1633,7 +1927,42 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/inventory/requisition": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "领用出库（医护内部消耗，不计费）",
+                "parameters": [
+                    {
+                        "description": "领用信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.requisitionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1660,7 +1989,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.splitRequest"
+                            "$ref": "#/definitions/internal_handler.splitRequest"
                         }
                     }
                 ],
@@ -1668,7 +1997,84 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/inventory/split-orders": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "拆零操作单列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "药品ID",
+                        "name": "drug_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "库房ID",
+                        "name": "location_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/inventory/split-orders/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "拆零操作单详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "拆零单ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1695,7 +2101,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.splitUnitsRequest"
+                            "$ref": "#/definitions/internal_handler.splitUnitsRequest"
                         }
                     }
                 ],
@@ -1703,7 +2109,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1730,7 +2136,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.stockInRequest"
+                            "$ref": "#/definitions/internal_handler.stockInRequest"
                         }
                     }
                 ],
@@ -1738,7 +2144,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1773,7 +2179,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1814,7 +2220,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1839,7 +2245,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.createStocktakeRequest"
+                            "$ref": "#/definitions/internal_handler.createStocktakeRequest"
                         }
                     }
                 ],
@@ -1847,7 +2253,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1877,7 +2283,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1907,7 +2313,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1937,7 +2343,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -1967,7 +2373,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2001,7 +2407,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.enterCountedRequest"
+                            "$ref": "#/definitions/internal_handler.enterCountedRequest"
                         }
                     }
                 ],
@@ -2009,7 +2415,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2039,7 +2445,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2104,7 +2510,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2131,7 +2537,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.transferRequest"
+                            "$ref": "#/definitions/internal_handler.transferRequest"
                         }
                     }
                 ],
@@ -2139,7 +2545,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2169,7 +2575,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2210,7 +2616,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2235,7 +2641,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.MedicationGuidance"
+                            "$ref": "#/definitions/yaofang_internal_model.MedicationGuidance"
                         }
                     }
                 ],
@@ -2243,7 +2649,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2274,7 +2680,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.MedicationGuidance"
+                            "$ref": "#/definitions/yaofang_internal_model.MedicationGuidance"
                         }
                     }
                 ],
@@ -2282,7 +2688,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2310,7 +2716,310 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/operation-logs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "操作日志（管理员审计）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "操作动作",
+                        "name": "action",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "操作资源",
+                        "name": "resource",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "关键字",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/patient-allergies/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "patients"
+                ],
+                "summary": "删除过敏记录",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "过敏记录ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/patients": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "patients"
+                ],
+                "summary": "患者档案列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "姓名/卡号/电话",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "patients"
+                ],
+                "summary": "新建患者档案",
+                "parameters": [
+                    {
+                        "description": "患者档案",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/yaofang_internal_model.Patient"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/patients/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "patients"
+                ],
+                "summary": "患者档案详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "患者ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "patients"
+                ],
+                "summary": "更新患者档案",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "患者ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "患者档案",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/yaofang_internal_model.Patient"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/patients/{id}/allergies": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "patients"
+                ],
+                "summary": "患者过敏史",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "患者ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "patients"
+                ],
+                "summary": "新增过敏记录",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "患者ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "过敏记录",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/yaofang_internal_model.PatientAllergy"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2369,7 +3078,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2394,7 +3103,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/service.PrescriptionInput"
+                            "$ref": "#/definitions/yaofang_internal_service.PrescriptionInput"
                         }
                     }
                 ],
@@ -2402,7 +3111,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2432,7 +3141,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2464,7 +3173,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/service.PrescriptionInput"
+                            "$ref": "#/definitions/yaofang_internal_service.PrescriptionInput"
                         }
                     }
                 ],
@@ -2472,7 +3181,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2502,7 +3211,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2532,7 +3241,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2559,22 +3268,13 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "description": "核对药师",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handler.confirmDispenseRequest"
-                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2604,7 +3304,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2638,7 +3338,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.returnRequest"
+                            "$ref": "#/definitions/internal_handler.returnRequest"
                         }
                     }
                 ],
@@ -2646,7 +3346,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2659,13 +3359,14 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "审核动作：pass(通过)→调配中；reject(驳回)→释放预占；return(退回医生)→保持待审核+释放预占，医生修改后重新提交再预占。",
                 "consumes": [
                     "application/json"
                 ],
                 "tags": [
                     "prescriptions"
                 ],
-                "summary": "处方审核（配伍/极量/重复用药）",
+                "summary": "处方审核（仅药师/药房主任可执行）",
                 "parameters": [
                     {
                         "type": "integer",
@@ -2675,12 +3376,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "审核结果",
+                        "description": "审核结果（action: pass/reject/return）",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/service.AuditInput"
+                            "$ref": "#/definitions/yaofang_internal_service.AuditInput"
                         }
                     }
                 ],
@@ -2688,7 +3389,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2718,7 +3419,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2765,7 +3466,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2790,7 +3491,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.createOrderRequest"
+                            "$ref": "#/definitions/internal_handler.createOrderRequest"
                         }
                     }
                 ],
@@ -2798,7 +3499,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2828,7 +3529,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2858,7 +3559,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2892,7 +3593,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.receiveRequest"
+                            "$ref": "#/definitions/internal_handler.receiveRequest"
                         }
                     }
                 ],
@@ -2900,7 +3601,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2930,7 +3631,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -2977,7 +3678,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3007,7 +3708,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3037,7 +3738,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3058,7 +3759,266 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/reference/consumables": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "reference"
+                ],
+                "summary": "医用耗材目录搜索",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "关键字（名称/拼音码/分类）",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/reference/diagnosis-codes": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "reference"
+                ],
+                "summary": "ICD-10 诊断编码搜索",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "关键字（编码/名称/拼音码）",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/reference/drug-match": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "reference"
+                ],
+                "summary": "药品目录匹配（医保类别+集采批次）",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "药品名称",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/reference/nhsa-drugs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "reference"
+                ],
+                "summary": "国家医保药品目录搜索",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "关键字（药名/拼音码）",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "医保类别（甲类/乙类）",
+                        "name": "insurance_class",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/reference/non-insurance-drugs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "reference"
+                ],
+                "summary": "非医保常用药品目录搜索",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "关键字（药名/拼音码/分类）",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "分类",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/reference/vbp-drugs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "reference"
+                ],
+                "summary": "国家集采药品目录搜索",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "关键字（通用名/拼音码）",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "集采批次",
+                        "name": "batch",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3095,7 +4055,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3116,7 +4076,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3153,7 +4113,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3190,7 +4150,44 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/reports/split-statistics": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "reports"
+                ],
+                "summary": "拆零统计（拆零量/损耗）",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "开始时间",
+                        "name": "start",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间",
+                        "name": "end",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3237,7 +4234,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3262,7 +4259,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.AmpouleReturn"
+                            "$ref": "#/definitions/yaofang_internal_model.AmpouleReturn"
                         }
                     }
                 ],
@@ -3270,7 +4267,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3300,7 +4297,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3327,7 +4324,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.SpecialDrugLedger"
+                            "$ref": "#/definitions/yaofang_internal_model.SpecialDrugLedger"
                         }
                     }
                 ],
@@ -3335,7 +4332,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3394,7 +4391,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3441,7 +4438,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3488,7 +4485,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3513,7 +4510,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.Supplier"
+                            "$ref": "#/definitions/yaofang_internal_model.Supplier"
                         }
                     }
                 ],
@@ -3521,7 +4518,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3551,7 +4548,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3580,7 +4577,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.Supplier"
+                            "$ref": "#/definitions/yaofang_internal_model.Supplier"
                         }
                     }
                 ],
@@ -3588,7 +4585,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3616,7 +4613,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3651,7 +4648,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3676,7 +4673,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.TagInteraction"
+                            "$ref": "#/definitions/yaofang_internal_model.TagInteraction"
                         }
                     }
                 ],
@@ -3684,7 +4681,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3718,7 +4715,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.TagInteraction"
+                            "$ref": "#/definitions/yaofang_internal_model.TagInteraction"
                         }
                     }
                 ],
@@ -3726,7 +4723,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3754,7 +4751,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3801,7 +4798,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3829,7 +4826,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.createUserRequest"
+                            "$ref": "#/definitions/internal_handler.createUserRequest"
                         }
                     }
                 ],
@@ -3837,7 +4834,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3874,7 +4871,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.updateUserRequest"
+                            "$ref": "#/definitions/internal_handler.updateUserRequest"
                         }
                     }
                 ],
@@ -3882,7 +4879,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3910,7 +4907,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.Body"
+                            "$ref": "#/definitions/internal_handler.Body"
                         }
                     }
                 }
@@ -3918,7 +4915,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "handler.Body": {
+        "internal_handler.Body": {
             "type": "object",
             "properties": {
                 "code": {
@@ -3930,7 +4927,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handler.adjustRequest": {
+        "internal_handler.adjustRequest": {
             "type": "object",
             "required": [
                 "inventory_id",
@@ -3948,7 +4945,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handler.bindDrugSupplierRequest": {
+        "internal_handler.bindDrugSupplierRequest": {
             "type": "object",
             "required": [
                 "supplier_id"
@@ -3965,15 +4962,22 @@ const docTemplate = `{
                 }
             }
         },
-        "handler.confirmDispenseRequest": {
+        "internal_handler.changePasswordRequest": {
             "type": "object",
+            "required": [
+                "new_password",
+                "old_password"
+            ],
             "properties": {
-                "checker_id": {
-                    "type": "integer"
+                "new_password": {
+                    "type": "string"
+                },
+                "old_password": {
+                    "type": "string"
                 }
             }
         },
-        "handler.createOrderRequest": {
+        "internal_handler.createOrderRequest": {
             "type": "object",
             "required": [
                 "items",
@@ -3986,7 +4990,7 @@ const docTemplate = `{
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/service.POItemInput"
+                        "$ref": "#/definitions/yaofang_internal_service.POItemInput"
                     }
                 },
                 "remarks": {
@@ -3997,7 +5001,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handler.createStocktakeRequest": {
+        "internal_handler.createStocktakeRequest": {
             "type": "object",
             "required": [
                 "location_id",
@@ -4017,7 +5021,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handler.createUserRequest": {
+        "internal_handler.createUserRequest": {
             "type": "object",
             "required": [
                 "name",
@@ -4043,7 +5047,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handler.enterCountedRequest": {
+        "internal_handler.enterCountedRequest": {
             "type": "object",
             "required": [
                 "items"
@@ -4052,12 +5056,12 @@ const docTemplate = `{
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/service.CountedItem"
+                        "$ref": "#/definitions/yaofang_internal_service.CountedItem"
                     }
                 }
             }
         },
-        "handler.loginRequest": {
+        "internal_handler.loginRequest": {
             "type": "object",
             "required": [
                 "password",
@@ -4072,7 +5076,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handler.receiveRequest": {
+        "internal_handler.receiveRequest": {
             "type": "object",
             "required": [
                 "items"
@@ -4081,12 +5085,44 @@ const docTemplate = `{
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/service.ReceiveItemInput"
+                        "$ref": "#/definitions/yaofang_internal_service.ReceiveItemInput"
                     }
                 }
             }
         },
-        "handler.returnRequest": {
+        "internal_handler.requisitionRequest": {
+            "type": "object",
+            "required": [
+                "drug_id",
+                "location_id",
+                "quantity"
+            ],
+            "properties": {
+                "drug_id": {
+                    "type": "integer"
+                },
+                "location_id": {
+                    "type": "integer"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "reason": {
+                    "description": "领用原因",
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handler.resolveAlertRequest": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "description": "resolved / ignored",
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handler.returnRequest": {
             "type": "object",
             "required": [
                 "items"
@@ -4095,12 +5131,12 @@ const docTemplate = `{
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/service.ReturnItemInput"
+                        "$ref": "#/definitions/yaofang_internal_service.ReturnItemInput"
                     }
                 }
             }
         },
-        "handler.splitRequest": {
+        "internal_handler.splitRequest": {
             "type": "object",
             "required": [
                 "inventory_id",
@@ -4112,10 +5148,17 @@ const docTemplate = `{
                 },
                 "packs": {
                     "type": "integer"
+                },
+                "reviewer_id": {
+                    "description": "复核人（麻精强制双人）",
+                    "type": "integer"
+                },
+                "reviewer_name": {
+                    "type": "string"
                 }
             }
         },
-        "handler.splitUnitsRequest": {
+        "internal_handler.splitUnitsRequest": {
             "type": "object",
             "required": [
                 "boxes",
@@ -4132,12 +5175,19 @@ const docTemplate = `{
                 "inventory_id": {
                     "type": "integer"
                 },
+                "reviewer_id": {
+                    "description": "复核人（麻精强制双人）",
+                    "type": "integer"
+                },
+                "reviewer_name": {
+                    "type": "string"
+                },
                 "units": {
                     "type": "integer"
                 }
             }
         },
-        "handler.statusRequest": {
+        "internal_handler.statusRequest": {
             "type": "object",
             "required": [
                 "status"
@@ -4152,7 +5202,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handler.stockInRequest": {
+        "internal_handler.stockInRequest": {
             "type": "object",
             "required": [
                 "entries"
@@ -4161,12 +5211,12 @@ const docTemplate = `{
                 "entries": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/service.StockEntry"
+                        "$ref": "#/definitions/yaofang_internal_service.StockEntry"
                     }
                 }
             }
         },
-        "handler.transferRequest": {
+        "internal_handler.transferRequest": {
             "type": "object",
             "required": [
                 "from_location_id",
@@ -4180,7 +5230,7 @@ const docTemplate = `{
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/service.TransferItem"
+                        "$ref": "#/definitions/yaofang_internal_service.TransferItem"
                     }
                 },
                 "remarks": {
@@ -4191,7 +5241,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handler.updateUserRequest": {
+        "internal_handler.updateUserRequest": {
             "type": "object",
             "properties": {
                 "name": {
@@ -4211,7 +5261,7 @@ const docTemplate = `{
                 }
             }
         },
-        "model.AdverseReaction": {
+        "yaofang_internal_model.AdverseReaction": {
             "type": "object",
             "properties": {
                 "batch_no": {
@@ -4250,7 +5300,7 @@ const docTemplate = `{
                 }
             }
         },
-        "model.AmpouleReturn": {
+        "yaofang_internal_model.AmpouleReturn": {
             "type": "object",
             "properties": {
                 "batch_no": {
@@ -4289,7 +5339,7 @@ const docTemplate = `{
                 }
             }
         },
-        "model.ClassInteractionRule": {
+        "yaofang_internal_model.ClassInteractionRule": {
             "type": "object",
             "properties": {
                 "class_a": {
@@ -4327,7 +5377,39 @@ const docTemplate = `{
                 }
             }
         },
-        "model.Consultation": {
+        "yaofang_internal_model.ClinicalService": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "unit": {
+                    "type": "string"
+                },
+                "unit_price": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "yaofang_internal_model.Consultation": {
             "type": "object",
             "properties": {
                 "answer": {
@@ -4362,7 +5444,7 @@ const docTemplate = `{
                 }
             }
         },
-        "model.Drug": {
+        "yaofang_internal_model.Drug": {
             "type": "object",
             "properties": {
                 "active_ingredient": {
@@ -4417,6 +5499,10 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
+                "insurance_class": {
+                    "description": "甲类/乙类（医保目录匹配）",
+                    "type": "string"
+                },
                 "interaction_tags": {
                     "type": "string"
                 },
@@ -4425,6 +5511,10 @@ const docTemplate = `{
                 },
                 "is_split_allowed": {
                     "type": "boolean"
+                },
+                "item_type": {
+                    "description": "drug=药品 consumable=耗材",
+                    "type": "string"
                 },
                 "lactation_safe": {
                     "type": "boolean"
@@ -4483,10 +5573,14 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
+                },
+                "vbp_batch": {
+                    "description": "集采批次（集采目录匹配）",
+                    "type": "integer"
                 }
             }
         },
-        "model.DrugCategory": {
+        "yaofang_internal_model.DrugCategory": {
             "type": "object",
             "properties": {
                 "code": {
@@ -4515,7 +5609,7 @@ const docTemplate = `{
                 }
             }
         },
-        "model.DrugIngredient": {
+        "yaofang_internal_model.DrugIngredient": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -4535,7 +5629,7 @@ const docTemplate = `{
                 }
             }
         },
-        "model.DrugInteraction": {
+        "yaofang_internal_model.DrugInteraction": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -4571,7 +5665,7 @@ const docTemplate = `{
                 }
             }
         },
-        "model.IngredientInteraction": {
+        "yaofang_internal_model.IngredientInteraction": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -4607,7 +5701,7 @@ const docTemplate = `{
                 }
             }
         },
-        "model.InventoryLocation": {
+        "yaofang_internal_model.InventoryLocation": {
             "type": "object",
             "properties": {
                 "code": {
@@ -4636,7 +5730,7 @@ const docTemplate = `{
                 }
             }
         },
-        "model.MedicationGuidance": {
+        "yaofang_internal_model.MedicationGuidance": {
             "type": "object",
             "properties": {
                 "content": {
@@ -4665,7 +5759,66 @@ const docTemplate = `{
                 }
             }
         },
-        "model.SpecialDrugLedger": {
+        "yaofang_internal_model.Patient": {
+            "type": "object",
+            "properties": {
+                "age": {
+                    "type": "string"
+                },
+                "card_no": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "gender": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_lactating": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "yaofang_internal_model.PatientAllergy": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "drug_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "patient_id": {
+                    "type": "integer"
+                },
+                "reaction": {
+                    "type": "string"
+                },
+                "severity": {
+                    "description": "1轻 2中 3重",
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "yaofang_internal_model.SpecialDrugLedger": {
             "type": "object",
             "properties": {
                 "batch_no": {
@@ -4708,7 +5861,7 @@ const docTemplate = `{
                 }
             }
         },
-        "model.Supplier": {
+        "yaofang_internal_model.Supplier": {
             "type": "object",
             "properties": {
                 "address": {
@@ -4746,7 +5899,7 @@ const docTemplate = `{
                 }
             }
         },
-        "model.TagInteraction": {
+        "yaofang_internal_model.TagInteraction": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -4784,7 +5937,7 @@ const docTemplate = `{
                 }
             }
         },
-        "service.AuditInput": {
+        "yaofang_internal_service.AuditInput": {
             "type": "object",
             "properties": {
                 "action": {
@@ -4796,7 +5949,43 @@ const docTemplate = `{
                 }
             }
         },
-        "service.CountedItem": {
+        "yaofang_internal_service.ChargeInput": {
+            "type": "object",
+            "required": [
+                "item_name",
+                "item_type",
+                "patient_name",
+                "unit_price"
+            ],
+            "properties": {
+                "item_id": {
+                    "type": "integer"
+                },
+                "item_name": {
+                    "type": "string"
+                },
+                "item_type": {
+                    "description": "drug / consumable / clinical_service",
+                    "type": "string"
+                },
+                "patient_card_no": {
+                    "type": "string"
+                },
+                "patient_name": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "remarks": {
+                    "type": "string"
+                },
+                "unit_price": {
+                    "type": "integer"
+                }
+            }
+        },
+        "yaofang_internal_service.CountedItem": {
             "type": "object",
             "properties": {
                 "counted_quantity": {
@@ -4807,7 +5996,7 @@ const docTemplate = `{
                 }
             }
         },
-        "service.POItemInput": {
+        "yaofang_internal_service.POItemInput": {
             "type": "object",
             "properties": {
                 "drug_id": {
@@ -4823,7 +6012,7 @@ const docTemplate = `{
                 }
             }
         },
-        "service.PrescriptionInput": {
+        "yaofang_internal_service.PrescriptionInput": {
             "type": "object",
             "properties": {
                 "department": {
@@ -4835,6 +6024,10 @@ const docTemplate = `{
                 "doctor_name": {
                     "type": "string"
                 },
+                "is_lactating": {
+                    "description": "患者是否哺乳期（用于哺乳期慎用检查）",
+                    "type": "boolean"
+                },
                 "is_pregnant": {
                     "description": "患者是否妊娠（用于妊娠禁忌检查）",
                     "type": "boolean"
@@ -4842,7 +6035,7 @@ const docTemplate = `{
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/service.PrescriptionItemInput"
+                        "$ref": "#/definitions/yaofang_internal_service.PrescriptionItemInput"
                     }
                 },
                 "patient_age": {
@@ -4853,6 +6046,10 @@ const docTemplate = `{
                 },
                 "patient_gender": {
                     "type": "string"
+                },
+                "patient_id": {
+                    "description": "关联患者档案（可选，二期启用）",
+                    "type": "integer"
                 },
                 "patient_name": {
                     "type": "string"
@@ -4865,7 +6062,7 @@ const docTemplate = `{
                 }
             }
         },
-        "service.PrescriptionItemInput": {
+        "yaofang_internal_service.PrescriptionItemInput": {
             "type": "object",
             "properties": {
                 "days": {
@@ -4898,7 +6095,7 @@ const docTemplate = `{
                 }
             }
         },
-        "service.ReceiveItemInput": {
+        "yaofang_internal_service.ReceiveItemInput": {
             "type": "object",
             "properties": {
                 "batch_no": {
@@ -4923,7 +6120,7 @@ const docTemplate = `{
                 }
             }
         },
-        "service.ReturnItemInput": {
+        "yaofang_internal_service.ReturnItemInput": {
             "type": "object",
             "properties": {
                 "item_id": {
@@ -4935,7 +6132,7 @@ const docTemplate = `{
                 }
             }
         },
-        "service.StockEntry": {
+        "yaofang_internal_service.StockEntry": {
             "type": "object",
             "properties": {
                 "batch_no": {
@@ -4961,7 +6158,7 @@ const docTemplate = `{
                 }
             }
         },
-        "service.TransferItem": {
+        "yaofang_internal_service.TransferItem": {
             "type": "object",
             "properties": {
                 "inventory_id": {
@@ -4985,7 +6182,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "1.0",
+	Version:          "1.3.0",
 	Host:             "localhost:8080",
 	BasePath:         "/api/v1",
 	Schemes:          []string{},

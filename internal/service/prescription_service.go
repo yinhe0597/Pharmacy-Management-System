@@ -40,6 +40,7 @@ type PrescriptionItemInput struct {
 
 // PrescriptionInput 处方录入输入。
 type PrescriptionInput struct {
+	PatientID        int64                   `json:"patient_id"` // 关联患者档案（可选，二期启用）
 	PatientName      string                  `json:"patient_name"`
 	PatientGender    string                  `json:"patient_gender"`
 	PatientAge       string                  `json:"patient_age"`
@@ -48,7 +49,8 @@ type PrescriptionInput struct {
 	Department       string                  `json:"department"`
 	DoctorName       string                  `json:"doctor_name"`
 	PrescriptionType int                     `json:"prescription_type"`
-	IsPregnant       bool                    `json:"is_pregnant"` // 患者是否妊娠（用于妊娠禁忌检查）
+	IsPregnant       bool                    `json:"is_pregnant"`  // 患者是否妊娠（用于妊娠禁忌检查）
+	IsLactating      bool                    `json:"is_lactating"` // 患者是否哺乳期（用于哺乳期慎用检查）
 	Remarks          string                  `json:"remarks"`
 	Items            []PrescriptionItemInput `json:"items"`
 }
@@ -133,11 +135,13 @@ func (s *PrescriptionService) Create(ctx context.Context, input PrescriptionInpu
 	}
 	p := &model.Prescription{
 		PrescriptionNo:     seq.Next("RX"),
+		PatientID:          input.PatientID,
 		PatientName:        input.PatientName,
 		PatientGender:      input.PatientGender,
 		PatientAge:         input.PatientAge,
 		PatientCardNo:      input.PatientCardNo,
 		IsPregnant:         input.IsPregnant,
+		IsLactating:        input.IsLactating,
 		Diagnosis:          input.Diagnosis,
 		Department:         input.Department,
 		DoctorName:         input.DoctorName,
@@ -181,10 +185,18 @@ func (s *PrescriptionService) prepareItems(ctx context.Context, db *gorm.DB, inp
 		if in.Quantity <= 0 {
 			return nil, nil, errs.ErrBadRequest
 		}
+		// 剂量字段非负校验
+		if in.SingleDose < 0 || in.TotalDailyDose < 0 || in.Days < 0 {
+			return nil, nil, errs.ErrBadRequest
+		}
+		// 一致性：数量不超过「日总剂量 × 天数」（两者均填报时校验，防录入错误）
+		if in.TotalDailyDose > 0 && in.Days > 0 && in.Quantity > in.TotalDailyDose*int64(in.Days) {
+			return nil, nil, errs.ErrDoseMismatch
+		}
 		d, err := drugRepo.GetByID(ctx, in.DrugID)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil, nil, errs.New(1008, "药品不存在", 404)
+				return nil, nil, errs.ErrDrugNotFound
 			}
 			return nil, nil, err
 		}
@@ -289,11 +301,13 @@ func (s *PrescriptionService) Update(ctx context.Context, id int64, input Prescr
 				return err
 			}
 		}
+		p.PatientID = input.PatientID
 		p.PatientName = input.PatientName
 		p.PatientGender = input.PatientGender
 		p.PatientAge = input.PatientAge
 		p.PatientCardNo = input.PatientCardNo
 		p.IsPregnant = input.IsPregnant
+		p.IsLactating = input.IsLactating
 		p.Diagnosis = input.Diagnosis
 		p.Department = input.Department
 		p.DoctorName = input.DoctorName
@@ -372,14 +386,14 @@ func (s *PrescriptionService) Submit(ctx context.Context, id int64, operatorID i
 
 // AuditReviewResult 审核结果（含交互检测明细）。
 type AuditReviewResult struct {
-	Passed   bool                           `json:"passed"`
-	Warnings []interaction.PairWarning      `json:"warnings,omitempty"`
-	DrugWarnings []interaction.DrugWarning  `json:"drug_warnings,omitempty"`
+	Passed       bool                      `json:"passed"`
+	Warnings     []interaction.PairWarning `json:"warnings,omitempty"`
+	DrugWarnings []interaction.DrugWarning `json:"drug_warnings,omitempty"`
 }
 
 // Review 审核：仅药师/药房主任可执行。
 // pass→reviewed_passed（通过）、reject→reviewed_rejected+释放预占（驳回）、
-// return→保持pending_review+写退回审计日志（药师退回医生修改，保留预占）。
+// return→保持pending_review+释放预占+写退回审计日志（药师退回医生修改，医生修改后重新提交再预占）。
 // 返回审核明细（含提醒项），供前端展示。
 func (s *PrescriptionService) Review(ctx context.Context, id int64, input AuditInput, auditorID int64, auditorName string) (*AuditReviewResult, error) {
 	var result *AuditReviewResult
@@ -426,9 +440,11 @@ func (s *PrescriptionService) Review(ctx context.Context, id int64, input AuditI
 				return err
 			}
 		} else if input.Action == "return" {
-			// 药师退回医生修改：保持 pending_review 状态 + 保留预占，仅写审计日志
+			// 药师退回医生修改：保持 pending_review 状态，释放预占；医生修改后重新提交再预占。
 			result = &AuditReviewResult{Passed: false}
-			// 不修改状态，不释放预占；医生修改后可直接重新提交
+			if err := s.releaseReservationsTx(ctx, tx, id); err != nil {
+				return err
+			}
 		} else {
 			return errs.ErrBadRequest
 		}
@@ -523,7 +539,8 @@ func (s *PrescriptionService) CheckAuditRules(ctx context.Context, items []model
 }
 
 // Dispense 调配：审核通过后进入调配中（核对预占可用）。
-func (s *PrescriptionService) Dispense(ctx context.Context, id int64, operatorID int64, operatorName string) error {
+// operatorRole 为当前操作人角色；特殊药品（麻醉/精神）调配必须为药师角色（五专：专人负责）。
+func (s *PrescriptionService) Dispense(ctx context.Context, id int64, operatorID int64, operatorName, operatorRole string) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		p, err := repository.NewPrescriptionRepo(tx).LockForUpdate(ctx, id)
 		if err != nil {
@@ -534,6 +551,9 @@ func (s *PrescriptionService) Dispense(ctx context.Context, id int64, operatorID
 		}
 		if p.Status != prescription.StatusReviewedPassed.String() {
 			return errs.ErrPrescriptionState
+		}
+		if enum.IsSpecialControlled(p.SpecialControlType) && !enum.IsPharmacistRole(operatorRole) {
+			return errs.ErrForbidden
 		}
 		items, err := repository.NewPrescriptionItemRepo(tx).ListByPrescription(ctx, id)
 		if err != nil {
@@ -577,7 +597,8 @@ func (s *PrescriptionService) Dispense(ctx context.Context, id int64, operatorID
 }
 
 // ConfirmDispense 发药确认：核销预占实扣、写发药记录、联动专账、双人核对。
-func (s *PrescriptionService) ConfirmDispense(ctx context.Context, id int64, checkerID int64, checkerName string) error {
+// checkerRole 为当前核对人角色；特殊药品（麻醉/精神）强制「调配+核对」双人分离且核对人为药师角色。
+func (s *PrescriptionService) ConfirmDispense(ctx context.Context, id int64, checkerID int64, checkerName, checkerRole string) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		p, err := repository.NewPrescriptionRepo(tx).LockForUpdate(ctx, id)
 		if err != nil {
@@ -588,6 +609,15 @@ func (s *PrescriptionService) ConfirmDispense(ctx context.Context, id int64, che
 		}
 		if p.Status != prescription.StatusDispensing.String() {
 			return errs.ErrPrescriptionState
+		}
+		// 特殊药品（麻醉/精神）双人核对：核对人为药师角色且与调配人不同（五专）
+		if enum.IsSpecialControlled(p.SpecialControlType) {
+			if !enum.IsPharmacistRole(checkerRole) {
+				return errs.ErrForbidden
+			}
+			if checkerID == p.DispensingPharmacistID {
+				return errs.ErrDualCheckRequired
+			}
 		}
 		itemRepo := repository.NewPrescriptionItemRepo(tx)
 		items, err := itemRepo.ListByPrescription(ctx, id)
@@ -679,6 +709,8 @@ func buildDispenseRecords(p *model.Prescription, items []model.PrescriptionItem,
 }
 
 // Return 退药：按原发药记录批次回补库存，支持整方/部分。
+//
+//nolint:gocyclo // 退药事务须整体原子完成（状态流转+批次回补+流水），拆分会削弱状态机不变量
 func (s *PrescriptionService) Return(ctx context.Context, id int64, inputs []ReturnItemInput, operatorID int64, operatorName string) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		p, err := repository.NewPrescriptionRepo(tx).LockForUpdate(ctx, id)
@@ -798,11 +830,9 @@ func (s *PrescriptionService) Return(ctx context.Context, id int64, inputs []Ret
 				return errs.ErrReturnExceeded
 			}
 			newReturned := it.ReturnedQuantity + in.ReturnQuantity
-			itemStatus := "dispensed"
+			itemStatus := "partially_returned"
 			if newReturned >= it.DispensedQuantity {
 				itemStatus = "returned"
-			} else {
-				itemStatus = "partially_returned"
 			}
 			if err := itemRepo.UpdateReturned(ctx, it.ID, in.ReturnQuantity, itemStatus); err != nil {
 				return err

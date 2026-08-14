@@ -21,21 +21,21 @@ type DrugHandler struct {
 func NewDrugHandler(svc *service.DrugService) *DrugHandler { return &DrugHandler{svc: svc} }
 
 // Register 注册路由。
-func (h *DrugHandler) Register(r *gin.RouterGroup, _ *gin.RouterGroup, _ *gin.RouterGroup) {
-	r.GET("/drugs", h.List)
-	r.POST("/drugs", h.Create)
-	r.GET("/drugs/:id", h.Get)
-	r.PUT("/drugs/:id", h.Update)
-	r.DELETE("/drugs/:id", h.Delete)
-	r.PATCH("/drugs/:id/status", h.SetStatus)
-	r.GET("/categories", h.ListCategories)
-	r.POST("/categories", h.CreateCategory)
-	r.PUT("/categories/:id", h.UpdateCategory)
-	r.DELETE("/categories/:id", h.DeleteCategory)
-	r.GET("/interactions", h.ListInteractions)
-	r.POST("/interactions", h.CreateInteraction)
-	r.PUT("/interactions/:id", h.UpdateInteraction)
-	r.DELETE("/interactions/:id", h.DeleteInteraction)
+func (h *DrugHandler) Register(g Groups) {
+	g.Authed.GET("/drugs", h.List)
+	g.DrugAdmin.POST("/drugs", h.Create)
+	g.Authed.GET("/drugs/:id", h.Get)
+	g.DrugAdmin.PUT("/drugs/:id", h.Update)
+	g.DrugAdmin.DELETE("/drugs/:id", h.Delete)
+	g.DrugAdmin.PATCH("/drugs/:id/status", h.SetStatus)
+	g.Authed.GET("/categories", h.ListCategories)
+	g.DrugAdmin.POST("/categories", h.CreateCategory)
+	g.DrugAdmin.PUT("/categories/:id", h.UpdateCategory)
+	g.DrugAdmin.DELETE("/categories/:id", h.DeleteCategory)
+	g.Authed.GET("/interactions", h.ListInteractions)
+	g.DrugAdmin.POST("/interactions", h.CreateInteraction)
+	g.DrugAdmin.PUT("/interactions/:id", h.UpdateInteraction)
+	g.DrugAdmin.DELETE("/interactions/:id", h.DeleteInteraction)
 }
 
 // Create godoc

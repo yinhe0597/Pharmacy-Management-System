@@ -22,19 +22,19 @@ func NewPharmaServiceHandler(svc *service.PharmaService) *PharmaServiceHandler {
 }
 
 // Register 注册路由。
-func (h *PharmaServiceHandler) Register(r *gin.RouterGroup, _ *gin.RouterGroup, _ *gin.RouterGroup) {
-	r.GET("/consultations", h.ListConsultations)
-	r.POST("/consultations", h.CreateConsultation)
-	r.PUT("/consultations/:id", h.UpdateConsultation)
-	r.DELETE("/consultations/:id", h.DeleteConsultation)
-	r.GET("/adverse-reactions", h.ListAdverseReactions)
-	r.POST("/adverse-reactions", h.CreateAdverseReaction)
-	r.PUT("/adverse-reactions/:id", h.UpdateAdverseReaction)
-	r.DELETE("/adverse-reactions/:id", h.DeleteAdverseReaction)
-	r.GET("/medication-guidances", h.ListGuidances)
-	r.POST("/medication-guidances", h.CreateGuidance)
-	r.PUT("/medication-guidances/:id", h.UpdateGuidance)
-	r.DELETE("/medication-guidances/:id", h.DeleteGuidance)
+func (h *PharmaServiceHandler) Register(g Groups) {
+	g.Authed.GET("/consultations", h.ListConsultations)
+	g.Pharmacy.POST("/consultations", h.CreateConsultation)
+	g.Pharmacy.PUT("/consultations/:id", h.UpdateConsultation)
+	g.Pharmacy.DELETE("/consultations/:id", h.DeleteConsultation)
+	g.Authed.GET("/adverse-reactions", h.ListAdverseReactions)
+	g.Pharmacy.POST("/adverse-reactions", h.CreateAdverseReaction)
+	g.Pharmacy.PUT("/adverse-reactions/:id", h.UpdateAdverseReaction)
+	g.Pharmacy.DELETE("/adverse-reactions/:id", h.DeleteAdverseReaction)
+	g.Authed.GET("/medication-guidances", h.ListGuidances)
+	g.Pharmacy.POST("/medication-guidances", h.CreateGuidance)
+	g.Pharmacy.PUT("/medication-guidances/:id", h.UpdateGuidance)
+	g.Pharmacy.DELETE("/medication-guidances/:id", h.DeleteGuidance)
 }
 
 // ListConsultations godoc

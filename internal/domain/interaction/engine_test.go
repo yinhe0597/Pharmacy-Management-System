@@ -3,11 +3,13 @@ package interaction
 
 import (
 	"testing"
+
+	"yaofang/internal/domain/enum"
 )
 
 // ---- 辅助函数 ----
 
-func ptrInt(v int) *int { return &v }
+func ptrInt(v int) *int    { return &v }
 func ptrBool(v bool) *bool { return &v }
 
 // ---- 测试用例 ----
@@ -416,5 +418,72 @@ func TestEngineDuplicateNotTriggeredAlone(t *testing.T) {
 	result := engine.CheckPrescription(drugs, items, nil, nil, nil, nil, nil)
 	if result.HasWarnings() {
 		t.Error("expected no duplicate warning for single drug")
+	}
+}
+
+func TestMatchesAllergy(t *testing.T) {
+	d := DrugProfile{GenericName: "阿莫西林", ActiveIngredient: "amoxicillin", Ingredients: []string{"克拉维酸"}}
+	cases := []struct {
+		name    string
+		allergy AllergyInfo
+		want    bool
+	}{
+		{"通用名匹配", AllergyInfo{DrugName: "阿莫西林", Reaction: "皮疹", Severity: 2}, true},
+		{"活性成分匹配（大小写不敏感）", AllergyInfo{DrugName: "AMOXICILLIN", Reaction: "休克", Severity: 3}, true},
+		{"成分列表匹配", AllergyInfo{DrugName: "克拉维酸", Reaction: "腹泻", Severity: 1}, true},
+		{"不匹配", AllergyInfo{DrugName: "青霉素", Reaction: "皮疹", Severity: 1}, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := matchesAllergy(d, c.allergy); got != c.want {
+				t.Fatalf("matchesAllergy = %v, want %v", got, c.want)
+			}
+		})
+	}
+}
+
+func TestEngineIngredientSelfPairSkipped(t *testing.T) {
+	engine := NewEngine()
+	// 同一药品既是成分 A 又是成分 B 的药品集合时不应产生自交互
+	drugs := []DrugProfile{
+		{ID: 1, GenericName: "复方制剂", Ingredients: []string{"A", "B"}},
+	}
+	rules := []IngredientRule{
+		{IngredientA: "A", IngredientB: "B", Level: 1, Description: "A+B 禁忌", IsActive: true},
+	}
+	result := engine.CheckPrescription(drugs, nil, nil, nil, rules, nil, nil)
+	if len(result.Interactions) != 0 {
+		t.Errorf("自交互应被跳过，got %d findings", len(result.Interactions))
+	}
+}
+
+func TestDeduplicateSameStrategyKeepsMostSevere(t *testing.T) {
+	engine := NewEngine()
+	findings := []InteractionFinding{
+		{DrugAID: 1, DrugBID: 2, Strategy: enum.InteractionStrategyClass, Level: 3, Description: "注意"},
+		{DrugAID: 1, DrugBID: 2, Strategy: enum.InteractionStrategyClass, Level: 1, Description: "禁忌"},
+	}
+	got := engine.deduplicate(findings)
+	if len(got) != 1 || got[0].Level != 1 {
+		t.Fatalf("同策略应仅保留最严重项，got %+v", got)
+	}
+}
+
+func TestToPairWarningLevels(t *testing.T) {
+	cases := []struct {
+		level int
+		code  int
+	}{
+		{enum.InteractionLevelContraindication, enum.ErrInteractionCode},
+		{enum.InteractionLevelCaution, enum.ErrInteractionCautionCode},
+		{enum.InteractionLevelNote, enum.ErrInteractionNoteCode},
+		{9, enum.ErrInteractionNoteCode}, // 未知级别默认归入注意
+	}
+	for _, c := range cases {
+		f := InteractionFinding{DrugAID: 1, DrugBID: 2, Level: c.level, Description: "desc", Mechanism: "mech"}
+		w := f.ToPairWarning()
+		if w.Code != c.code {
+			t.Fatalf("level=%d → code=%d, want %d", c.level, w.Code, c.code)
+		}
 	}
 }

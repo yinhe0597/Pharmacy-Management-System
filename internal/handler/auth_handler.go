@@ -24,16 +24,16 @@ func NewAuthHandler(svc *service.AuthService, logSvc *service.OperationLogServic
 }
 
 // Register 注册路由。
-func (h *AuthHandler) Register(r *gin.RouterGroup, authed *gin.RouterGroup, adminOnly *gin.RouterGroup) {
-	r.POST("/auth/login", h.Login)
-	authed.POST("/auth/logout", h.Logout)
-	authed.GET("/auth/profile", h.Profile)
-	authed.PUT("/auth/password", h.ChangePassword)
-	adminOnly.POST("/users", h.CreateUser)
-	adminOnly.GET("/operation-logs", h.ListOperationLogs)
-	adminOnly.PUT("/users/:id", h.UpdateUser)
-	adminOnly.DELETE("/users/:id", h.DeleteUser)
-	adminOnly.GET("/users", h.ListUsers)
+func (h *AuthHandler) Register(g Groups) {
+	g.Public.POST("/auth/login", h.Login)
+	g.Authed.POST("/auth/logout", h.Logout)
+	g.Authed.GET("/auth/profile", h.Profile)
+	g.Authed.PUT("/auth/password", h.ChangePassword)
+	g.UserAdmin.POST("/users", h.CreateUser)
+	g.UserAdmin.GET("/operation-logs", h.ListOperationLogs)
+	g.UserAdmin.PUT("/users/:id", h.UpdateUser)
+	g.UserAdmin.DELETE("/users/:id", h.DeleteUser)
+	g.UserAdmin.GET("/users", h.ListUsers)
 }
 
 type loginRequest struct {
@@ -125,10 +125,10 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	if h.logSvc != nil {
 		uid := middleware.UserIDFromCtx(c)
 		h.logSvc.Log(c.Request.Context(), &model.OperationLog{
-			UserID: &uid,
+			UserID:   &uid,
 			Username: middleware.UserNameFromCtx(c),
 			UserRole: middleware.UserRoleFromCtx(c),
-			Action: "change_password", Resource: "auth",
+			Action:   "change_password", Resource: "auth",
 			Method: "PUT", Path: "/auth/password", IP: c.ClientIP(),
 		})
 	}
@@ -198,7 +198,7 @@ func (h *AuthHandler) CreateUser(c *gin.Context) {
 		h.logSvc.Log(c.Request.Context(), &model.OperationLog{
 			UserID: &logUID, Username: middleware.UserNameFromCtx(c),
 			UserRole: middleware.UserRoleFromCtx(c),
-			Action: "create", Resource: "users",
+			Action:   "create", Resource: "users",
 			ResourceID: &u.ID, Method: "POST", Path: "/users", IP: c.ClientIP(),
 			Detail: "新建用户: " + u.Username + " (" + u.Role + ")",
 		})

@@ -148,12 +148,12 @@ func TestFullChain(t *testing.T) {
 	}
 
 	// 6. 调配
-	if err := presc.Dispense(ctx, p.ID, 3, "调配员"); err != nil {
+	if err := presc.Dispense(ctx, p.ID, 3, "调配员", "pharmacist"); err != nil {
 		t.Fatalf("调配失败: %v", err)
 	}
 
 	// 7. 发药确认（核对）
-	if err := presc.ConfirmDispense(ctx, p.ID, 4, "核对员"); err != nil {
+	if err := presc.ConfirmDispense(ctx, p.ID, 4, "核对员", "pharmacist"); err != nil {
 		t.Fatalf("发药确认失败: %v", err)
 	}
 	// 拆零库存应扣减 12 → 12

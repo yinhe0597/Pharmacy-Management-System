@@ -383,9 +383,15 @@ func (r *StockAlertRepo) List(ctx context.Context, alertType, status string, off
 	return list, total, nil
 }
 
-// Resolve 将预警置为已处理。
-func (r *StockAlertRepo) Resolve(ctx context.Context, id int64) error {
+// UpdateStatus 将预警流转到目标状态（resolved/ignored），记录处理人与时间。
+func (r *StockAlertRepo) UpdateStatus(ctx context.Context, id int64, status string, resolvedBy int64, resolvedByName string) error {
+	now := time.Now()
 	return r.db.WithContext(ctx).Model(&model.StockAlert{}).
-		Where("id = ?", id).
-		Updates(map[string]any{"status": "resolved", "resolved_at": time.Now()}).Error
+		Where("id = ? AND status = 'open'", id).
+		Updates(map[string]any{
+			"status":           status,
+			"resolved_at":      now,
+			"resolved_by":      resolvedBy,
+			"resolved_by_name": resolvedByName,
+		}).Error
 }

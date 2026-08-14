@@ -107,15 +107,24 @@ func IsValidRole(role string) bool {
 
 // RoleGroups 预定义角色分组。
 var (
-	// PharmacyStaff 药房工作人员（药品/库存/处方/调配/核对）
+	// PharmacyStaff 药房工作人员（库存写/处方执行/调配/核对/药学服务/计费录入）
 	PharmacyStaff = []string{RoleAdmin, RolePharmacyDirector, RolePharmacist, RoleDoctor, RoleNurse}
 	// ClinicalStaff 临床人员（处方开立权；护士不在此列，仅执行/审核处方）
 	ClinicalStaff = []string{RoleAdmin, RoleDoctor, RolePharmacist, RolePharmacyDirector}
 	// ReportAccess 报表访问权
 	ReportAccess = []string{RoleAdmin, RolePharmacyDirector, RolePharmacist, RoleFinance}
-	// UserAdmin 用户管理权
-	UserAdmin = []string{RoleAdmin}
+	// UserAdmin 用户管理权（管理员 + 药房主任）
+	UserAdmin = []string{RoleAdmin, RolePharmacyDirector}
+	// DrugAdmin 药品/分类/配伍/交互规则/特殊药品目录 写权限（药房专业角色）
+	DrugAdmin = []string{RoleAdmin, RolePharmacyDirector, RolePharmacist}
+	// PurchaseStaff 采购相关人员（采购单/收货/供应商）
+	PurchaseStaff = []string{RoleAdmin, RolePharmacyDirector, RolePharmacist, RoleBuyer}
 )
+
+// IsPharmacistRole 判断是否为药师级角色（审核/特殊药品双人核对要求）。
+func IsPharmacistRole(role string) bool {
+	return role == RoleAdmin || role == RolePharmacyDirector || role == RolePharmacist
+}
 
 // 配伍等级。
 const (
@@ -159,12 +168,12 @@ const (
 // --- 错误码常量（供 domain 层引用，避免循环依赖） ---
 
 const (
-	ErrInteractionCode         = 3003
-	ErrInteractionCautionCode  = 30031 // 慎用提示
-	ErrInteractionNoteCode     = 30032 // 注意提示
-	ErrDoseExceededCode        = 3002
-	ErrDuplicateDrugCode       = 3004
-	ErrAgeContraindicationCode = 3008
+	ErrInteractionCode               = 3003
+	ErrInteractionCautionCode        = 30031 // 慎用提示
+	ErrInteractionNoteCode           = 30032 // 注意提示
+	ErrDoseExceededCode              = 3002
+	ErrDuplicateDrugCode             = 3004
+	ErrAgeContraindicationCode       = 3008
 	ErrPregnancyContraindicationCode = 3009
 	ErrAllergyContraindicationCode   = 3010
 	ErrLactationWarningCode          = 3011

@@ -22,15 +22,15 @@ func NewSupplierHandler(svc *service.SupplierService) *SupplierHandler {
 }
 
 // Register 注册路由。
-func (h *SupplierHandler) Register(r *gin.RouterGroup, _ *gin.RouterGroup, _ *gin.RouterGroup) {
-	r.GET("/suppliers", h.List)
-	r.POST("/suppliers", h.Create)
-	r.GET("/suppliers/:id", h.Get)
-	r.PUT("/suppliers/:id", h.Update)
-	r.DELETE("/suppliers/:id", h.Delete)
-	r.GET("/drugs/:id/suppliers", h.ListDrugSuppliers)
-	r.POST("/drugs/:id/suppliers", h.BindDrugSupplier)
-	r.DELETE("/drug-suppliers/:id", h.DeleteDrugSupplier)
+func (h *SupplierHandler) Register(g Groups) {
+	g.Authed.GET("/suppliers", h.List)
+	g.Purchase.POST("/suppliers", h.Create)
+	g.Authed.GET("/suppliers/:id", h.Get)
+	g.Purchase.PUT("/suppliers/:id", h.Update)
+	g.Purchase.DELETE("/suppliers/:id", h.Delete)
+	g.Authed.GET("/drugs/:id/suppliers", h.ListDrugSuppliers)
+	g.Purchase.POST("/drugs/:id/suppliers", h.BindDrugSupplier)
+	g.Purchase.DELETE("/drug-suppliers/:id", h.DeleteDrugSupplier)
 }
 
 // Create godoc

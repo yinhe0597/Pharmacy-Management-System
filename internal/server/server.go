@@ -39,6 +39,8 @@ type App struct {
 	interSvc     *service.InteractionService
 	clinical     *service.ClinicalService
 	logSvc       *service.OperationLogService
+	reference    *service.ReferenceService
+	patients     *patient.PatientService
 
 	patientService port.IPatientService
 	pricingService port.IPricingService
@@ -56,7 +58,7 @@ func NewApp(cfg *config.Config, db *gorm.DB) *App {
 	interSvc := service.NewInteractionService(db)
 	clinicalSvc := service.NewClinicalService(db)
 	logSvc := service.NewOperationLogService(db)
-	patientSvc := patient.NewSimplePatientService()
+	patientSvc := patient.NewPatientService(db)
 
 	return &App{
 		cfg:            cfg,
@@ -73,6 +75,8 @@ func NewApp(cfg *config.Config, db *gorm.DB) *App {
 		interSvc:       interSvc,
 		clinical:       clinicalSvc,
 		logSvc:         logSvc,
+		reference:      service.NewReferenceService(db),
+		patients:       patientSvc,
 		patientService: patientSvc,
 		pricingService: pricing.NewSimplePricingService(db),
 	}
@@ -96,29 +100,35 @@ func (a *App) Engine() *gin.Engine {
 
 	v1 := r.Group("/api/v1")
 	authed := v1.Group("", middleware.Auth(a.jwt))
-	// 角色分组
-	userAdmin := v1.Group("", middleware.Auth(a.jwt),
-		middleware.RequireRoles(enum.RoleAdmin, enum.RolePharmacyDirector))
-	pharmacyMgmt := v1.Group("", middleware.Auth(a.jwt),
-		middleware.RequireRoles(enum.PharmacyStaff...))
-	reportView := v1.Group("", middleware.Auth(a.jwt),
-		middleware.RequireRoles(enum.ReportAccess...))
+	// 角色分组（docs/03 §2 角色矩阵）
+	groups := handler.Groups{
+		Public:    v1,
+		Authed:    authed,
+		DrugAdmin: v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.DrugAdmin...)),
+		Pharmacy:  v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.PharmacyStaff...)),
+		Clinical:  v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.ClinicalStaff...)),
+		Purchase:  v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.PurchaseStaff...)),
+		Report:    v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.ReportAccess...)),
+		UserAdmin: v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.UserAdmin...)),
+	}
 
-	handler.NewAuthHandler(a.auth, a.logSvc).Register(v1, authed, userAdmin)
-	handler.NewDrugHandler(a.drug).Register(authed, authed, pharmacyMgmt)
-	handler.NewSupplierHandler(a.supplier).Register(authed, authed, pharmacyMgmt)
-	handler.NewInventoryHandler(a.inventory).Register(authed, authed, pharmacyMgmt)
+	handler.NewAuthHandler(a.auth, a.logSvc).Register(groups)
+	handler.NewDrugHandler(a.drug).Register(groups)
+	handler.NewSupplierHandler(a.supplier).Register(groups)
+	handler.NewInventoryHandler(a.inventory).Register(groups)
 	// 别名：设计文档路径 /drugs/:id/availability → 实际实现在库存模块
 	authed.GET("/drugs/:id/availability", handler.NewInventoryHandler(a.inventory).AvailabilityAlias)
-	handler.NewPurchaseHandler(a.purchase, a.inventory).Register(authed, authed, pharmacyMgmt)
-	handler.NewPrescriptionHandler(a.prescription).Register(authed, authed, pharmacyMgmt)
-	handler.NewSpecialDrugHandler(a.special).Register(authed, authed, pharmacyMgmt)
+	handler.NewPurchaseHandler(a.purchase, a.inventory).Register(groups)
+	handler.NewPrescriptionHandler(a.prescription, a.clinical).Register(groups)
+	handler.NewSpecialDrugHandler(a.special).Register(groups)
 	// 别名：设计文档路径 /special-drugs/reports/usage → 功能已在报表模块
 	authed.GET("/special-drugs/reports/usage", handler.NewReportHandler(a.report).SpecialDrugUsageAlias)
-	handler.NewPharmaServiceHandler(a.pharma).Register(authed, authed, pharmacyMgmt)
-	handler.NewReportHandler(a.report).Register(authed, authed, reportView)
-	handler.NewInteractionHandler(a.interSvc).Register(authed, authed, pharmacyMgmt)
-	handler.NewClinicalHandler(a.clinical).Register(authed, authed, pharmacyMgmt)
+	handler.NewPharmaServiceHandler(a.pharma).Register(groups)
+	handler.NewReportHandler(a.report).Register(groups)
+	handler.NewInteractionHandler(a.interSvc).Register(groups)
+	handler.NewClinicalHandler(a.clinical).Register(groups)
+	handler.NewReferenceHandler(a.reference).Register(groups)
+	handler.NewPatientHandler(a.patients).Register(groups)
 
 	return r
 }
