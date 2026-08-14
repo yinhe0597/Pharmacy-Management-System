@@ -25,6 +25,7 @@ type Prescription struct {
 	PrescriptionType         int        `gorm:"not null;default:0" json:"prescription_type"`
 	SpecialControlType       int        `gorm:"not null;default:0" json:"special_control_type"`
 	Source                   string     `gorm:"size:20;not null;default:manual" json:"source"`
+	VisitID                  *int64     `gorm:"index" json:"visit_id"` // 二期：关联就诊（docs/20 S5）；nil=未关联
 	Status                   string     `gorm:"size:20;not null;default:pending_review;index" json:"status"`
 	TotalAmount              int64      `gorm:"not null;default:0" json:"total_amount"`
 	AuditorID                int64      `json:"auditor_id"`

@@ -23,6 +23,20 @@
 - **二期就诊模块规划**：新增 [docs/20-二期就诊模块规划.md](docs/20-二期就诊模块规划.md)，
   明确就诊/病历/收费模块 S1 表结构、S2-S7 接口与前端页面规划。
 
+### 新增（二期就诊模块后端，docs/20 S1-S5）
+
+- **S1 迁移**（`000029`）：`visits`（挂号/分诊，状态机 waiting→visiting→finished/cancelled）、
+  `medical_records`（一就诊一病历：主诉/现病史/体征）+ `medical_record_diagnoses`（多诊断 ICD-10）、
+  `charges`（合并结算单：合计/优惠/应收/实收，状态机 pending→paid→refunded）+ `charge_items`（多费用项明细），
+  `prescriptions` 增加 `visit_id` 关联就诊。
+- **S2 就诊域**：挂号/分诊（自动生成就诊号）、列表（患者/医生/状态/日期筛选）、接诊/结束/退号。
+- **S3 病历域**：保存/读取就诊病历（含结构化多诊断，全删全插）。
+- **S4 结算域**：`port.IPricingService.CalculateBill` 按就诊聚合药费（已发药处方快照）+
+  诊疗项目/耗材计费记录（未红冲）；生成结算单、收费、退费。
+- **S5 处方联动**：处方 `visit_id` 关联就诊并校验患者一致；`source` 扩展
+  `outpatient/inpatient/refill`（`PrescriptionSourceManual` 保持默认）。
+- **实测**：`scripts/smoke_test_phase2.py` 24 步冒烟全通（挂号→接诊→病历→开方→发药→合并结算→收费→退费）。
+
 ### 修复（针对 docs/14 审阅发现的问题）
 
 - **RBAC 角色权限落地**：所有业务模块写操作按角色矩阵分组——处方开立（ClinicalStaff）、

@@ -41,6 +41,9 @@ type App struct {
 	logSvc       *service.OperationLogService
 	reference    *service.ReferenceService
 	patients     *patient.PatientService
+	visits       *service.VisitService
+	records      *service.MedicalRecordService
+	charges      *service.ChargeService
 
 	patientService port.IPatientService
 	pricingService port.IPricingService
@@ -59,6 +62,7 @@ func NewApp(cfg *config.Config, db *gorm.DB) *App {
 	clinicalSvc := service.NewClinicalService(db)
 	logSvc := service.NewOperationLogService(db)
 	patientSvc := patient.NewPatientService(db)
+	pricer := pricing.NewSimplePricingService(db)
 
 	return &App{
 		cfg:            cfg,
@@ -78,7 +82,10 @@ func NewApp(cfg *config.Config, db *gorm.DB) *App {
 		reference:      service.NewReferenceService(db),
 		patients:       patientSvc,
 		patientService: patientSvc,
-		pricingService: pricing.NewSimplePricingService(db),
+		pricingService: pricer,
+		visits:         service.NewVisitService(db),
+		records:        service.NewMedicalRecordService(db),
+		charges:        service.NewChargeService(db, pricer),
 	}
 }
 
@@ -135,6 +142,7 @@ func (a *App) Engine() *gin.Engine {
 	handler.NewClinicalHandler(a.clinical).Register(groups)
 	handler.NewReferenceHandler(a.reference).Register(groups)
 	handler.NewPatientHandler(a.patients).Register(groups)
+	handler.NewVisitHandler(a.visits, a.records, a.charges).Register(groups)
 
 	return r
 }

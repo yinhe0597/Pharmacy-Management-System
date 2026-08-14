@@ -44,7 +44,43 @@ const (
 
 // 处方来源（一期仅 manual，二期扩展）。
 const (
-	PrescriptionSourceManual = "manual"
+	PrescriptionSourceManual     = "manual"     // 药房手工录入
+	PrescriptionSourceOutpatient = "outpatient" // 门诊就诊开立（二期）
+	PrescriptionSourceInpatient  = "inpatient"  // 住院就诊开立（二期）
+	PrescriptionSourceRefill     = "refill"     // 出院带药（二期）
+)
+
+// 就诊类型（docs/20 S1）。
+const (
+	VisitTypeOutpatient = "outpatient" // 门诊
+	VisitTypeInpatient  = "inpatient"  // 住院
+	VisitTypeRefill     = "refill"     // 出院带药
+)
+
+// 就诊状态机（docs/20 S1）。
+const (
+	VisitStatusWaiting   = "waiting"   // 待诊（已挂号/分诊）
+	VisitStatusVisiting  = "visiting"  // 就诊中（医生接诊）
+	VisitStatusFinished  = "finished"  // 已结束
+	VisitStatusCancelled = "cancelled" // 退号
+)
+
+// 合并结算状态机（docs/20 S4）。
+const (
+	ChargeStatusPending  = "pending"  // 待收
+	ChargeStatusPaid     = "paid"     // 已收
+	ChargeStatusRefunded = "refunded" // 已退
+)
+
+// 结算单费用项类型（docs/20 S4）。
+const (
+	ChargeItemTypeRegistration    = "registration"     // 挂号费
+	ChargeItemTypeConsultation    = "consultation"     // 诊查费
+	ChargeItemTypeTreatment       = "treatment"        // 治疗费
+	ChargeItemTypeExamination     = "examination"      // 检查费
+	ChargeItemTypeDrug            = "drug"             // 药品
+	ChargeItemTypeConsumable      = "consumable"       // 耗材
+	ChargeItemTypeClinicalService = "clinical_service" // 诊疗项目
 )
 
 // 库存流水类型。

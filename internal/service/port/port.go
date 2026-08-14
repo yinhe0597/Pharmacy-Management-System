@@ -115,4 +115,7 @@ type PriceLine struct {
 // IPricingService 计价服务接口。一期仅计算药费，二期扩展多费用项。
 type IPricingService interface {
 	CalculatePrescriptionAmount(ctx context.Context, itemIDs []int64) ([]PriceLine, error)
+	// CalculateBill 合并结算计价（docs/20 S4）：按就诊聚合挂号/诊查/治疗/检查/药费，
+	// 返回可直接落 charges+charge_items 的费用行。
+	CalculateBill(ctx context.Context, visitID int64) ([]PriceLine, error)
 }

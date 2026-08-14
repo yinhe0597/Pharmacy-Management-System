@@ -99,6 +99,11 @@ var (
 	ErrNotDispensed      = New(6004, "处方未发药，无法计费", http.StatusConflict)
 	ErrChargeVoided      = New(6005, "计费记录已红冲，不能重复操作", http.StatusConflict)
 	ErrDiagnosisNotFound = New(6006, "诊断编码不存在", http.StatusBadRequest)
+	ErrVisitNotFound     = New(6101, "就诊不存在", http.StatusNotFound)
+	ErrVisitState        = New(6102, "就诊状态不允许该操作", http.StatusConflict)
+	ErrChargeNotFound    = New(6103, "结算单不存在", http.StatusNotFound)
+	ErrChargeState       = New(6104, "结算单状态不允许该操作", http.StatusConflict)
+	ErrChargeEmpty       = New(6105, "结算单无费用明细", http.StatusBadRequest)
 )
 
 // Is 判断 err 是否为目标业务错误（按 Code 匹配）。

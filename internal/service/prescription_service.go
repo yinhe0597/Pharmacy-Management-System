@@ -54,6 +54,8 @@ type PrescriptionInput struct {
 	PrescriptionType int                     `json:"prescription_type"`
 	IsPregnant       bool                    `json:"is_pregnant"`  // 患者是否妊娠（用于妊娠禁忌检查）
 	IsLactating      bool                    `json:"is_lactating"` // 患者是否哺乳期（用于哺乳期慎用检查）
+	Source           string                  `json:"source"`       // 处方来源（manual/outpatient/inpatient/refill，docs/20 S5）
+	VisitID          int64                   `json:"visit_id"`     // 二期：关联就诊（docs/20 S5）
 	Remarks          string                  `json:"remarks"`
 	Items            []PrescriptionItemInput `json:"items"`
 }
@@ -131,6 +133,30 @@ func (s *PrescriptionService) Create(ctx context.Context, input PrescriptionInpu
 	if err := validateDiagnosisCode(ctx, s.db, input.DiagnosisCode); err != nil {
 		return nil, err
 	}
+	// 处方来源校验（二期扩展，docs/20 S5）
+	source := input.Source
+	if source == "" {
+		source = enum.PrescriptionSourceManual
+	}
+	switch source {
+	case enum.PrescriptionSourceManual, enum.PrescriptionSourceOutpatient,
+		enum.PrescriptionSourceInpatient, enum.PrescriptionSourceRefill:
+	default:
+		return nil, errs.ErrBadRequest
+	}
+	// 就诊关联校验（二期，docs/20 S5）：visit 存在且患者一致
+	if input.VisitID > 0 {
+		var v model.Visit
+		if err := s.db.WithContext(ctx).First(&v, input.VisitID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, errs.ErrVisitNotFound
+			}
+			return nil, err
+		}
+		if input.PatientID > 0 && v.PatientID != input.PatientID {
+			return nil, errs.ErrBadRequest
+		}
+	}
 	items, drugs, err := s.prepareItems(ctx, s.db, input.Items)
 	if err != nil {
 		return nil, err
@@ -163,7 +189,8 @@ func (s *PrescriptionService) Create(ctx context.Context, input PrescriptionInpu
 		DoctorName:         input.DoctorName,
 		PrescriptionType:   prescType,
 		SpecialControlType: specialControlOf(drugs),
-		Source:             enum.PrescriptionSourceManual,
+		Source:             source,
+		VisitID:            visitIDOrNil(input.VisitID),
 		Status:             prescription.StatusPendingReview.String(),
 		Remarks:            input.Remarks,
 	}
@@ -343,6 +370,8 @@ func (s *PrescriptionService) Update(ctx context.Context, id int64, input Prescr
 		p.DoctorName = input.DoctorName
 		p.PrescriptionType = prescType
 		p.SpecialControlType = specialControlOf(drugs)
+		p.Source = sourceOf(input.Source)
+		p.VisitID = visitIDOrNil(input.VisitID)
 		p.TotalAmount = total
 		p.Remarks = input.Remarks
 		return repository.NewPrescriptionRepo(tx).UpdateBase(ctx, p)
@@ -393,6 +422,24 @@ func validateDiagnosisCode(ctx context.Context, db *gorm.DB, code string) error 
 		return errs.ErrDiagnosisNotFound
 	}
 	return nil
+}
+
+// sourceOf 处方来源归一（二期扩展，docs/20 S5）。
+func sourceOf(src string) string {
+	switch src {
+	case enum.PrescriptionSourceOutpatient, enum.PrescriptionSourceInpatient, enum.PrescriptionSourceRefill:
+		return src
+	default:
+		return enum.PrescriptionSourceManual
+	}
+}
+
+// visitIDOrNil 0 → nil（未关联就诊，满足可空外键）。
+func visitIDOrNil(v int64) *int64 {
+	if v <= 0 {
+		return nil
+	}
+	return &v
 }
 
 // Submit 提交审核：执行库存预占（开单即锁）。
