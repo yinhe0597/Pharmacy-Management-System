@@ -28,3 +28,5 @@ issues:
   exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
+  exclude-dirs:
+    - pharmacy-web # 前端工程（含 node_modules，不参与 Go 静态检查）

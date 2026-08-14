@@ -7,6 +7,8 @@ export interface PrescriptionItemInput {
   is_split?: boolean
   usage_text?: string
   frequency?: string
+  route?: string // 给药途径（oral/external/iv/im/iv_drip/inhale/other）
+  batch_group?: string // 分批组（口服组/输液组1 等）
   single_dose?: number
   total_daily_dose?: number
   days?: number

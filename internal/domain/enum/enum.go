@@ -133,6 +133,26 @@ func IsPharmacistRole(role string) bool {
 	return role == RoleAdmin || role == RolePharmacyDirector || role == RolePharmacist
 }
 
+// 给药途径（docs/17 P3 开方精细化）。
+const (
+	RouteOral     = "oral"     // 口服
+	RouteExternal = "external" // 外用
+	RouteIV       = "iv"       // 静脉注射
+	RouteIM       = "im"       // 肌注
+	RouteIVDrip   = "iv_drip"  // 静滴
+	RouteInhale   = "inhale"   // 雾化吸入
+	RouteOther    = "other"    // 其他
+)
+
+// IsValidRoute 校验给药途径是否合法（空值允许，表示未指定）。
+func IsValidRoute(route string) bool {
+	switch route {
+	case "", RouteOral, RouteExternal, RouteIV, RouteIM, RouteIVDrip, RouteInhale, RouteOther:
+		return true
+	}
+	return false
+}
+
 // 配伍等级。
 const (
 	InteractionLevelContraindication = 1 // 禁忌

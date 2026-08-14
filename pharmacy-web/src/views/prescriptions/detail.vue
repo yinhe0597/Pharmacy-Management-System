@@ -110,6 +110,14 @@
       <el-table-column prop="line_no" label="#" width="50" />
       <el-table-column prop="drug_name" label="药品" min-width="140" />
       <el-table-column prop="specification" label="规格" width="100" />
+      <el-table-column label="分组/途径" width="140">
+        <template #default="{ row }">
+          <el-tag v-if="row.batch_group" size="small" type="info">{{ row.batch_group }}</el-tag>
+          <el-tag size="small" style="margin-left: 4px">{{
+            ROUTE_LABEL[row.route] ?? row.usage_text ?? '—'
+          }}</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column prop="quantity" label="数量(LDU)" width="90" />
       <el-table-column label="单价" width="90"
         ><template #default="{ row }"><MoneyText :amount="row.unit_price" /></template
@@ -192,6 +200,15 @@ const PRESCRIPTION_TYPE: Record<number, string> = {
   3: '精神二类',
   4: '毒性',
   5: '放射性',
+}
+const ROUTE_LABEL: Record<string, string> = {
+  oral: '口服',
+  external: '外用',
+  iv: '静脉注射',
+  im: '肌注',
+  iv_drip: '静滴',
+  inhale: '雾化吸入',
+  other: '其他',
 }
 const ACTION_LABEL: Record<string, string> = {
   create: '创建',

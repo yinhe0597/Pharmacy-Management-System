@@ -1,7 +1,7 @@
 <template>
   <el-card>
     <h3>开方</h3>
-    <el-form :model="form" label-width="100px" style="max-width: 960px">
+    <el-form :model="form" label-width="100px" style="max-width: 1080px">
       <el-form-item label="患者">
         <el-select
           v-model="form.patient_id"
@@ -66,32 +66,62 @@
         ></el-col>
       </el-row>
 
-      <el-divider>明细</el-divider>
-      <div v-for="(it, idx) in form.items" :key="idx" class="item-card">
-        <div class="item-row">
-          <DrugPicker v-model="it.drug_id" style="flex: 1" @select="(d) => onDrugSelect(idx, d)" />
-          <span>数量(LDU)</span><el-input-number v-model="it.quantity" :min="1" />
-          <el-checkbox v-model="it.is_split" :disabled="!it.split_allowed">拆零</el-checkbox>
-          <el-button link type="danger" @click="form.items.splice(idx, 1)">删</el-button>
-        </div>
-        <div class="item-row">
-          <el-input v-model="it.usage_text" placeholder="用法（如 口服）" style="width: 160px" />
-          <el-input v-model="it.frequency" placeholder="频次（如 tid）" style="width: 140px" />
-          <span>单次</span><el-input-number v-model="it.single_dose" :min="0" /> <span>日总</span
-          ><el-input-number v-model="it.total_daily_dose" :min="0" /> <span>天数</span
-          ><el-input-number v-model="it.days" :min="0" />
-        </div>
-      </div>
-      <el-button
-        link
-        type="primary"
-        @click="form.items.push({ drug_id: 0, quantity: 1, is_split: false, split_allowed: false })"
-        >+ 添加明细</el-button
+      <el-divider content-position="left">医嘱分组（按给药途径分批，配伍检查覆盖整方）</el-divider>
+
+      <div
+        v-for="(group, gi) in groups"
+        :key="gi"
+        class="group-card"
+        :style="{ borderColor: groupColors[gi % groupColors.length] }"
       >
+        <div class="group-header" :style="{ background: groupColors[gi % groupColors.length] }">
+          <el-input v-model="group.name" class="group-name" size="small" />
+          <el-button size="small" text @click="removeGroup(gi)">删除组</el-button>
+        </div>
+        <div v-for="(it, ii) in group.items" :key="ii" class="item-block">
+          <div class="item-row">
+            <el-select v-model="it.route" style="width: 130px" placeholder="给药途径">
+              <el-option v-for="r in ROUTES" :key="r.value" :label="r.label" :value="r.value" />
+            </el-select>
+            <DrugPicker
+              v-model="it.drug_id"
+              style="flex: 1"
+              @select="(d) => onDrugSelect(group, ii, d)"
+            />
+            <span>数量</span><el-input-number v-model="it.quantity" :min="1" />
+            <el-checkbox v-model="it.is_split" :disabled="!it.split_allowed">拆零</el-checkbox>
+            <el-button link type="danger" @click="group.items.splice(ii, 1)">删</el-button>
+          </div>
+          <div class="item-row">
+            <el-input
+              v-model="it.usage_text"
+              placeholder="用法（如 口服/溶于250ml盐水）"
+              style="width: 200px"
+            />
+            <el-input v-model="it.frequency" placeholder="频次（如 tid/qd）" style="width: 140px" />
+            <span>单次</span><el-input-number v-model="it.single_dose" :min="0" /> <span>日总</span
+            ><el-input-number v-model="it.total_daily_dose" :min="0" /> <span>天数</span
+            ><el-input-number v-model="it.days" :min="0" />
+          </div>
+        </div>
+        <el-button link type="primary" @click="group.items.push(newItem())"
+          >+ 本组添加药品</el-button
+        >
+      </div>
+
+      <div class="group-actions">
+        <el-button type="primary" plain @click="addGroup()">+ 新建分组</el-button>
+        <el-alert
+          type="info"
+          :closable="false"
+          style="flex: 1"
+          title="提示：静滴/注射剂建议单药一组或同瓶配伍一组，避免分批混淆；配伍禁忌检查覆盖整方全部明细。"
+        />
+      </div>
 
       <el-form-item style="margin-top: 16px">
-        <el-button type="primary" @click="save">保存草稿</el-button>
-        <el-button type="success" @click="saveAndSubmit">保存并提交审核</el-button>
+        <el-button type="primary" @click="save(false)">保存草稿</el-button>
+        <el-button type="success" @click="save(true)">保存并提交审核</el-button>
       </el-form-item>
     </el-form>
   </el-card>
@@ -111,12 +141,35 @@ import { listPatients } from '@/api/patients'
 import DrugPicker from '@/components/DrugPicker.vue'
 import DiagnosisPicker from '@/components/DiagnosisPicker.vue'
 
+const ROUTES = [
+  { value: 'oral', label: '口服' },
+  { value: 'external', label: '外用' },
+  { value: 'iv', label: '静脉注射' },
+  { value: 'im', label: '肌注' },
+  { value: 'iv_drip', label: '静滴' },
+  { value: 'inhale', label: '雾化吸入' },
+  { value: 'other', label: '其他' },
+]
+const ROUTE_USAGE: Record<string, string> = {
+  oral: '口服',
+  external: '外用',
+  iv: '静脉注射',
+  im: '肌注',
+  iv_drip: '静脉滴注',
+  inhale: '雾化吸入',
+  other: '',
+}
+const groupColors = ['#409eff', '#67c23a', '#e6a23c', '#f56c6c', '#9254de']
+const GROUP_NAMES = ['口服组', '外用组', '输液组1', '输液组2', '输液组3']
+
 type LocalItem = PrescriptionItemInput & { split_allowed?: boolean }
+interface Group {
+  name: string
+  items: LocalItem[]
+}
 
 const router = useRouter()
-const form = reactive<
-  Omit<PrescriptionInput, 'items'> & { diagnosis_code: string; items: LocalItem[] }
->({
+const form = reactive<Omit<PrescriptionInput, 'items'> & { diagnosis_code: string }>({
   patient_id: undefined,
   patient_name: '',
   patient_gender: '男',
@@ -128,10 +181,14 @@ const form = reactive<
   doctor_name: '',
   is_pregnant: false,
   is_lactating: false,
-  items: [{ drug_id: 0, quantity: 1, is_split: false, split_allowed: false }],
 })
 const patients = ref<any[]>([])
 const patientLoading = ref(false)
+
+function newItem(): LocalItem {
+  return { drug_id: 0, quantity: 1, is_split: false, split_allowed: false, route: 'oral' }
+}
+const groups = reactive<Group[]>([{ name: GROUP_NAMES[0], items: [newItem()] }])
 
 async function searchPatients(keyword: string) {
   patientLoading.value = true
@@ -152,25 +209,45 @@ function onPatientSelect(id: number) {
   form.patient_card_no = p.card_no ?? ''
   if (p.is_lactating) form.is_lactating = true
 }
-function onDrugSelect(idx: number, d: any) {
-  form.items[idx].split_allowed = !!d.is_split_allowed
+
+function onDrugSelect(group: Group, idx: number, d: any) {
+  group.items[idx].split_allowed = !!d.is_split_allowed
+  const route = group.items[idx].route ?? ''
+  if (route && !group.items[idx].usage_text) {
+    group.items[idx].usage_text = ROUTE_USAGE[route] ?? ''
+  }
 }
 
-async function doSave(submit: boolean) {
-  const payload: PrescriptionInput = {
-    ...form,
-    items: form.items.map((it) => ({
-      drug_id: it.drug_id,
-      quantity: it.quantity,
-      is_split: it.is_split,
-      usage_text: it.usage_text,
-      frequency: it.frequency,
-      single_dose: it.single_dose,
-      total_daily_dose: it.total_daily_dose,
-      days: it.days,
-    })),
-  }
-  const created = await createPrescription(payload)
+function addGroup() {
+  const n = groups.length + 1
+  const name = n <= GROUP_NAMES.length ? GROUP_NAMES[n - 1] : `分组${n}`
+  groups.push({ name, items: [newItem()] })
+}
+function removeGroup(gi: number) {
+  if (groups.length <= 1) return ElMessage.warning('至少保留一个分组')
+  groups.splice(gi, 1)
+}
+
+async function save(submit: boolean) {
+  const items: PrescriptionItemInput[] = groups.flatMap((g) =>
+    g.items
+      .filter((it) => it.drug_id > 0)
+      .map((it) => ({
+        drug_id: it.drug_id,
+        quantity: it.quantity,
+        is_split: it.is_split,
+        usage_text: it.usage_text,
+        frequency: it.frequency,
+        route: it.route,
+        batch_group: g.name || '',
+        single_dose: it.single_dose,
+        total_daily_dose: it.total_daily_dose,
+        days: it.days,
+      })),
+  )
+  if (!form.patient_name) return ElMessage.warning('请填写患者姓名')
+  if (!items.length) return ElMessage.warning('请至少添加一条药品明细')
+  const created = await createPrescription({ ...form, items })
   ElMessage.success('已保存')
   if (submit) {
     await submitPrescription(created.id)
@@ -178,20 +255,33 @@ async function doSave(submit: boolean) {
   }
   router.push(`/prescriptions/${created.id}`)
 }
-function save() {
-  doSave(false)
-}
-function saveAndSubmit() {
-  doSave(true)
-}
 </script>
 
 <style scoped>
-.item-card {
-  border: 1px dashed #dcdfe6;
-  padding: 8px;
-  border-radius: 4px;
-  margin-bottom: 8px;
+.group-card {
+  border: 1px solid #dcdfe6;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  padding: 0 12px 12px;
+  border-left-width: 4px;
+}
+.group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 -12px 8px;
+  padding: 6px 12px;
+  border-radius: 3px 3px 0 0;
+}
+.group-name {
+  width: 180px;
+}
+.item-block {
+  border-bottom: 1px dashed #ebeef5;
+  padding: 8px 0;
+}
+.item-block:last-of-type {
+  border-bottom: none;
 }
 .item-row {
   display: flex;
@@ -201,5 +291,10 @@ function saveAndSubmit() {
 }
 .item-row:last-child {
   margin-bottom: 0;
+}
+.group-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
 }
 </style>

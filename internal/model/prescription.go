@@ -64,6 +64,8 @@ type PrescriptionItem struct {
 	Amount            int64     `gorm:"not null" json:"amount"`                 // 精确混合金额
 	UsageText         string    `gorm:"size:200" json:"usage_text"`
 	Frequency         string    `gorm:"size:50" json:"frequency"`
+	Route             string    `gorm:"size:20" json:"route"`       // 给药途径（oral/external/iv/im/iv_drip/inhale/other）
+	BatchGroup        string    `gorm:"size:20" json:"batch_group"` // 分批组（如 口服组/输液组1）
 	SingleDose        int64     `json:"single_dose"`
 	TotalDailyDose    int64     `json:"total_daily_dose"`
 	Days              int       `json:"days"`

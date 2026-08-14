@@ -33,6 +33,8 @@ type PrescriptionItemInput struct {
 	IsSplit        bool   `json:"is_split"` // true=强制拆零
 	UsageText      string `json:"usage_text"`
 	Frequency      string `json:"frequency"`
+	Route          string `json:"route"`            // 给药途径（docs/17 P3）
+	BatchGroup     string `json:"batch_group"`      // 分批组（口服组/输液组1 等）
 	SingleDose     int64  `json:"single_dose"`      // 拆零单位
 	TotalDailyDose int64  `json:"total_daily_dose"` // 拆零单位
 	Days           int    `json:"days"`
@@ -203,6 +205,10 @@ func (s *PrescriptionService) prepareItems(ctx context.Context, db *gorm.DB, inp
 		if in.SingleDose < 0 || in.TotalDailyDose < 0 || in.Days < 0 {
 			return nil, nil, errs.ErrBadRequest
 		}
+		// 给药途径校验（docs/17 P3）
+		if !enum.IsValidRoute(in.Route) {
+			return nil, nil, errs.ErrBadRequest
+		}
 		// 一致性：数量不超过「日总剂量 × 天数」（两者均填报时校验，防录入错误）
 		if in.TotalDailyDose > 0 && in.Days > 0 && in.Quantity > in.TotalDailyDose*int64(in.Days) {
 			return nil, nil, errs.ErrDoseMismatch
@@ -246,6 +252,7 @@ func (s *PrescriptionService) prepareItems(ctx context.Context, db *gorm.DB, inp
 			IsSplitAllowed: splitAllowed, IsSplit: in.IsSplit, Quantity: in.Quantity,
 			UnitPrice: unitPrice, RetailPrice: d.RetailPrice, Amount: amount,
 			UsageText: in.UsageText, Frequency: in.Frequency,
+			Route: in.Route, BatchGroup: in.BatchGroup,
 			SingleDose: in.SingleDose, TotalDailyDose: in.TotalDailyDose,
 			Days: in.Days,
 		})

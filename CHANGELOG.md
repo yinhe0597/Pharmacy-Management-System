@@ -100,6 +100,19 @@
 - **患者用药史**（docs/15 L6）：实现 `GetMedicationHistory`，新增 `GET /patients/{id}/medication-history`。
 - **双护士 RBAC 集成用例**：`rbac_integration_test.go`（跟诊护士可建档不可领用，药房护士相反，CI 验证）。
 
+### 开方精细化（迁移 `000028`）+ 前端 P3-P6
+
+- **给药途径与分批组**（迁移 `000028`）：`prescription_items` 新增 `route`
+  （oral/external/iv/im/iv_drip/inhale/other，枚举校验）与 `batch_group`（口服组/输液组1 等），
+  支撑口服/外用/注射剂开具与分批配伍分组，开方不混淆。
+- **前端 P3 开方页重做**：按给药途径 + 分批分组卡片（彩色分组头、组内多明细、途径选择、静滴提示），
+  保存时按组落 `route`/`batch_group`；处方详情展示分组/途径。
+- **前端 P4**：计费管理（7 维筛选/红冲/手工计费/诊疗项目目录启停用）、药学服务（咨询/不良反应/指导）、
+  特殊药品（麻精处方/空安瓿回收/专账）。
+- **前端 P5**：报表中心（进销存/效期/特殊/工作量/拆零/患者费用 6 报表）、系统管理（用户/操作日志）。
+- **前端 P6**：新增前端 CI（frontend-ci.yml：install + type-check + eslint + prettier + build）；
+  全量验证（type-check/lint/format/build）通过。
+
 ## [v1.3.0] - 2026-08-02
 
 ### 基础参考数据（种子）
