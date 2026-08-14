@@ -29,11 +29,11 @@ func (h *ClinicalHandler) Register(g Groups) {
 	g.DrugAdmin.PUT("/clinical-services/:id", h.UpdateService)
 	g.DrugAdmin.DELETE("/clinical-services/:id", h.DeleteService)
 	g.DrugAdmin.PATCH("/clinical-services/:id/status", h.SetServiceStatus)
-	// 计费记录（查看收窄到 计费人员∪药房人员；护士/医生/药师/管理员可录入，docs/15 M3）
+	// 计费记录（查看=Billing；录入/红冲=ChargeStaff 含双护士，docs/18）
 	g.Billing.GET("/charge-records", h.ListCharges)
-	g.Pharmacy.POST("/charge-records", h.CreateCharge)
-	g.Pharmacy.POST("/charge-records/from-prescription/:id", h.ChargePrescription)
-	g.Pharmacy.POST("/charge-records/:id/void", h.VoidCharge)
+	g.Charge.POST("/charge-records", h.CreateCharge)
+	g.Charge.POST("/charge-records/from-prescription/:id", h.ChargePrescription)
+	g.Charge.POST("/charge-records/:id/void", h.VoidCharge)
 }
 
 // ---- 诊疗项目 ----

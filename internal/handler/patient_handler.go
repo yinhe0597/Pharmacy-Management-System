@@ -21,15 +21,15 @@ func NewPatientHandler(svc *patient.PatientService) *PatientHandler {
 	return &PatientHandler{svc: svc}
 }
 
-// Register 注册路由（档案维护需开立/药房角色；查看收窄到药房人员，docs/15 M3）。
+// Register 注册路由（患者信息管理：写=跟诊护士/医生/主任/管理员；读=患者管理∪药房人员，docs/18）。
 func (h *PatientHandler) Register(g Groups) {
-	g.Pharmacy.GET("/patients", h.List)
-	g.Clinical.POST("/patients", h.Create)
-	g.Pharmacy.GET("/patients/:id", h.Get)
-	g.Clinical.PUT("/patients/:id", h.Update)
-	g.Pharmacy.GET("/patients/:id/allergies", h.ListAllergies)
-	g.Clinical.POST("/patients/:id/allergies", h.AddAllergy)
-	g.Clinical.DELETE("/patient-allergies/:id", h.DeleteAllergy)
+	g.PatientRead.GET("/patients", h.List)
+	g.Patient.POST("/patients", h.Create)
+	g.PatientRead.GET("/patients/:id", h.Get)
+	g.Patient.PUT("/patients/:id", h.Update)
+	g.PatientRead.GET("/patients/:id/allergies", h.ListAllergies)
+	g.Patient.POST("/patients/:id/allergies", h.AddAllergy)
+	g.Patient.DELETE("/patient-allergies/:id", h.DeleteAllergy)
 }
 
 // List godoc

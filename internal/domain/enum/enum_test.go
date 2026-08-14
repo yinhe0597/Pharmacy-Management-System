@@ -20,7 +20,7 @@ func TestIsPharmacistRole(t *testing.T) {
 			t.Fatalf("药师级角色 %s 校验失败", r)
 		}
 	}
-	denied := []string{RoleDoctor, RoleNurse, RoleBuyer, RoleFinance, ""}
+	denied := []string{RoleDoctor, RoleClinicNurse, RolePharmacyNurse, RoleBuyer, RoleFinance, ""}
 	for _, r := range denied {
 		if IsPharmacistRole(r) {
 			t.Fatalf("非药师级角色 %s 不应通过", r)
@@ -38,15 +38,19 @@ func TestIsSpecialControlled(t *testing.T) {
 }
 
 func TestRoleGroups(t *testing.T) {
-	// 护士无处方开立权；采购员仅在采购组
 	for _, g := range []struct {
 		name   string
 		groups [][]string
 		role   string
 		want   bool
 	}{
-		{"nurse 在 PharmacyStaff", [][]string{PharmacyStaff}, RoleNurse, true},
-		{"nurse 不在 ClinicalStaff", [][]string{ClinicalStaff}, RoleNurse, false},
+		{"药房护士 在 PharmacyStaff", [][]string{PharmacyStaff}, RolePharmacyNurse, true},
+		{"药房护士 不在 ClinicalStaff", [][]string{ClinicalStaff}, RolePharmacyNurse, false},
+		{"跟诊护士 在 ClinicalStaff", [][]string{ClinicalStaff}, RoleClinicNurse, true},
+		{"跟诊护士 不在 PharmacyStaff", [][]string{PharmacyStaff}, RoleClinicNurse, false},
+		{"跟诊护士 在 PatientAdmin", [][]string{PatientAdmin}, RoleClinicNurse, true},
+		{"药师 不在 PatientAdmin", [][]string{PatientAdmin}, RolePharmacist, false},
+		{"双护士 在 ChargeStaff", [][]string{ChargeStaff}, RolePharmacyNurse, true},
 		{"buyer 在 PurchaseStaff", [][]string{PurchaseStaff}, RoleBuyer, true},
 		{"buyer 不在 PharmacyStaff", [][]string{PharmacyStaff}, RoleBuyer, false},
 		{"finance 在 ReportAccess", [][]string{ReportAccess}, RoleFinance, true},

@@ -21,6 +21,12 @@ type Groups struct {
 	Report *gin.RouterGroup
 	// Billing 计费查看权限（药房人员 ∪ 报表权限，docs/15 M3）
 	Billing *gin.RouterGroup
+	// Patient 患者档案写权限（跟诊护士/医生/主任/管理员，docs/18）
+	Patient *gin.RouterGroup
+	// PatientRead 患者档案读权限（患者管理与药房人员，docs/18）
+	PatientRead *gin.RouterGroup
+	// Charge 计费录入/红冲权限（含双护士，docs/18）
+	Charge *gin.RouterGroup
 	// UserAdmin 用户管理权限
 	UserAdmin *gin.RouterGroup
 }

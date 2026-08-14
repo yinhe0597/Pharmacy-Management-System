@@ -240,6 +240,11 @@ definitions:
       status:
         type: integer
     type: object
+  internal_handler.verifyOrderRequest:
+    properties:
+      remarks:
+        type: string
+    type: object
   yaofang_internal_model.AdverseReaction:
     properties:
       batch_no:
@@ -3013,6 +3018,31 @@ paths:
       security:
       - BearerAuth: []
       summary: 提交审核（预占库存）
+      tags:
+      - prescriptions
+  /prescriptions/{id}/verify-order:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 处方ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 核对备注
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/internal_handler.verifyOrderRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 核对医嘱（跟诊护士/医生，写审计日志，不改变状态）
       tags:
       - prescriptions
   /purchase-orders:

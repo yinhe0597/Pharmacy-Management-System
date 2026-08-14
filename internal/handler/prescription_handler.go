@@ -28,6 +28,7 @@ func (h *PrescriptionHandler) Register(g Groups) {
 	g.Clinical.POST("/prescriptions", h.Create)
 	g.Clinical.PUT("/prescriptions/:id", h.Update)
 	g.Clinical.POST("/prescriptions/:id/submit", h.Submit)
+	g.Clinical.POST("/prescriptions/:id/verify-order", h.VerifyOrder)
 	g.DrugAdmin.POST("/prescriptions/:id/review", h.Review)
 	g.Pharmacy.POST("/prescriptions/:id/dispense", h.Dispense)
 	g.Pharmacy.POST("/prescriptions/:id/confirm-dispense", h.ConfirmDispense)
@@ -101,6 +102,34 @@ func (h *PrescriptionHandler) Submit(c *gin.Context) {
 		return
 	}
 	if err := h.svc.Submit(c.Request.Context(), id, middleware.UserIDFromCtx(c), middleware.UserNameFromCtx(c)); err != nil {
+		Error(c, err)
+		return
+	}
+	OK(c, nil)
+}
+
+type verifyOrderRequest struct {
+	Remarks string `json:"remarks"`
+}
+
+// VerifyOrder godoc
+// @Summary 核对医嘱（跟诊护士/医生，写审计日志，不改变状态）
+// @Tags prescriptions
+// @Accept json
+// @Security BearerAuth
+// @Param id path int true "处方ID"
+// @Param body body verifyOrderRequest false "核对备注"
+// @Success 200 {object} Body
+// @Router /prescriptions/{id}/verify-order [post]
+func (h *PrescriptionHandler) VerifyOrder(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		Error(c, errs.ErrBadRequest)
+		return
+	}
+	var req verifyOrderRequest
+	_ = c.ShouldBindJSON(&req)
+	if err := h.svc.VerifyOrder(c.Request.Context(), id, middleware.UserIDFromCtx(c), middleware.UserNameFromCtx(c), req.Remarks); err != nil {
 		Error(c, err)
 		return
 	}

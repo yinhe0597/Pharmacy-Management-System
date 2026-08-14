@@ -958,6 +958,27 @@ func (s *PrescriptionService) Cancel(ctx context.Context, id int64, operatorName
 	})
 }
 
+// VerifyOrder 核对医嘱：跟诊护士/医生在开立后核对诊断/患者/项目一致性（docs/18）。
+// 仅写审计日志（action=verify_order），不改变状态——正式审核仍由药师执行。
+func (s *PrescriptionService) VerifyOrder(ctx context.Context, id int64, operatorID int64, operatorName, remarks string) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		p, err := repository.NewPrescriptionRepo(tx).LockForUpdate(ctx, id)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errs.ErrNotFound
+			}
+			return err
+		}
+		if p.Status != prescription.StatusPendingReview.String() {
+			return errs.ErrPrescriptionState
+		}
+		if remarks == "" {
+			remarks = "医嘱已核对"
+		}
+		return s.auditTx(ctx, tx, id, "verify_order", p.Status, p.Status, operatorName, remarks)
+	})
+}
+
 // releaseReservationsTx 释放指定处方的全部预占。
 func (s *PrescriptionService) releaseReservationsTx(ctx context.Context, tx *gorm.DB, id int64) error {
 	resvs, err := repository.NewStockReservationRepo(tx).ListActiveByRef(ctx, "prescription", id)

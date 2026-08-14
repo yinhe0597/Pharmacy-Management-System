@@ -104,15 +104,18 @@ func (a *App) Engine() *gin.Engine {
 	billingRoles := append(append([]string{}, enum.PharmacyStaff...), enum.ReportAccess...)
 	// 角色分组（docs/03 §2 角色矩阵）
 	groups := handler.Groups{
-		Public:    v1,
-		Authed:    authed,
-		DrugAdmin: v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.DrugAdmin...)),
-		Pharmacy:  v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.PharmacyStaff...)),
-		Clinical:  v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.ClinicalStaff...)),
-		Purchase:  v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.PurchaseStaff...)),
-		Report:    v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.ReportAccess...)),
-		Billing:   v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(billingRoles...)),
-		UserAdmin: v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.UserAdmin...)),
+		Public:      v1,
+		Authed:      authed,
+		DrugAdmin:   v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.DrugAdmin...)),
+		Pharmacy:    v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.PharmacyStaff...)),
+		Clinical:    v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.ClinicalStaff...)),
+		Purchase:    v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.PurchaseStaff...)),
+		Report:      v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.ReportAccess...)),
+		Billing:     v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(billingRoles...)),
+		Patient:     v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.PatientAdmin...)),
+		PatientRead: v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.PatientRead...)),
+		Charge:      v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.ChargeStaff...)),
+		UserAdmin:   v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.UserAdmin...)),
 	}
 
 	handler.NewAuthHandler(a.auth, a.logSvc).Register(groups)

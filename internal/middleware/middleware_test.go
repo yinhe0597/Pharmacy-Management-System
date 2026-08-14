@@ -39,7 +39,7 @@ func TestRequireRoles(t *testing.T) {
 
 	adminTok, _ := mgr.Generate(1, "admin", "管理员", "admin")
 	pharmTok, _ := mgr.Generate(2, "pharm", "药师", "pharmacist")
-	nurseTok, _ := mgr.Generate(3, "nurse", "护士", "nurse")
+	nurseTok, _ := mgr.Generate(3, "pharmacy_nurse", "药房护士", "pharmacy_nurse")
 
 	cases := []struct {
 		name     string

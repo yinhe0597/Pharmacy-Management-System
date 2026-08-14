@@ -3545,6 +3545,47 @@ const docTemplate = `{
                 }
             }
         },
+        "/prescriptions/{id}/verify-order": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "prescriptions"
+                ],
+                "summary": "核对医嘱（跟诊护士/医生，写审计日志，不改变状态）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "处方ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "核对备注",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.verifyOrderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
         "/purchase-orders": {
             "get": {
                 "security": [
@@ -5431,6 +5472,14 @@ const docTemplate = `{
                 },
                 "status": {
                     "type": "integer"
+                }
+            }
+        },
+        "internal_handler.verifyOrderRequest": {
+            "type": "object",
+            "properties": {
+                "remarks": {
+                    "type": "string"
                 }
             }
         },

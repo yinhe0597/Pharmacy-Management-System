@@ -79,6 +79,19 @@
   Vite+Vue3+TS+Element Plus、工程结构、基础设施设计、12 域页面规划、通用组件清单、
   6 阶段进度计划（约 26 人日）与 M0-M6 验收标准、质量门禁与风险应对）。
 
+### 角色细化：跟诊护士与药房护士（docs/18，迁移 `000026`）
+
+- **角色拆分**：原单一 `nurse` 细化为 **`clinic_nurse`（跟诊护士）** 与 **`pharmacy_nurse`（药房护士）**，
+  8 角色体系。迁移 `000026`：`nurse` → `pharmacy_nurse` 改名 + 新增 `clinic_nurse` 种子用户（密码 admin123）。
+- **跟诊护士职责**：患者信息管理（`patients` 写，新增 PatientAdmin 组）、**核对医嘱**
+  （新增 `POST /prescriptions/{id}/verify-order`，写审计日志不改状态）、辅助录入医嘱/处方草稿（ClinicalStaff）、
+  诊疗执行计费（ChargeStaff）。
+- **药房护士职责**：药品/库存查询、**医疗耗材领用/补发登记**（`POST /inventory/requisition`）、
+  处方执行辅助（PharmacyStaff）、**辅助核对收费**（Billing 查看）、药学服务。
+- **权限分组新增/调整**：`PatientAdmin`/`PatientRead`/`ChargeStaff` 三组；`PharmacyStaff` 以 `pharmacy_nurse`
+  替换 `nurse`；`ClinicalStaff` 增加 `clinic_nurse`。
+- 患者档案写由 Clinical 改 PatientAdmin、读由 Pharmacy 改 PatientRead；计费写由 Pharmacy 改 ChargeStaff。
+
 ## [v1.3.0] - 2026-08-02
 
 ### 基础参考数据（种子）
