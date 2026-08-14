@@ -19,6 +19,8 @@ export const MENU: MenuItem[] = [
   { path: '/inventory', title: '库存管理', icon: 'Box' },
   { path: '/purchase', title: '采购管理', icon: 'ShoppingCart', permission: 'purchase:write' },
   { path: '/billing', title: '计费管理', icon: 'Money', permission: 'billing:view' },
+  { path: '/visits', title: '就诊工作台', icon: 'FirstAidKit', permission: 'patient:read' },
+  { path: '/charges', title: '收费台', icon: 'Wallet', permission: 'billing:view' },
   { path: '/pharma', title: '药学服务', icon: 'Service', permission: 'inventory:write' },
   { path: '/special', title: '特殊药品', icon: 'Lock', permission: 'drug:write' },
   { path: '/reports', title: '报表中心', icon: 'DataAnalysis', permission: 'report:view' },

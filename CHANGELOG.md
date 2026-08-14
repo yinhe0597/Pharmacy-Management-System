@@ -37,6 +37,14 @@
   `outpatient/inpatient/refill`（`PrescriptionSourceManual` 保持默认）。
 - **实测**：`scripts/smoke_test_phase2.py` 24 步冒烟全通（挂号→接诊→病历→开方→发药→合并结算→收费→退费）。
 
+### 新增（二期就诊模块前端，docs/20 S6）
+
+- **就诊工作台**（`/visits`）：就诊列表（状态/患者/日期筛选）、挂号/分诊、接诊/结束/退号、病历抽屉
+  （主诉/现病史/体征/结构化多诊断保存）、一键生成合并结算单。
+- **收费台**（`/charges`）：结算单列表与详情（费用明细）、收费（实收金额）、退费。
+- 新增 `api/clinical2.ts` 对接就诊/病历/结算接口；`VISIT_STATUS`/`CHARGE_STATUS` 常量入 business.ts；
+  菜单与路由注册（就诊工作台=patient:read，收费台=billing:view）。
+
 ### 修复（针对 docs/14 审阅发现的问题）
 
 - **RBAC 角色权限落地**：所有业务模块写操作按角色矩阵分组——处方开立（ClinicalStaff）、

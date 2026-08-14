@@ -103,4 +103,23 @@ export const CHARGE_ITEM_TYPES: Record<string, string> = {
   drug: '药品',
   consumable: '耗材',
   clinical_service: '诊疗项目',
+  registration: '挂号费',
+  consultation: '诊查费',
+  treatment: '治疗费',
+  examination: '检查费',
+}
+
+// 就诊状态（docs/20 S1）
+export const VISIT_STATUS: Record<string, { label: string; tag: string }> = {
+  waiting: { label: '待诊', tag: 'warning' },
+  visiting: { label: '就诊中', tag: 'primary' },
+  finished: { label: '已结束', tag: 'success' },
+  cancelled: { label: '退号', tag: 'info' },
+}
+
+// 合并结算状态（docs/20 S4）
+export const CHARGE_STATUS: Record<string, { label: string; tag: string }> = {
+  pending: { label: '待收', tag: 'warning' },
+  paid: { label: '已收', tag: 'success' },
+  refunded: { label: '已退', tag: 'info' },
 }

@@ -88,6 +88,18 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '计费管理', permission: 'billing:view' as Permission },
       },
       {
+        path: 'visits',
+        name: 'visits',
+        component: () => import('@/views/visits/index.vue'),
+        meta: { title: '就诊工作台', permission: 'patient:read' as Permission },
+      },
+      {
+        path: 'charges',
+        name: 'charges',
+        component: () => import('@/views/charges/index.vue'),
+        meta: { title: '收费台', permission: 'billing:view' as Permission },
+      },
+      {
         path: 'pharma',
         name: 'pharma',
         component: () => import('@/views/pharma/index.vue'),
