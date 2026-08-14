@@ -91,6 +91,16 @@ var (
 	ErrReportPeriod = New(5001, "报表参数错误", http.StatusBadRequest)
 )
 
+// 患者/诊疗（6xxx）
+var (
+	ErrPatientNotFound   = New(6001, "患者不存在", http.StatusNotFound)
+	ErrPatientCardExists = New(6002, "患者卡号已存在", http.StatusConflict)
+	ErrServiceCodeExists = New(6003, "诊疗项目编码已存在", http.StatusConflict)
+	ErrNotDispensed      = New(6004, "处方未发药，无法计费", http.StatusConflict)
+	ErrChargeVoided      = New(6005, "计费记录已红冲，不能重复操作", http.StatusConflict)
+	ErrDiagnosisNotFound = New(6006, "诊断编码不存在", http.StatusBadRequest)
+)
+
 // Is 判断 err 是否为目标业务错误（按 Code 匹配）。
 func Is(err error, target *Error) bool {
 	var e *Error

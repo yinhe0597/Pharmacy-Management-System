@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"errors"
+	"strconv"
 
 	"gorm.io/gorm"
 
@@ -26,6 +28,12 @@ func (s *ClinicalService) CreateService(ctx context.Context, svc *model.Clinical
 	if svc.Code == "" || svc.Name == "" {
 		return errs.ErrBadRequest
 	}
+	// 重复编码友好提示（docs/15 M1）
+	if _, err := repository.NewClinicalServiceRepo(s.db).GetByCode(ctx, svc.Code); err == nil {
+		return errs.ErrServiceCodeExists
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
 	return repository.NewClinicalServiceRepo(s.db).Create(ctx, svc)
 }
 
@@ -43,6 +51,14 @@ func (s *ClinicalService) DeleteService(ctx context.Context, id int64) error {
 	return repository.NewClinicalServiceRepo(s.db).Delete(ctx, id)
 }
 
+// SetServiceStatus 启停用诊疗项目（docs/15 G7）。
+func (s *ClinicalService) SetServiceStatus(ctx context.Context, id int64, status int) error {
+	if _, err := repository.NewClinicalServiceRepo(s.db).GetByID(ctx, id); err != nil {
+		return errs.ErrNotFound
+	}
+	return repository.NewClinicalServiceRepo(s.db).SetStatus(ctx, id, status)
+}
+
 func (s *ClinicalService) ListServices(ctx context.Context, keyword string, page, pageSize int) ([]model.ClinicalService, int64, error) {
 	return repository.NewClinicalServiceRepo(s.db).List(ctx, keyword, (page-1)*pageSize, pageSize)
 }
@@ -51,22 +67,52 @@ func (s *ClinicalService) ListServices(ctx context.Context, keyword string, page
 
 // ChargeInput 计费输入。
 type ChargeInput struct {
+	PatientID     int64  `json:"patient_id"` // 关联患者档案（可选）
 	PatientName   string `json:"patient_name" binding:"required"`
 	PatientCardNo string `json:"patient_card_no"`
 	ItemType      string `json:"item_type" binding:"required"` // drug / consumable / clinical_service
 	ItemID        *int64 `json:"item_id"`
 	ItemName      string `json:"item_name" binding:"required"`
 	Quantity      int    `json:"quantity"`
-	UnitPrice     int64  `json:"unit_price" binding:"required"`
+	UnitPrice     int64  `json:"unit_price"` // 分；0 允许（免费项）
 	Remarks       string `json:"remarks"`
 }
 
-// CreateCharge 创建计费记录。
+// CreateCharge 创建计费记录（docs/15 M4：入参校验 + 项目存在性校验）。
 func (s *ClinicalService) CreateCharge(ctx context.Context, input ChargeInput, operatorID int64, operatorName string) (*model.ChargeRecord, error) {
-	if input.Quantity <= 0 {
+	if input.Quantity < 0 || input.UnitPrice < 0 {
+		return nil, errs.ErrBadRequest
+	}
+	switch input.ItemType {
+	case enum.ItemTypeDrug, enum.ItemTypeConsumable:
+		// 药品/耗材：提供了 ItemID 时校验存在且启用
+		if input.ItemID != nil && *input.ItemID > 0 {
+			d, err := repository.NewDrugRepo(s.db).GetByID(ctx, *input.ItemID)
+			if err != nil {
+				return nil, errs.ErrDrugNotFound
+			}
+			if d.Status != 1 {
+				return nil, errs.ErrDrugInactive
+			}
+		}
+	case "clinical_service":
+		if input.ItemID != nil && *input.ItemID > 0 {
+			cs, err := repository.NewClinicalServiceRepo(s.db).GetByID(ctx, *input.ItemID)
+			if err != nil {
+				return nil, errs.ErrNotFound
+			}
+			if cs.Status != 1 {
+				return nil, errs.ErrBadRequest
+			}
+		}
+	default:
+		return nil, errs.ErrBadRequest
+	}
+	if input.Quantity == 0 {
 		input.Quantity = 1
 	}
 	cr := &model.ChargeRecord{
+		PatientID:     input.PatientID,
 		PatientName:   input.PatientName,
 		PatientCardNo: input.PatientCardNo,
 		ItemType:      input.ItemType,
@@ -85,13 +131,41 @@ func (s *ClinicalService) CreateCharge(ctx context.Context, input ChargeInput, o
 	return cr, nil
 }
 
-// ListCharges 查询计费记录。
-func (s *ClinicalService) ListCharges(ctx context.Context, keyword string, page, pageSize int) ([]model.ChargeRecord, int64, error) {
-	return repository.NewChargeRecordRepo(s.db).List(ctx, keyword, (page-1)*pageSize, pageSize)
+// ListCharges 查询计费记录（docs/15 G4：支持来源/类型/患者/日期筛选）。
+func (s *ClinicalService) ListCharges(ctx context.Context, f repository.ChargeListFilter, page, pageSize int) ([]model.ChargeRecord, int64, error) {
+	return repository.NewChargeRecordRepo(s.db).List(ctx, f, (page-1)*pageSize, pageSize)
+}
+
+// VoidCharge 红冲计费记录（docs/15 G5）：标记原单红冲并写负金额冲正单，幂等。
+func (s *ClinicalService) VoidCharge(ctx context.Context, id int64, operatorID int64, operatorName string) error {
+	chargeRepo := repository.NewChargeRecordRepo(s.db)
+	cr, err := chargeRepo.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errs.ErrNotFound
+		}
+		return err
+	}
+	if cr.Voided || cr.Amount <= 0 {
+		return errs.ErrChargeVoided
+	}
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := repository.NewChargeRecordRepo(tx).MarkVoided(ctx, id); err != nil {
+			return err
+		}
+		itemID := cr.ItemID
+		return repository.NewChargeRecordRepo(tx).Create(ctx, &model.ChargeRecord{
+			PatientID: cr.PatientID, PatientName: cr.PatientName, PatientCardNo: cr.PatientCardNo,
+			ItemType: cr.ItemType, ItemID: itemID, ItemName: cr.ItemName,
+			Quantity: cr.Quantity, UnitPrice: cr.UnitPrice, Amount: -cr.Amount,
+			Voided: false, RefType: "charge_void", RefID: id,
+			OperatorID: &operatorID, OperatorName: operatorName, Remarks: "红冲 原单#" + strconv.FormatInt(id, 10),
+		})
+	})
 }
 
 // ChargePrescription 从已发药处方生成计费记录（幂等：同处方仅计费一次）。
-// 逐发药记录生成，取发药快照价（整盒按盒价、拆零按拆零价），金额与发药记录一致。
+// 仅已发药（dispensed）处方可计费（docs/15 L3）。
 func (s *ClinicalService) ChargePrescription(ctx context.Context, prescriptionID int64, operatorID int64, operatorName string) ([]model.ChargeRecord, error) {
 	chargeRepo := repository.NewChargeRecordRepo(s.db)
 	// 幂等：已有正计费则直接返回空（不重复计费）
@@ -102,7 +176,10 @@ func (s *ClinicalService) ChargePrescription(ctx context.Context, prescriptionID
 	}
 	p, err := repository.NewPrescriptionRepo(s.db).GetByID(ctx, prescriptionID)
 	if err != nil {
-		return nil, err
+		return nil, errs.ErrNotFound
+	}
+	if p.Status != "dispensed" {
+		return nil, errs.ErrNotDispensed
 	}
 	records, err := repository.NewDispenseRecordRepo(s.db).ListByPrescription(ctx, prescriptionID)
 	if err != nil {
@@ -132,7 +209,7 @@ func (s *ClinicalService) buildChargesFromRecords(ctx context.Context, p *model.
 			name = rec.BatchNo
 		}
 		charges = append(charges, model.ChargeRecord{
-			PatientName: p.PatientName, PatientCardNo: p.PatientCardNo,
+			PatientID: p.PatientID, PatientName: p.PatientName, PatientCardNo: p.PatientCardNo,
 			ItemType: enum.ItemTypeDrug, ItemID: &itemID, ItemName: name,
 			Quantity: int(rec.Quantity), UnitPrice: rec.UnitPrice, Amount: rec.Amount,
 			RefType: "prescription", RefID: p.ID,
@@ -147,14 +224,25 @@ func (s *ClinicalService) buildChargesFromRecords(ctx context.Context, p *model.
 
 // RefundPrescription 退药冲正：按退药明细生成负金额计费记录（按处方快照价，混合口径）。
 func (s *ClinicalService) RefundPrescription(ctx context.Context, prescriptionID int64, returns []ReturnItemInput, operatorID int64, operatorName string) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		return s.refundPrescriptionTx(ctx, tx, prescriptionID, returns, operatorID, operatorName)
+	})
+}
+
+// RefundPrescriptionTx 退药冲正（事务内版本，供退药流程原子调用，docs/15 H3）。
+func (s *ClinicalService) RefundPrescriptionTx(ctx context.Context, tx *gorm.DB, prescriptionID int64, returns []ReturnItemInput, operatorID int64, operatorName string) error {
+	return s.refundPrescriptionTx(ctx, tx, prescriptionID, returns, operatorID, operatorName)
+}
+
+func (s *ClinicalService) refundPrescriptionTx(ctx context.Context, tx *gorm.DB, prescriptionID int64, returns []ReturnItemInput, operatorID int64, operatorName string) error {
 	if len(returns) == 0 {
 		return nil
 	}
-	p, err := repository.NewPrescriptionRepo(s.db).GetByID(ctx, prescriptionID)
+	p, err := repository.NewPrescriptionRepo(tx).GetByID(ctx, prescriptionID)
 	if err != nil {
 		return err
 	}
-	items, err := repository.NewPrescriptionItemRepo(s.db).ListByPrescription(ctx, prescriptionID)
+	items, err := repository.NewPrescriptionItemRepo(tx).ListByPrescription(ctx, prescriptionID)
 	if err != nil {
 		return err
 	}
@@ -171,14 +259,14 @@ func (s *ClinicalService) RefundPrescription(ctx context.Context, prescriptionID
 		amt := itemAmount(&it, in.ReturnQuantity)
 		itemID := it.DrugID
 		charges = append(charges, model.ChargeRecord{
-			PatientName: p.PatientName, PatientCardNo: p.PatientCardNo,
+			PatientID: p.PatientID, PatientName: p.PatientName, PatientCardNo: p.PatientCardNo,
 			ItemType: enum.ItemTypeDrug, ItemID: &itemID, ItemName: it.DrugName,
-			Quantity: int(in.ReturnQuantity), UnitPrice: it.UnitPrice, Amount: -amt,
+			Quantity: int(in.ReturnQuantity), UnitPrice: 0, Amount: -amt,
 			RefType: "prescription", RefID: prescriptionID,
 			OperatorID: &operatorID, OperatorName: operatorName, Remarks: "退药冲正 " + p.PrescriptionNo,
 		})
 	}
-	return repository.NewChargeRecordRepo(s.db).CreateBatch(ctx, toChargePtrs(charges))
+	return repository.NewChargeRecordRepo(tx).CreateBatch(ctx, toChargePtrs(charges))
 }
 
 // itemAmount 按处方明细快照价计算 qty（LDU）金额（与处方计价同口径，docs/13 §4.3）。

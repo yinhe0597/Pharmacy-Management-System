@@ -84,7 +84,7 @@ func TestFullChain(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	inv := service.NewInventoryService(db)
-	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil)
+	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil, service.NewClinicalService(db))
 
 	drug := mustCreateDrug(t, db)
 	today := time.Now()
@@ -184,7 +184,7 @@ func TestCancelReleasesReservation(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	inv := service.NewInventoryService(db)
-	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil)
+	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil, service.NewClinicalService(db))
 	drug := mustCreateDrug(t, db)
 
 	if err := inv.StockIn(ctx, []service.StockEntry{{
@@ -226,7 +226,7 @@ func TestSubmitIdempotent(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	inv := service.NewInventoryService(db)
-	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil)
+	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil, service.NewClinicalService(db))
 	drug := mustCreateDrug(t, db)
 	if err := inv.StockIn(ctx, []service.StockEntry{{
 		DrugID: drug.ID, LocationID: 2, BatchNo: "BATCH-D",
@@ -261,7 +261,7 @@ func TestSplitReservedBlocked(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	inv := service.NewInventoryService(db)
-	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil)
+	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil, service.NewClinicalService(db))
 	drug := mustCreateDrug(t, db)
 	if err := inv.StockIn(ctx, []service.StockEntry{{
 		DrugID: drug.ID, LocationID: 2, BatchNo: "BATCH-E",
@@ -301,7 +301,7 @@ func TestConcurrentReserveNoOversell(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	inv := service.NewInventoryService(db)
-	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil)
+	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil, service.NewClinicalService(db))
 	drug := mustCreateDrug(t, db)
 
 	if err := inv.StockIn(ctx, []service.StockEntry{{

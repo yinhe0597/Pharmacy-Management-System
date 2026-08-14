@@ -68,7 +68,7 @@ func NewApp(cfg *config.Config, db *gorm.DB) *App {
 		supplier:       service.NewSupplierService(db),
 		inventory:      inv,
 		purchase:       service.NewPurchaseService(db, inv),
-		prescription:   service.NewPrescriptionService(db, inv, special, interSvc, patientSvc),
+		prescription:   service.NewPrescriptionService(db, inv, special, interSvc, patientSvc, clinicalSvc),
 		special:        special,
 		pharma:         service.NewPharmaService(db),
 		report:         service.NewReportService(db),
@@ -100,6 +100,8 @@ func (a *App) Engine() *gin.Engine {
 
 	v1 := r.Group("/api/v1")
 	authed := v1.Group("", middleware.Auth(a.jwt))
+	// 计费查看 = 药房人员 ∪ 报表权限（docs/15 M3）
+	billingRoles := append(append([]string{}, enum.PharmacyStaff...), enum.ReportAccess...)
 	// 角色分组（docs/03 §2 角色矩阵）
 	groups := handler.Groups{
 		Public:    v1,
@@ -109,6 +111,7 @@ func (a *App) Engine() *gin.Engine {
 		Clinical:  v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.ClinicalStaff...)),
 		Purchase:  v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.PurchaseStaff...)),
 		Report:    v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.ReportAccess...)),
+		Billing:   v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(billingRoles...)),
 		UserAdmin: v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.UserAdmin...)),
 	}
 
@@ -119,7 +122,7 @@ func (a *App) Engine() *gin.Engine {
 	// 别名：设计文档路径 /drugs/:id/availability → 实际实现在库存模块
 	authed.GET("/drugs/:id/availability", handler.NewInventoryHandler(a.inventory).AvailabilityAlias)
 	handler.NewPurchaseHandler(a.purchase, a.inventory).Register(groups)
-	handler.NewPrescriptionHandler(a.prescription, a.clinical).Register(groups)
+	handler.NewPrescriptionHandler(a.prescription).Register(groups)
 	handler.NewSpecialDrugHandler(a.special).Register(groups)
 	// 别名：设计文档路径 /special-drugs/reports/usage → 功能已在报表模块
 	authed.GET("/special-drugs/reports/usage", handler.NewReportHandler(a.report).SpecialDrugUsageAlias)

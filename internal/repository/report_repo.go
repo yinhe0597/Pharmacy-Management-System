@@ -159,6 +159,50 @@ func (r *ReportRepo) DispensingWorkload(ctx context.Context, start, end *time.Ti
 	return rows, nil
 }
 
+// PatientChargeRow 按患者汇总的计费行（docs/15 G6）。
+type PatientChargeRow struct {
+	PatientID    int64  `json:"patient_id"`
+	PatientName  string `json:"patient_name"`
+	ItemType     string `json:"item_type"`
+	ChargeCount  int64  `json:"charge_count"`  // 收费笔数
+	RefundCount  int64  `json:"refund_count"`  // 冲正笔数（负金额）
+	RefundAmount int64  `json:"refund_amount"` // 冲正金额（正数）
+	Amount       int64  `json:"amount"`        // 净额（收费-冲正，不含已红冲单）
+}
+
+// PatientCharges 按患者聚合计费（可按患者/期间筛选，红冲单不计入）。
+func (r *ReportRepo) PatientCharges(ctx context.Context, patientID int64, start, end *time.Time) ([]PatientChargeRow, error) {
+	q := `
+		SELECT patient_id,
+		       COALESCE(MAX(patient_name), '') AS patient_name,
+		       item_type,
+		       COUNT(*) FILTER (WHERE amount > 0) AS charge_count,
+		       COUNT(*) FILTER (WHERE amount < 0) AS refund_count,
+		       COALESCE(SUM(CASE WHEN amount < 0 THEN -amount ELSE 0 END), 0) AS refund_amount,
+		       COALESCE(SUM(amount), 0) AS amount
+		FROM charge_records
+		WHERE voided = FALSE AND patient_id > 0`
+	args := []any{}
+	if patientID > 0 {
+		q += " AND patient_id = ?"
+		args = append(args, patientID)
+	}
+	if start != nil {
+		q += " AND created_at >= ?"
+		args = append(args, start)
+	}
+	if end != nil {
+		q += " AND created_at <= ?"
+		args = append(args, end)
+	}
+	q += " GROUP BY patient_id, item_type ORDER BY patient_id"
+	rows := []PatientChargeRow{}
+	if err := r.db.WithContext(ctx).Raw(q, args...).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
 // SplitStatRow 拆零统计行（docs/13 F5：拆零量/损耗/毛利）。
 type SplitStatRow struct {
 	DrugID       int64  `json:"drug_id"`

@@ -19,6 +19,8 @@ type Groups struct {
 	Purchase *gin.RouterGroup
 	// Report 报表访问权限
 	Report *gin.RouterGroup
+	// Billing 计费查看权限（药房人员 ∪ 报表权限，docs/15 M3）
+	Billing *gin.RouterGroup
 	// UserAdmin 用户管理权限
 	UserAdmin *gin.RouterGroup
 }

@@ -148,6 +148,14 @@ definitions:
     required:
     - items
     type: object
+  internal_handler.setServiceStatusRequest:
+    properties:
+      status:
+        description: 1启用 0停用
+        type: integer
+    required:
+    - status
+    type: object
   internal_handler.splitRequest:
     properties:
       inventory_id:
@@ -700,6 +708,9 @@ definitions:
         type: string
       patient_card_no:
         type: string
+      patient_id:
+        description: 关联患者档案（可选）
+        type: integer
       patient_name:
         type: string
       quantity:
@@ -707,12 +718,12 @@ definitions:
       remarks:
         type: string
       unit_price:
+        description: 分；0 允许（免费项）
         type: integer
     required:
     - item_name
     - item_type
     - patient_name
-    - unit_price
     type: object
   yaofang_internal_service.CountedItem:
     properties:
@@ -737,6 +748,9 @@ definitions:
       department:
         type: string
       diagnosis:
+        type: string
+      diagnosis_code:
+        description: ICD-10 结构化诊断编码（可选，docs/15 G2）
         type: string
       doctor_name:
         type: string
@@ -1086,6 +1100,30 @@ paths:
         in: query
         name: keyword
         type: string
+      - description: 来源类型（prescription/charge_void）
+        in: query
+        name: ref_type
+        type: string
+      - description: 来源单据ID
+        in: query
+        name: ref_id
+        type: integer
+      - description: 项目类型（drug/consumable/clinical_service）
+        in: query
+        name: item_type
+        type: string
+      - description: 患者ID
+        in: query
+        name: patient_id
+        type: integer
+      - description: 开始时间
+        in: query
+        name: start
+        type: string
+      - description: 结束时间
+        in: query
+        name: end
+        type: string
       - description: 页码
         in: query
         name: page
@@ -1101,7 +1139,7 @@ paths:
             $ref: '#/definitions/internal_handler.Body'
       security:
       - BearerAuth: []
-      summary: 计费记录列表
+      summary: 计费记录列表（支持来源/类型/患者/日期筛选）
       tags:
       - charge-records
     post:
@@ -1122,6 +1160,24 @@ paths:
       security:
       - BearerAuth: []
       summary: 新建计费记录（药品/耗材/诊疗项目）
+      tags:
+      - charge-records
+  /charge-records/{id}/void:
+    post:
+      parameters:
+      - description: 计费记录ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 红冲计费记录（写负金额冲正单，幂等）
       tags:
       - charge-records
   /charge-records/from-prescription/{id}:
@@ -1312,6 +1368,32 @@ paths:
       security:
       - BearerAuth: []
       summary: 更新诊疗项目
+      tags:
+      - clinical-services
+  /clinical-services/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 项目ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 状态
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.setServiceStatusRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 启停用诊疗项目
       tags:
       - clinical-services
   /consultations:
@@ -2687,10 +2769,18 @@ paths:
         in: query
         name: status
         type: string
+      - description: 患者ID
+        in: query
+        name: patient_id
+        type: integer
       - description: 患者姓名
         in: query
         name: patient_name
         type: string
+      - description: 处方类型（0普通 1麻醉 2精神一类 3精神二类 4毒性 5放射性）
+        in: query
+        name: prescription_type
+        type: integer
       - description: 开始时间
         in: query
         name: start
@@ -3346,6 +3436,31 @@ paths:
       security:
       - BearerAuth: []
       summary: 进销存汇总
+      tags:
+      - reports
+  /reports/patient-charges:
+    get:
+      parameters:
+      - description: 患者ID（不填则全部）
+        in: query
+        name: patient_id
+        type: integer
+      - description: 开始时间（可选）
+        in: query
+        name: start
+        type: string
+      - description: 结束时间（可选）
+        in: query
+        name: end
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 按患者聚合计费（docs/15 G6）
       tags:
       - reports
   /reports/special-drug-usage:

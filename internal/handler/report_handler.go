@@ -21,6 +21,7 @@ func (h *ReportHandler) Register(g Groups) {
 	g.Report.GET("/reports/special-drug-usage", h.SpecialDrugUsage)
 	g.Report.GET("/reports/dispensing-workload", h.DispensingWorkload)
 	g.Report.GET("/reports/split-statistics", h.SplitStatistics)
+	g.Report.GET("/reports/patient-charges", h.PatientCharges)
 }
 
 // InventorySummary godoc
@@ -124,6 +125,25 @@ func (h *ReportHandler) SplitStatistics(c *gin.Context) {
 		return
 	}
 	rows, err := h.svc.SplitStatistics(c.Request.Context(), start, end)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+	OK(c, rows)
+}
+
+// PatientCharges godoc
+// @Summary 按患者聚合计费（docs/15 G6）
+// @Tags reports
+// @Security BearerAuth
+// @Param patient_id query int false "患者ID（不填则全部）"
+// @Param start query string false "开始时间（可选）"
+// @Param end query string false "结束时间（可选）"
+// @Success 200 {object} Body
+// @Router /reports/patient-charges [get]
+func (h *ReportHandler) PatientCharges(c *gin.Context) {
+	start, end := parseTime(c.Query("start")), parseTime(c.Query("end"))
+	rows, err := h.svc.PatientCharges(c.Request.Context(), int64(atoi(c.Query("patient_id"))), start, end)
 	if err != nil {
 		Error(c, err)
 		return

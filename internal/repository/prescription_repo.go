@@ -70,8 +70,12 @@ func (r *PrescriptionRepo) UpdateStatus(ctx context.Context, p *model.Prescripti
 }
 
 // UpdateBase 更新处方基础字段（录入/修改阶段）。
+// 使用 Select("*") 全量更新（含零值），修复 GORM 结构体更新跳过零值导致的
+// 「布尔标记无法清除」问题（docs/15 H1）。
 func (r *PrescriptionRepo) UpdateBase(ctx context.Context, p *model.Prescription) error {
-	return r.db.WithContext(ctx).Model(p).Omit("prescription_no", "created_at", "version").Updates(p).Error
+	return r.db.WithContext(ctx).Model(p).
+		Omit("id", "prescription_no", "created_at", "version").
+		Select("*").Updates(p).Error
 }
 
 // PrescriptionFilter 处方列表筛选。

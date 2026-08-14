@@ -409,12 +409,48 @@ const docTemplate = `{
                 "tags": [
                     "charge-records"
                 ],
-                "summary": "计费记录列表",
+                "summary": "计费记录列表（支持来源/类型/患者/日期筛选）",
                 "parameters": [
                     {
                         "type": "string",
                         "description": "患者姓名/项目名",
                         "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "来源类型（prescription/charge_void）",
+                        "name": "ref_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "来源单据ID",
+                        "name": "ref_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "项目类型（drug/consumable/clinical_service）",
+                        "name": "item_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "患者ID",
+                        "name": "patient_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "开始时间",
+                        "name": "start",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间",
+                        "name": "end",
                         "in": "query"
                     },
                     {
@@ -488,6 +524,36 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "处方ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/charge-records/{id}/void": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "charge-records"
+                ],
+                "summary": "红冲计费记录（写负金额冲正单，幂等）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "计费记录ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -773,6 +839,48 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/clinical-services/{id}/status": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clinical-services"
+                ],
+                "summary": "启停用诊疗项目",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "项目ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "状态",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.setServiceStatusRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -3044,9 +3152,21 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "integer",
+                        "description": "患者ID",
+                        "name": "patient_id",
+                        "in": "query"
+                    },
+                    {
                         "type": "string",
                         "description": "患者姓名",
                         "name": "patient_name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "处方类型（0普通 1麻醉 2精神一类 3精神二类 4毒性 5放射性）",
+                        "name": "prescription_type",
                         "in": "query"
                     },
                     {
@@ -4119,6 +4239,47 @@ const docTemplate = `{
                 }
             }
         },
+        "/reports/patient-charges": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "reports"
+                ],
+                "summary": "按患者聚合计费（docs/15 G6）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "患者ID（不填则全部）",
+                        "name": "patient_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "开始时间（可选）",
+                        "name": "start",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间（可选）",
+                        "name": "end",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
         "/reports/special-drug-usage": {
             "get": {
                 "security": [
@@ -5136,6 +5297,18 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_handler.setServiceStatusRequest": {
+            "type": "object",
+            "required": [
+                "status"
+            ],
+            "properties": {
+                "status": {
+                    "description": "1启用 0停用",
+                    "type": "integer"
+                }
+            }
+        },
         "internal_handler.splitRequest": {
             "type": "object",
             "required": [
@@ -5954,8 +6127,7 @@ const docTemplate = `{
             "required": [
                 "item_name",
                 "item_type",
-                "patient_name",
-                "unit_price"
+                "patient_name"
             ],
             "properties": {
                 "item_id": {
@@ -5971,6 +6143,10 @@ const docTemplate = `{
                 "patient_card_no": {
                     "type": "string"
                 },
+                "patient_id": {
+                    "description": "关联患者档案（可选）",
+                    "type": "integer"
+                },
                 "patient_name": {
                     "type": "string"
                 },
@@ -5981,6 +6157,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "unit_price": {
+                    "description": "分；0 允许（免费项）",
                     "type": "integer"
                 }
             }
@@ -6019,6 +6196,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "diagnosis": {
+                    "type": "string"
+                },
+                "diagnosis_code": {
+                    "description": "ICD-10 结构化诊断编码（可选，docs/15 G2）",
                     "type": "string"
                 },
                 "doctor_name": {

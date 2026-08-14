@@ -9,13 +9,14 @@ import (
 
 // Patient 患者档案（二期完整对象；一期简易实现仅保留标识信息）。
 type Patient struct {
-	ID        int64     `json:"id"`
-	Name      string    `json:"name"`
-	Gender    string    `json:"gender"`
-	Age       string    `json:"age"`
-	CardNo    string    `json:"card_no"`
-	Phone     string    `json:"phone"`
-	CreatedAt time.Time `json:"created_at"`
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	Gender      string    `json:"gender"`
+	Age         string    `json:"age"`
+	CardNo      string    `json:"card_no"`
+	Phone       string    `json:"phone"`
+	IsLactating bool      `json:"is_lactating"` // 哺乳期（docs/15 L5：契约透出，开方自动带入）
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 // Allergy 过敏信息。

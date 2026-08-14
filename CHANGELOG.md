@@ -49,6 +49,26 @@
 - **本地集成测试环境**：`docker-compose.yml`（postgres:16 + 自动迁移）+ `make db-up/db-down`。
 - **补测试**：中间件 RBAC 403 用例、`itemAmount` 计价口径用例、过敏匹配/去重/状态机/角色分组用例。
 
+### 诊疗模块复审修复（docs/15，迁移 `000025`）
+
+- **H1 布尔字段持久化**：处方/患者更新改 `Select("*")` 全量更新，`is_pregnant`/`is_lactating` 由 true 改 false 可正常落库（此前 GORM 结构体更新跳过零值，孕期标记无法取消）。
+- **H2 计价契约**：`CalculatePrescriptionAmount` 的 `PriceLine.RefID` 改为 `drug_id`（此前误用明细 ID）。
+- **H3 退药冲正原子化**：冲正并入 `Return` 事务（`RefundPrescriptionTx`），任一失败整体回滚，账实一致。
+- **M1 错误映射**：患者 404/重复卡号 409（`6001/6002`）、诊疗项目重复编码 409（`6003`），替代原始 DB 错误 500。
+- **M2 处方列表筛选**：`GET /prescriptions` 新增 `patient_id`/`prescription_type` 参数（repo 早已支持）。
+- **M3 权限收窄**：计费查看收窄到「药房人员 ∪ 报表权限」（Billing 组）；患者档案查看收窄到 Pharmacy。
+- **M4 计费校验**：负数量/负单价拒绝、`item_type` 枚举校验、项目存在且启用校验；0 元免费项允许。
+- **M5 患者校验**：过敏 severity 限 1-3；患者更新零值问题随 H1 一并修复。
+- **M6 处方详情聚合**：`GET /prescriptions/{id}` 返回关联患者档案与过敏史（`patient`/`allergies`）。
+- **G2 结构化诊断**：`prescriptions.diagnosis_code`（ICD-10）落库 + 编码存在性校验（`6006`），开方输入支持。
+- **G3 患者信息回填**：开方关联 `patient_id` 时自动回填姓名/性别/年龄/卡号，患者哺乳标记自动带入。
+- **G4 计费筛选**：`GET /charge-records` 支持 `ref_type/ref_id/item_type/patient_id/start/end` 筛选。
+- **G5 计费红冲**：`POST /charge-records/:id/void` 标记原单红冲 + 写负金额冲正单（幂等，`6005`）。
+- **G6 患者费用视图**：`GET /reports/patient-charges` 按患者聚合收费/冲正/净额（红冲单不计入）。
+- **G7 诊疗项目启停用**：`PATCH /clinical-services/:id/status`。
+- **L1/L3/L5**：冲正记录以 `Amount` 为准（UnitPrice=0）；未发药处方计费拦截（`6004`）；`port.Patient` 透出 `IsLactating`。
+- **计费/患者隐私**：`charge_records` 与 `patients` 增加 `patient_id` 关联字段。
+
 ## [v1.3.0] - 2026-08-02
 
 ### 基础参考数据（种子）

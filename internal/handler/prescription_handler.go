@@ -15,13 +15,12 @@ import (
 
 // PrescriptionHandler 处方接口。
 type PrescriptionHandler struct {
-	svc      *service.PrescriptionService
-	clinical *service.ClinicalService
+	svc *service.PrescriptionService
 }
 
 // NewPrescriptionHandler 构建处方 Handler。
-func NewPrescriptionHandler(svc *service.PrescriptionService, clinical *service.ClinicalService) *PrescriptionHandler {
-	return &PrescriptionHandler{svc: svc, clinical: clinical}
+func NewPrescriptionHandler(svc *service.PrescriptionService) *PrescriptionHandler {
+	return &PrescriptionHandler{svc: svc}
 }
 
 // Register 注册路由。
@@ -209,13 +208,7 @@ func (h *PrescriptionHandler) Return(c *gin.Context) {
 		Error(c, err)
 		return
 	}
-	// 退药成功后联动冲正计费（负金额计费记录；失败不影响退药，可重试）
-	if h.clinical != nil {
-		if err := h.clinical.RefundPrescription(c.Request.Context(), id, req.Items, middleware.UserIDFromCtx(c), middleware.UserNameFromCtx(c)); err != nil {
-			Error(c, err)
-			return
-		}
-	}
+	// 退药冲正已在 Return 事务内原子完成（docs/15 H3）
 	OK(c, nil)
 }
 
@@ -248,7 +241,9 @@ func (h *PrescriptionHandler) Cancel(c *gin.Context) {
 // @Tags prescriptions
 // @Security BearerAuth
 // @Param status query string false "状态"
+// @Param patient_id query int false "患者ID"
 // @Param patient_name query string false "患者姓名"
+// @Param prescription_type query int false "处方类型（0普通 1麻醉 2精神一类 3精神二类 4毒性 5放射性）"
 // @Param start query string false "开始时间"
 // @Param end query string false "结束时间"
 // @Param page query int false "页码"
@@ -263,10 +258,12 @@ func (h *PrescriptionHandler) List(c *gin.Context) {
 	}
 	q.Normalize()
 	f := repository.PrescriptionFilter{
-		Status:      c.Query("status"),
-		PatientName: c.Query("patient_name"),
-		Start:       parseTime(c.Query("start")),
-		End:         parseTime(c.Query("end")),
+		Status:           c.Query("status"),
+		PatientID:        int64(atoi(c.Query("patient_id"))),
+		PatientName:      c.Query("patient_name"),
+		PrescriptionType: atoi(c.Query("prescription_type")),
+		Start:            parseTime(c.Query("start")),
+		End:              parseTime(c.Query("end")),
 	}
 	list, total, err := h.svc.List(c.Request.Context(), f, q.Page, q.PageSize)
 	if err != nil {

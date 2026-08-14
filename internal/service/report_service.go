@@ -69,3 +69,16 @@ func (s *ReportService) SplitStatistics(ctx context.Context, start, end *time.Ti
 	}
 	return repository.NewReportRepo(s.db).SplitStatistics(ctx, st, ed)
 }
+
+// PatientCharges 按患者聚合计费（docs/15 G6）。
+func (s *ReportService) PatientCharges(ctx context.Context, patientID int64, start, end *time.Time) ([]repository.PatientChargeRow, error) {
+	var st, ed *time.Time
+	var err error
+	if start != nil || end != nil {
+		st, ed, err = parsePeriod(start, end)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return repository.NewReportRepo(s.db).PatientCharges(ctx, patientID, st, ed)
+}

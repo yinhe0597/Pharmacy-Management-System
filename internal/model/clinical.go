@@ -26,6 +26,7 @@ func (ClinicalService) TableName() string { return "clinical_services" }
 // ChargeRecord 计费记录（药品/耗材/诊疗项目统一入口）。
 type ChargeRecord struct {
 	ID            int64     `gorm:"primaryKey" json:"id"`
+	PatientID     int64     `gorm:"index" json:"patient_id"` // 关联患者档案（可选）
 	PatientName   string    `gorm:"size:50;not null" json:"patient_name"`
 	PatientCardNo string    `gorm:"size:50" json:"patient_card_no"`
 	ItemType      string    `gorm:"size:20;not null" json:"item_type"` // drug / consumable / clinical_service
@@ -33,9 +34,10 @@ type ChargeRecord struct {
 	ItemName      string    `gorm:"size:100;not null" json:"item_name"` // 快照名称
 	Quantity      int       `gorm:"not null;default:1" json:"quantity"`
 	UnitPrice     int64     `gorm:"not null" json:"unit_price"`
-	Amount        int64     `gorm:"not null" json:"amount"`        // 正=收费，负=退费冲正
-	RefType       string    `gorm:"size:20;index" json:"ref_type"` // 来源单据类型（prescription/...）
-	RefID         int64     `gorm:"index" json:"ref_id"`           // 来源单据 ID
+	Amount        int64     `gorm:"not null" json:"amount"`               // 正=收费，负=退费冲正
+	Voided        bool      `gorm:"not null;default:false" json:"voided"` // 是否已红冲
+	RefType       string    `gorm:"size:20;index" json:"ref_type"`        // 来源单据类型（prescription/charge_void/...）
+	RefID         int64     `gorm:"index" json:"ref_id"`                  // 来源单据 ID
 	OperatorID    *int64    `json:"operator_id"`
 	OperatorName  string    `gorm:"size:50" json:"operator_name"`
 	Remarks       string    `gorm:"type:text" json:"remarks"`

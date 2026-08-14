@@ -20,7 +20,7 @@ func setupInteractionTest(t *testing.T) (*gorm.DB, *service.PrescriptionService,
 	db := setupTestDB(t)
 	inv := service.NewInventoryService(db)
 	interSvc := service.NewInteractionService(db)
-	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), interSvc, nil)
+	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), interSvc, nil, service.NewClinicalService(db))
 
 	drugSvc := service.NewDrugService(db)
 	// 药品 A：NSAID（布洛芬），用于分类/标签交互

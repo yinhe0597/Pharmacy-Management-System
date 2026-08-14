@@ -21,13 +21,13 @@ func NewPatientHandler(svc *patient.PatientService) *PatientHandler {
 	return &PatientHandler{svc: svc}
 }
 
-// Register 注册路由（档案维护需开立/药房角色，只读任意登录用户）。
+// Register 注册路由（档案维护需开立/药房角色；查看收窄到药房人员，docs/15 M3）。
 func (h *PatientHandler) Register(g Groups) {
-	g.Authed.GET("/patients", h.List)
+	g.Pharmacy.GET("/patients", h.List)
 	g.Clinical.POST("/patients", h.Create)
-	g.Authed.GET("/patients/:id", h.Get)
+	g.Pharmacy.GET("/patients/:id", h.Get)
 	g.Clinical.PUT("/patients/:id", h.Update)
-	g.Authed.GET("/patients/:id/allergies", h.ListAllergies)
+	g.Pharmacy.GET("/patients/:id/allergies", h.ListAllergies)
 	g.Clinical.POST("/patients/:id/allergies", h.AddAllergy)
 	g.Clinical.DELETE("/patient-allergies/:id", h.DeleteAllergy)
 }

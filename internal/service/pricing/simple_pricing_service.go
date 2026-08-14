@@ -32,7 +32,7 @@ func (s *SimplePricingService) CalculatePrescriptionAmount(ctx context.Context, 
 		lines = append(lines, port.PriceLine{
 			LineNo:    it.LineNo,
 			ItemType:  "drug",
-			RefID:     it.ID,
+			RefID:     it.DrugID, // 契约：药品= drug_id（docs/05 §4；docs/15 H2）
 			Quantity:  it.Quantity,
 			UnitPrice: it.UnitPrice,
 			Amount:    it.Amount,

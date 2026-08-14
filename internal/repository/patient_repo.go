@@ -40,9 +40,11 @@ func (r *PatientRepo) GetByCardNo(ctx context.Context, cardNo string) (*model.Pa
 	return &p, nil
 }
 
-// Update 更新患者。
+// Update 更新患者（Select("*") 全量更新，含零值，修复布尔/文本字段无法清除问题，docs/15 M5）。
 func (r *PatientRepo) Update(ctx context.Context, p *model.Patient) error {
-	return r.db.WithContext(ctx).Model(p).Omit("created_at").Updates(p).Error
+	return r.db.WithContext(ctx).Model(p).
+		Omit("id", "created_at").
+		Select("*").Updates(p).Error
 }
 
 // List 分页查询（按姓名/卡号/电话模糊搜索）。

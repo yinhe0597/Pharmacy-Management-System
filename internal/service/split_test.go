@@ -137,7 +137,7 @@ func TestMixedDispense(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	inv := service.NewInventoryService(db)
-	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil)
+	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil, service.NewClinicalService(db))
 	drug := mustCreateDrug(t, db) // 24片/盒，零售 2400 分，拆零 100 分/片
 
 	// 3 整盒 + 拆零 12 片
@@ -227,7 +227,7 @@ func TestAutoSplit(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	inv := service.NewInventoryService(db)
-	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil)
+	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil, service.NewClinicalService(db))
 	drug := mustCreateDrug(t, db)
 
 	// 仅 2 整盒，无拆零库存
@@ -305,7 +305,7 @@ func TestAutoSplitPartialSplit(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	inv := service.NewInventoryService(db)
-	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil)
+	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil, service.NewClinicalService(db))
 	drug := mustCreateDrug(t, db)
 
 	// 备 3 盒：拆 1 盒留拆零、调成 6 片，剩 2 整盒供「1 盒整发 + 1 盒待拆」
@@ -379,7 +379,7 @@ func TestReturnSplitScenario(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
 	inv := service.NewInventoryService(db)
-	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil)
+	presc := service.NewPrescriptionService(db, inv, service.NewSpecialDrugService(db), nil, nil, service.NewClinicalService(db))
 	drugSvc := service.NewDrugService(db)
 
 	drug := &model.Drug{

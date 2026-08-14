@@ -45,6 +45,7 @@ type PrescriptionInput struct {
 	PatientGender    string                  `json:"patient_gender"`
 	PatientAge       string                  `json:"patient_age"`
 	PatientCardNo    string                  `json:"patient_card_no"`
+	DiagnosisCode    string                  `json:"diagnosis_code"` // ICD-10 结构化诊断编码（可选，docs/15 G2）
 	Diagnosis        string                  `json:"diagnosis"`
 	Department       string                  `json:"department"`
 	DoctorName       string                  `json:"doctor_name"`
@@ -74,11 +75,12 @@ type PrescriptionService struct {
 	special    *SpecialDrugService
 	interSvc   *InteractionService
 	patientSvc port.IPatientService
+	clinical   *ClinicalService // 退药冲正联动（docs/15 H3）
 }
 
 // NewPrescriptionService 构建处方服务。
-func NewPrescriptionService(db *gorm.DB, inventory *InventoryService, special *SpecialDrugService, interSvc *InteractionService, patientSvc port.IPatientService) *PrescriptionService {
-	return &PrescriptionService{db: db, inventory: inventory, special: special, interSvc: interSvc, patientSvc: patientSvc}
+func NewPrescriptionService(db *gorm.DB, inventory *InventoryService, special *SpecialDrugService, interSvc *InteractionService, patientSvc port.IPatientService, clinical *ClinicalService) *PrescriptionService {
+	return &PrescriptionService{db: db, inventory: inventory, special: special, interSvc: interSvc, patientSvc: patientSvc, clinical: clinical}
 }
 
 // deriveSpecialType 根据明细药品的管制标记推导处方类型。
@@ -113,8 +115,19 @@ func deriveSpecialType(items []model.Drug) int {
 
 // Create 处方录入（草稿，pending_review）。
 func (s *PrescriptionService) Create(ctx context.Context, input PrescriptionInput) (*model.Prescription, error) {
-	if input.PatientName == "" || len(input.Items) == 0 {
+	if len(input.Items) == 0 {
 		return nil, errs.ErrBadRequest
+	}
+	// 关联患者时自动回填空字段（docs/15 G3）
+	if err := s.fillPatientFromRecord(ctx, s.db, &input); err != nil {
+		return nil, err
+	}
+	if input.PatientName == "" {
+		return nil, errs.ErrBadRequest
+	}
+	// 可选 ICD-10 诊断编码校验（docs/15 G2）
+	if err := validateDiagnosisCode(ctx, s.db, input.DiagnosisCode); err != nil {
+		return nil, err
 	}
 	items, drugs, err := s.prepareItems(ctx, s.db, input.Items)
 	if err != nil {
@@ -142,6 +155,7 @@ func (s *PrescriptionService) Create(ctx context.Context, input PrescriptionInpu
 		PatientCardNo:      input.PatientCardNo,
 		IsPregnant:         input.IsPregnant,
 		IsLactating:        input.IsLactating,
+		DiagnosisCode:      input.DiagnosisCode,
 		Diagnosis:          input.Diagnosis,
 		Department:         input.Department,
 		DoctorName:         input.DoctorName,
@@ -263,6 +277,14 @@ func (s *PrescriptionService) Update(ctx context.Context, id int64, input Prescr
 		if p.Status != prescription.StatusPendingReview.String() {
 			return errs.ErrPrescriptionState
 		}
+		// 关联患者时自动回填空字段（docs/15 G3）
+		if err := s.fillPatientFromRecord(ctx, tx, &input); err != nil {
+			return err
+		}
+		// 可选 ICD-10 诊断编码校验（docs/15 G2）
+		if err := validateDiagnosisCode(ctx, tx, input.DiagnosisCode); err != nil {
+			return err
+		}
 		var n int64
 		if err := tx.Model(&model.StockReservation{}).
 			Where("ref_type = 'prescription' AND ref_id = ? AND status = 'active'", id).Count(&n).Error; err != nil {
@@ -308,6 +330,7 @@ func (s *PrescriptionService) Update(ctx context.Context, id int64, input Prescr
 		p.PatientCardNo = input.PatientCardNo
 		p.IsPregnant = input.IsPregnant
 		p.IsLactating = input.IsLactating
+		p.DiagnosisCode = input.DiagnosisCode
 		p.Diagnosis = input.Diagnosis
 		p.Department = input.Department
 		p.DoctorName = input.DoctorName
@@ -317,6 +340,52 @@ func (s *PrescriptionService) Update(ctx context.Context, id int64, input Prescr
 		p.Remarks = input.Remarks
 		return repository.NewPrescriptionRepo(tx).UpdateBase(ctx, p)
 	})
+}
+
+// fillPatientFromRecord 关联患者时自动回填空字段（docs/15 G3）：
+// 姓名/性别/年龄/卡号为空时取患者档案；患者哺乳标记为真时强制带入。
+func (s *PrescriptionService) fillPatientFromRecord(ctx context.Context, db *gorm.DB, input *PrescriptionInput) error {
+	if input.PatientID <= 0 {
+		return nil
+	}
+	pt, err := repository.NewPatientRepo(db).GetByID(ctx, input.PatientID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errs.ErrPatientNotFound
+		}
+		return err
+	}
+	if input.PatientName == "" {
+		input.PatientName = pt.Name
+	}
+	if input.PatientGender == "" {
+		input.PatientGender = pt.Gender
+	}
+	if input.PatientAge == "" {
+		input.PatientAge = pt.Age
+	}
+	if input.PatientCardNo == "" {
+		input.PatientCardNo = pt.CardNo
+	}
+	if pt.IsLactating {
+		input.IsLactating = true
+	}
+	return nil
+}
+
+// validateDiagnosisCode 可选 ICD-10 诊断编码校验（docs/15 G2）。
+func validateDiagnosisCode(ctx context.Context, db *gorm.DB, code string) error {
+	if code == "" {
+		return nil
+	}
+	var n int64
+	if err := db.WithContext(ctx).Model(&model.DiagnosisCode{}).Where("code = ?", code).Count(&n).Error; err != nil {
+		return err
+	}
+	if n == 0 {
+		return errs.ErrDiagnosisNotFound
+	}
+	return nil
 }
 
 // Submit 提交审核：执行库存预占（开单即锁）。
@@ -853,6 +922,12 @@ func (s *PrescriptionService) Return(ctx context.Context, id int64, inputs []Ret
 				return errs.ErrStateConflict
 			}
 		}
+		// 退药冲正与退药同事务（docs/15 H3）：任一失败整体回滚，账实一致
+		if s.clinical != nil {
+			if err := s.clinical.RefundPrescriptionTx(ctx, tx, id, inputs, operatorID, operatorName); err != nil {
+				return err
+			}
+		}
 		return s.auditTx(ctx, tx, id, "return", prescription.StatusDispensed.String(), p.Status, operatorName, "")
 	})
 }
@@ -930,7 +1005,17 @@ func (s *PrescriptionService) Get(ctx context.Context, id int64) (*PrescriptionD
 	if err != nil {
 		return nil, err
 	}
-	return &PrescriptionDetail{Prescription: *p, Items: items, DispenseRecords: records, AuditLogs: logs}, nil
+	detail := &PrescriptionDetail{Prescription: *p, Items: items, DispenseRecords: records, AuditLogs: logs}
+	// 聚合患者档案与过敏史（docs/15 M6，供前端开方/详情页直接使用）
+	if p.PatientID > 0 {
+		if pt, err := repository.NewPatientRepo(db).GetByID(ctx, p.PatientID); err == nil {
+			detail.Patient = pt
+		}
+		if al, err := repository.NewPatientRepo(db).ListAllergies(ctx, p.PatientID); err == nil {
+			detail.Allergies = al
+		}
+	}
+	return detail, nil
 }
 
 // PrescriptionDetail 处方详情聚合。
@@ -939,6 +1024,8 @@ type PrescriptionDetail struct {
 	Items           []model.PrescriptionItem           `json:"items"`
 	DispenseRecords []model.PrescriptionDispenseRecord `json:"dispense_records"`
 	AuditLogs       []model.PrescriptionAuditLog       `json:"audit_logs"`
+	Patient         *model.Patient                     `json:"patient,omitempty"`
+	Allergies       []model.PatientAllergy             `json:"allergies,omitempty"`
 }
 
 // List 处方列表。

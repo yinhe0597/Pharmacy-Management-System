@@ -80,21 +80,39 @@ func (s *PatientService) List(ctx context.Context, keyword string, page, pageSiz
 	return repository.NewPatientRepo(s.db).List(ctx, keyword, (page-1)*pageSize, pageSize)
 }
 
-// GetDetail 查询患者详情。
+// GetDetail 查询患者详情（未找到返回 404，docs/15 M1）。
 func (s *PatientService) GetDetail(ctx context.Context, id int64) (*model.Patient, error) {
-	return repository.NewPatientRepo(s.db).GetByID(ctx, id)
+	p, err := repository.NewPatientRepo(s.db).GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errs.ErrPatientNotFound
+		}
+		return nil, err
+	}
+	return p, nil
 }
 
-// Create 新建患者档案。
+// Create 新建患者档案（重复卡号返回 409，docs/15 M1）。
 func (s *PatientService) Create(ctx context.Context, p *model.Patient) error {
+	if p.CardNo != "" {
+		if existing, err := repository.NewPatientRepo(s.db).GetByCardNo(ctx, p.CardNo); err == nil {
+			_ = existing
+			return errs.ErrPatientCardExists
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+	}
 	return repository.NewPatientRepo(s.db).Create(ctx, p)
 }
 
-// Update 更新患者档案。
+// Update 更新患者档案（未找到返回 404，docs/15 M1）。
 func (s *PatientService) Update(ctx context.Context, id int64, p *model.Patient) error {
 	repo := repository.NewPatientRepo(s.db)
 	existing, err := repo.GetByID(ctx, id)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errs.ErrPatientNotFound
+		}
 		return err
 	}
 	p.ID = existing.ID
@@ -107,13 +125,13 @@ func (s *PatientService) ListAllergiesDetail(ctx context.Context, patientID int6
 	return repository.NewPatientRepo(s.db).ListAllergies(ctx, patientID)
 }
 
-// AddAllergy 新增过敏记录。
+// AddAllergy 新增过敏记录（severity 限 1-3，docs/15 M5）。
 func (s *PatientService) AddAllergy(ctx context.Context, a *model.PatientAllergy) error {
 	if a.PatientID <= 0 || a.DrugName == "" {
 		return errs.ErrBadRequest
 	}
-	if a.Severity <= 0 {
-		a.Severity = 1
+	if a.Severity < 1 || a.Severity > 3 {
+		return errs.ErrBadRequest
 	}
 	return repository.NewPatientRepo(s.db).CreateAllergy(ctx, a)
 }
@@ -129,6 +147,6 @@ func toPortPatient(m *model.Patient) *port.Patient {
 	}
 	return &port.Patient{
 		ID: m.ID, Name: m.Name, Gender: m.Gender, Age: m.Age, CardNo: m.CardNo,
-		Phone: m.Phone, CreatedAt: m.CreatedAt,
+		Phone: m.Phone, IsLactating: m.IsLactating, CreatedAt: m.CreatedAt,
 	}
 }
