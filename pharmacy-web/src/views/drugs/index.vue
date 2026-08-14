@@ -2,12 +2,20 @@
   <div>
     <el-card>
       <div class="toolbar">
-        <el-input v-model="query.keyword" placeholder="药品名称/编码/拼音码" clearable style="width:220px" @keyup.enter="load" />
+        <el-input
+          v-model="query.keyword"
+          placeholder="药品名称/编码/拼音码"
+          clearable
+          style="width: 220px"
+          @keyup.enter="load"
+        />
         <el-button type="primary" @click="load">查询</el-button>
-        <el-button type="success" v-permission="'drug:write'" @click="openCreate">新增药品</el-button>
+        <el-button v-permission="'drug:write'" type="success" @click="openCreate"
+          >新增药品</el-button
+        >
       </div>
 
-      <el-table :data="list" v-loading="loading" border>
+      <el-table v-loading="loading" :data="list" border>
         <el-table-column prop="generic_name" label="通用名" min-width="140" />
         <el-table-column prop="specification" label="规格" width="100" />
         <el-table-column prop="manufacturer" label="厂家" min-width="120" />
@@ -15,7 +23,9 @@
         <el-table-column label="医保/集采" width="120">
           <template #default="{ row }">
             <el-tag v-if="row.insurance_class" size="small">{{ row.insurance_class }}</el-tag>
-            <el-tag v-if="row.vbp_batch" type="warning" size="small">集采{{ row.vbp_batch }}批</el-tag>
+            <el-tag v-if="row.vbp_batch" type="warning" size="small"
+              >集采{{ row.vbp_batch }}批</el-tag
+            >
           </template>
         </el-table-column>
         <el-table-column label="零售价" width="90">
@@ -23,23 +33,29 @@
         </el-table-column>
         <el-table-column label="状态" width="80">
           <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'info'" size="small">{{ row.status === 1 ? '启用' : '停用' }}</el-tag>
+            <el-tag :type="row.status === 1 ? 'success' : 'info'" size="small">{{
+              row.status === 1 ? '启用' : '停用'
+            }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" v-permission="'drug:write'" @click="openEdit(row)">编辑</el-button>
-            <el-button link type="warning" v-permission="'drug:write'" @click="toggleStatus(row)">{{ row.status === 1 ? '停用' : '启用' }}</el-button>
+            <el-button v-permission="'drug:write'" link type="primary" @click="openEdit(row)"
+              >编辑</el-button
+            >
+            <el-button v-permission="'drug:write'" link type="warning" @click="toggleStatus(row)">{{
+              row.status === 1 ? '停用' : '启用'
+            }}</el-button>
           </template>
         </el-table-column>
       </el-table>
 
       <el-pagination
+        v-model:current-page="query.page"
         class="pager"
         layout="total, prev, pager, next"
         :total="total"
         :page-size="query.page_size"
-        v-model:current-page="query.page"
         @current-change="load"
       />
     </el-card>
@@ -47,24 +63,56 @@
     <el-dialog v-model="dialogVisible" :title="form.id ? '编辑药品' : '新增药品'" width="640px">
       <el-form :model="form" label-width="110px">
         <el-row :gutter="12">
-          <el-col :span="12"><el-form-item label="通用名" required><el-input v-model="form.generic_name" @blur="doMatch" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="编码"><el-input v-model="form.code" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="规格"><el-input v-model="form.specification" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="厂家"><el-input v-model="form.manufacturer" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="剂型"><el-input v-model="form.dosage_form" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="类型">
-            <el-select v-model="form.item_type"><el-option label="药品" value="drug" /><el-option label="耗材" value="consumable" /></el-select>
-          </el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="基本单位"><el-input v-model="form.base_unit" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="拆零单位"><el-input v-model="form.split_unit" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="包装含量"><el-input-number v-model="form.pack_size" :min="1" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="可拆零"><el-switch v-model="form.is_split_allowed" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="零售价(分)"><el-input-number v-model="form.retail_price" :min="0" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="进价(分)"><el-input-number v-model="form.purchase_price" :min="0" /></el-form-item></el-col>
+          <el-col :span="12"
+            ><el-form-item label="通用名" required
+              ><el-input v-model="form.generic_name" @blur="doMatch" /></el-form-item
+          ></el-col>
+          <el-col :span="12"
+            ><el-form-item label="编码"><el-input v-model="form.code" /></el-form-item
+          ></el-col>
+          <el-col :span="12"
+            ><el-form-item label="规格"><el-input v-model="form.specification" /></el-form-item
+          ></el-col>
+          <el-col :span="12"
+            ><el-form-item label="厂家"><el-input v-model="form.manufacturer" /></el-form-item
+          ></el-col>
+          <el-col :span="12"
+            ><el-form-item label="剂型"><el-input v-model="form.dosage_form" /></el-form-item
+          ></el-col>
+          <el-col :span="12"
+            ><el-form-item label="类型">
+              <el-select v-model="form.item_type"
+                ><el-option label="药品" value="drug" /><el-option label="耗材" value="consumable"
+              /></el-select> </el-form-item
+          ></el-col>
+          <el-col :span="12"
+            ><el-form-item label="基本单位"><el-input v-model="form.base_unit" /></el-form-item
+          ></el-col>
+          <el-col :span="12"
+            ><el-form-item label="拆零单位"><el-input v-model="form.split_unit" /></el-form-item
+          ></el-col>
+          <el-col :span="12"
+            ><el-form-item label="包装含量"
+              ><el-input-number v-model="form.pack_size" :min="1" /></el-form-item
+          ></el-col>
+          <el-col :span="12"
+            ><el-form-item label="可拆零"
+              ><el-switch v-model="form.is_split_allowed" /></el-form-item
+          ></el-col>
+          <el-col :span="12"
+            ><el-form-item label="零售价(分)"
+              ><el-input-number v-model="form.retail_price" :min="0" /></el-form-item
+          ></el-col>
+          <el-col :span="12"
+            ><el-form-item label="进价(分)"
+              ><el-input-number v-model="form.purchase_price" :min="0" /></el-form-item
+          ></el-col>
         </el-row>
-        <el-alert v-if="matchResult" type="info" :closable="false" style="margin-bottom:8px">
+        <el-alert v-if="matchResult" type="info" :closable="false" style="margin-bottom: 8px">
           目录匹配：<el-tag size="small">{{ matchResult.insurance_class || '无医保类别' }}</el-tag>
-          <el-tag v-if="matchResult.vbp_batch" type="warning" size="small">集采{{ matchResult.vbp_batch }}批</el-tag>
+          <el-tag v-if="matchResult.vbp_batch" type="warning" size="small"
+            >集采{{ matchResult.vbp_batch }}批</el-tag
+          >
         </el-alert>
       </el-form>
       <template #footer>
@@ -137,6 +185,13 @@ async function toggleStatus(row: Drug) {
 </script>
 
 <style scoped>
-.toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
-.pager { margin-top: 12px; justify-content: flex-end; }
+.toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.pager {
+  margin-top: 12px;
+  justify-content: flex-end;
+}
 </style>

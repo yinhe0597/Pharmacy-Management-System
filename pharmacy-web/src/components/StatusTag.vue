@@ -11,5 +11,9 @@ const props = defineProps<{
 }>()
 
 const label = computed(() => props.map[props.status]?.label ?? props.status)
-const tag = computed(() => (props.map[props.status]?.tag ?? 'info') as 'success' | 'info' | 'warning' | 'danger' | 'primary')
+const tag = computed(
+  () =>
+    (props.map[props.status]?.tag ?? 'info') as
+      'success' | 'info' | 'warning' | 'danger' | 'primary',
+)
 </script>

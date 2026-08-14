@@ -2,7 +2,13 @@
   <el-container class="layout">
     <el-aside width="220px" class="aside">
       <div class="logo">💊 药房管理系统</div>
-      <el-menu :default-active="activePath" router background-color="#001529" text-color="#rgba(255,255,255,0.7)" active-text-color="#fff">
+      <el-menu
+        :default-active="activePath"
+        router
+        background-color="#001529"
+        text-color="#rgba(255,255,255,0.7)"
+        active-text-color="#fff"
+      >
         <el-menu-item v-for="item in visibleMenu" :key="item.path" :index="item.path">
           <el-icon><component :is="item.icon" /></el-icon>
           <span>{{ item.title }}</span>
@@ -49,7 +55,9 @@ const activePath = computed(() => route.path)
 const currentTitle = computed(() => (route.meta.title as string) ?? '')
 const visibleMenu = computed(() => {
   const role = store.role as Role
-  return MENU.filter((m) => !m.permission || (role && hasPermission(role, m.permission as Permission)))
+  return MENU.filter(
+    (m) => !m.permission || (role && hasPermission(role, m.permission as Permission)),
+  )
 })
 
 async function onCommand(cmd: string) {

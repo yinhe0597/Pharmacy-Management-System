@@ -1,18 +1,33 @@
 <template>
   <el-card>
     <div class="toolbar">
-      <el-input v-model="query.keyword" placeholder="供应商名称/编码" clearable style="width:220px" @keyup.enter="load" />
+      <el-input
+        v-model="query.keyword"
+        placeholder="供应商名称/编码"
+        clearable
+        style="width: 220px"
+        @keyup.enter="load"
+      />
       <el-button type="primary" @click="load">查询</el-button>
-      <el-button type="success" v-permission="'purchase:write'" @click="openCreate">新增供应商</el-button>
+      <el-button v-permission="'purchase:write'" type="success" @click="openCreate"
+        >新增供应商</el-button
+      >
     </div>
-    <el-table :data="list" v-loading="loading" border>
+    <el-table v-loading="loading" :data="list" border>
       <el-table-column prop="code" label="编码" width="120" />
       <el-table-column prop="name" label="名称" />
       <el-table-column prop="contact" label="联系人" width="120" />
       <el-table-column prop="phone" label="电话" width="140" />
       <el-table-column prop="address" label="地址" min-width="160" />
     </el-table>
-    <el-pagination class="pager" layout="total, prev, pager, next" :total="total" :page-size="query.page_size" v-model:current-page="query.page" @current-change="load" />
+    <el-pagination
+      v-model:current-page="query.page"
+      class="pager"
+      layout="total, prev, pager, next"
+      :total="total"
+      :page-size="query.page_size"
+      @current-change="load"
+    />
 
     <el-dialog v-model="dialogVisible" title="新增供应商" width="480px">
       <el-form label-width="80px">
@@ -67,6 +82,13 @@ async function save() {
 </script>
 
 <style scoped>
-.toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
-.pager { margin-top: 12px; justify-content: flex-end; }
+.toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.pager {
+  margin-top: 12px;
+  justify-content: flex-end;
+}
 </style>

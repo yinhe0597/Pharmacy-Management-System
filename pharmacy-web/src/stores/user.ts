@@ -3,7 +3,14 @@ import { ref, computed } from 'vue'
 import type { Role } from '@/types/business'
 import { ROLE_LABELS } from '@/types/business'
 import type { LoginUser } from '@/types/api'
-import { getToken, setToken, clearToken, getStoredUser, setStoredUser, clearStoredUser } from '@/utils/auth'
+import {
+  getToken,
+  setToken,
+  clearToken,
+  getStoredUser,
+  setStoredUser,
+  clearStoredUser,
+} from '@/utils/auth'
 
 export const useUserStore = defineStore('user', () => {
   const token = ref<string>(getToken())

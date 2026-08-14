@@ -7,14 +7,28 @@
           <p>药房进销存与处方调配</p>
         </div>
       </template>
-      <el-form :model="form" :rules="rules" ref="formRef" label-position="top" @keyup.enter="onSubmit">
+      <el-form
+        ref="formRef"
+        :model="form"
+        :rules="rules"
+        label-position="top"
+        @keyup.enter="onSubmit"
+      >
         <el-form-item label="账号" prop="username">
           <el-input v-model="form.username" placeholder="请输入账号" :prefix-icon="User" />
         </el-form-item>
         <el-form-item label="密码" prop="password">
-          <el-input v-model="form.password" type="password" show-password placeholder="请输入密码" :prefix-icon="Lock" />
+          <el-input
+            v-model="form.password"
+            type="password"
+            show-password
+            placeholder="请输入密码"
+            :prefix-icon="Lock"
+          />
         </el-form-item>
-        <el-button type="primary" class="login-btn" :loading="loading" @click="onSubmit">登 录</el-button>
+        <el-button type="primary" class="login-btn" :loading="loading" @click="onSubmit"
+          >登 录</el-button
+        >
       </el-form>
     </el-card>
   </div>

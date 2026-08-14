@@ -36,12 +36,23 @@ src/
 
 ## 脚本
 
-| 命令 | 说明 |
-|------|------|
-| `npm run dev` | 开发启动 |
-| `npm run type-check` | TS 类型检查 |
-| `npm run build` | 类型检查 + 生产构建（产物 `dist/`） |
-| `npm run preview` | 预览构建产物 |
+| 命令                              | 说明                                                              |
+| --------------------------------- | ----------------------------------------------------------------- |
+| `npm run dev`                     | 开发启动                                                          |
+| `npm run type-check`              | TS 类型检查                                                       |
+| `npm run lint` / `lint:fix`       | ESLint 检查 / 自动修复                                            |
+| `npm run format` / `format:check` | Prettier 格式化 / 校验                                            |
+| `npm run gen:types`               | 由后端 `docs/swagger.json` 生成 TS 类型（`src/types/generated/`） |
+| `npm run build`                   | 类型检查 + 生产构建（产物 `dist/`）                               |
+| `npm run preview`                 | 预览构建产物                                                      |
+
+## 工程化（docs/19）
+
+- **环境变量**：`.env.development` / `.env.production`（`VITE_API_BASE_URL`，开发走 Vite 代理，生产可配完整地址）。
+- **请求取消**：路由切换时自动 abort 未完成请求（`api/http.ts` 的 `cancelAllRequests`）。
+- **类型共享**：后端 Go（swaggo Swagger 2.0）→ `swagger2openapi` 转 OpenAPI 3 → `openapi-typescript` 生成
+  `src/types/generated/api.d.ts`；后端接口变更后执行 `npm run gen:types`。
+- **规范**：ESLint（flat config + typescript-eslint + eslint-plugin-vue）+ Prettier。
 
 ## 约定
 

@@ -56,7 +56,10 @@ export function dispensePrescription(id: number) {
 export function confirmDispense(id: number) {
   return http.post(`/prescriptions/${id}/confirm-dispense`)
 }
-export function returnPrescription(id: number, items: { item_id: number; return_quantity: number }[]) {
+export function returnPrescription(
+  id: number,
+  items: { item_id: number; return_quantity: number }[],
+) {
   return http.post(`/prescriptions/${id}/return`, { items })
 }
 export function cancelPrescription(id: number) {

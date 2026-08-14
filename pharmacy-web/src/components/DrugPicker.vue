@@ -17,9 +17,15 @@
       :value="d.id"
     >
       <span>{{ d.generic_name }}</span>
-      <span style="color:#909399;margin-left:8px">{{ d.specification }} {{ d.manufacturer }}</span>
-      <el-tag v-if="d.insurance_class" size="small" style="margin-left:8px">{{ d.insurance_class }}</el-tag>
-      <el-tag v-if="d.vbp_batch" type="warning" size="small" style="margin-left:4px">集采{{ d.vbp_batch }}批</el-tag>
+      <span style="color: #909399; margin-left: 8px"
+        >{{ d.specification }} {{ d.manufacturer }}</span
+      >
+      <el-tag v-if="d.insurance_class" size="small" style="margin-left: 8px">{{
+        d.insurance_class
+      }}</el-tag>
+      <el-tag v-if="d.vbp_batch" type="warning" size="small" style="margin-left: 4px"
+        >集采{{ d.vbp_batch }}批</el-tag
+      >
     </el-option>
   </el-select>
 </template>
@@ -29,11 +35,14 @@ import { ref } from 'vue'
 import { listDrugs } from '@/api/drugs'
 import type { Drug } from '@/types/entities'
 
-const emit = defineEmits<{ (e: 'update:modelValue', v: number | null): void; (e: 'select', d: Drug): void }>()
-withDefaults(
-  defineProps<{ modelValue?: number | null; placeholder?: string }>(),
-  { modelValue: null, placeholder: '搜索药品' },
-)
+const emit = defineEmits<{
+  (e: 'update:modelValue', v: number | null): void
+  (e: 'select', d: Drug): void
+}>()
+withDefaults(defineProps<{ modelValue?: number | null; placeholder?: string }>(), {
+  modelValue: null,
+  placeholder: '搜索药品',
+})
 
 const options = ref<Drug[]>([])
 const loading = ref(false)

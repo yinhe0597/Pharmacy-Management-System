@@ -23,40 +23,60 @@ export const ROLE_LABELS: Record<Role, string> = {
 
 // 权限点（对应后端路由分组）
 export type Permission =
-  | 'user:admin'        // UserAdmin：用户管理
-  | 'drug:write'        // DrugAdmin：药品/分类/配伍/交互规则/特殊药品目录写
-  | 'purchase:write'    // Purchase：采购/供应商写
-  | 'inventory:write'   // Pharmacy：库存写/领用补发/处方执行
+  | 'user:admin' // UserAdmin：用户管理
+  | 'drug:write' // DrugAdmin：药品/分类/配伍/交互规则/特殊药品目录写
+  | 'purchase:write' // Purchase：采购/供应商写
+  | 'inventory:write' // Pharmacy：库存写/领用补发/处方执行
   | 'prescription:create' // Clinical：处方开立/医嘱核对
   | 'prescription:review' // 药师审核（pharmacist/director/admin）
-  | 'patient:write'     // PatientAdmin：患者档案写
-  | 'patient:read'      // PatientRead：患者档案读
-  | 'charge:write'      // ChargeStaff：计费录入/红冲
-  | 'billing:view'      // Billing：计费查看
-  | 'report:view'       // Report：报表
+  | 'patient:write' // PatientAdmin：患者档案写
+  | 'patient:read' // PatientRead：患者档案读
+  | 'charge:write' // ChargeStaff：计费录入/红冲
+  | 'billing:view' // Billing：计费查看
+  | 'report:view' // Report：报表
 
 // 角色 → 权限点集合（与后端 enum.RoleGroups 对齐）
 export const ROLE_PERMISSIONS: Record<Role, (Permission | '*')[]> = {
   admin: ['*'],
   pharmacy_director: [
-    'user:admin', 'drug:write', 'purchase:write', 'inventory:write',
-    'prescription:create', 'prescription:review', 'patient:write', 'patient:read',
-    'charge:write', 'billing:view', 'report:view',
+    'user:admin',
+    'drug:write',
+    'purchase:write',
+    'inventory:write',
+    'prescription:create',
+    'prescription:review',
+    'patient:write',
+    'patient:read',
+    'charge:write',
+    'billing:view',
+    'report:view',
   ],
   pharmacist: [
-    'drug:write', 'inventory:write', 'prescription:create', 'prescription:review',
-    'patient:read', 'charge:write', 'billing:view', 'report:view',
+    'drug:write',
+    'inventory:write',
+    'prescription:create',
+    'prescription:review',
+    'patient:read',
+    'charge:write',
+    'billing:view',
+    'report:view',
   ],
   doctor: [
-    'inventory:write', 'prescription:create', 'patient:write', 'patient:read',
-    'charge:write', 'billing:view',
+    'inventory:write',
+    'prescription:create',
+    'patient:write',
+    'patient:read',
+    'charge:write',
+    'billing:view',
   ],
   clinic_nurse: [
-    'prescription:create', 'patient:write', 'patient:read', 'charge:write', 'billing:view',
+    'prescription:create',
+    'patient:write',
+    'patient:read',
+    'charge:write',
+    'billing:view',
   ],
-  pharmacy_nurse: [
-    'inventory:write', 'patient:read', 'charge:write', 'billing:view',
-  ],
+  pharmacy_nurse: ['inventory:write', 'patient:read', 'charge:write', 'billing:view'],
   buyer: ['purchase:write'],
   finance: ['report:view', 'billing:view'],
 }

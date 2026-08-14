@@ -17,7 +17,7 @@
       :value="d.code"
     >
       <span>{{ d.code }}</span>
-      <span style="margin-left:8px">{{ d.disease_name }}</span>
+      <span style="margin-left: 8px">{{ d.disease_name }}</span>
     </el-option>
   </el-select>
 </template>
@@ -26,11 +26,14 @@
 import { ref } from 'vue'
 import { listDiagnosisCodes } from '@/api/reference'
 
-const emit = defineEmits<{ (e: 'update:modelValue', v: string): void; (e: 'select', v: { code: string; disease_name: string }): void }>()
-withDefaults(
-  defineProps<{ modelValue?: string; placeholder?: string }>(),
-  { modelValue: '', placeholder: '搜索诊断（ICD-10）' },
-)
+const emit = defineEmits<{
+  (e: 'update:modelValue', v: string): void
+  (e: 'select', v: { code: string; disease_name: string }): void
+}>()
+withDefaults(defineProps<{ modelValue?: string; placeholder?: string }>(), {
+  modelValue: '',
+  placeholder: '搜索诊断（ICD-10）',
+})
 
 const options = ref<{ code: string; disease_name: string }[]>([])
 const loading = ref(false)

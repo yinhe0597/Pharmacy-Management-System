@@ -1,11 +1,11 @@
 <template>
   <el-card>
     <div class="toolbar">
-      <el-input v-model="code" placeholder="编码" style="width:160px" />
-      <el-input v-model="name" placeholder="名称" style="width:160px" />
-      <el-button type="success" v-permission="'drug:write'" @click="add">新增分类</el-button>
+      <el-input v-model="code" placeholder="编码" style="width: 160px" />
+      <el-input v-model="name" placeholder="名称" style="width: 160px" />
+      <el-button v-permission="'drug:write'" type="success" @click="add">新增分类</el-button>
     </div>
-    <el-table :data="list" v-loading="loading" border>
+    <el-table v-loading="loading" :data="list" border>
       <el-table-column prop="code" label="编码" width="120" />
       <el-table-column prop="name" label="名称" />
       <el-table-column prop="sort_order" label="排序" width="80" />
@@ -44,5 +44,9 @@ async function add() {
 </script>
 
 <style scoped>
-.toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
+.toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
 </style>
