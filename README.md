@@ -116,6 +116,12 @@ go build -o bin/yaofang.exe ./cmd/server && ./bin/yaofang.exe
 
 > 👤 默认管理员：`admin / admin123`；其他种子用户：`doctor`、`nurse`、`pharmacy_chief`、`pharmacist`、`buyer`、`finance`（密码均 `admin123`，生产环境务必修改 ⚠️）
 
+### 🌐 前端联调
+
+- 后端已支持 **CORS 跨域**（`server.cors_allow_origins` 白名单，开发默认放行 `*`，生产限定域名）。
+- 接口文档：`http://localhost:8080/swagger/index.html`（含全部端点与 TS 类型生成来源 `docs/swagger.json`）。
+- 对接约定与前端须知见 [docs/16-前端开发就绪评估与对接指南.md](docs/16-前端开发就绪评估与对接指南.md)。
+
 ### ✅ 4️⃣ 测试
 
 ```bash
@@ -186,7 +192,8 @@ yaofang/
 | 参考数据（ICD-10/集采/医保/耗材/非医保，6,794 条） | ✅ 已交付并接线 |
 | RBAC 角色矩阵强制 / 麻精双人核对 | ✅ 已落地 |
 | 患者档案 + 计费闭环 + 拆零操作单/统计 | ✅ 已交付 |
-| 诊疗模块复审修复（docs/15：布尔持久化/计价契约/冲正原子化/红冲/诊断编码等） | ✅ 已交付 |
+| 诊疗模块复审修复（docs/15） | ✅ 已交付 |
+| 前端就绪（CORS + 对接指南 docs/16） | ✅ 已就绪 |
 | CI 门槛（golangci-lint + 覆盖率 ≥85%） | ✅ 已落地 |
 
 > 迁移至 `000025`，共 **26 个版本**；质量门禁：`go build` / `go vet` / `go test` / `gofmt` / `golangci-lint` 全绿 ✅
@@ -220,9 +227,10 @@ yaofang/
 | 文档 | 说明 |
 |------|------|
 | 📋 [CHANGELOG.md](CHANGELOG.md) | 版本与变更记录 |
-| 📚 [docs/README.md](docs/README.md) | 开发文档总览（15 篇） |
+| 📚 [docs/README.md](docs/README.md) | 开发文档总览（16 篇） |
 | 🔍 [docs/14-现状分析与下一步建议.md](docs/14-现状分析与下一步建议.md) | 全量审阅发现与修复进度 |
 | 🩺 [docs/15-诊疗模块复审报告.md](docs/15-诊疗模块复审报告.md) | 诊疗模块业务逻辑/漏洞复审与前端搭建参考 |
+| 🌐 [docs/16-前端开发就绪评估与对接指南.md](docs/16-前端开发就绪评估与对接指南.md) | 前端就绪评估、页面-接口对照与对接须知 |
 | 🧪 [docs/07-测试方案.md](docs/07-测试方案.md) | 测试方案与覆盖策略 |
 | 🚢 [docs/10-部署运维.md](docs/10-部署运维.md) | 部署与运维指南 |
 

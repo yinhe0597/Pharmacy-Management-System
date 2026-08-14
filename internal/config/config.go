@@ -21,8 +21,9 @@ type Config struct {
 
 // ServerConfig 服务配置。
 type ServerConfig struct {
-	Port int    `mapstructure:"port"`
-	Mode string `mapstructure:"mode"`
+	Port             int      `mapstructure:"port"`
+	Mode             string   `mapstructure:"mode"`
+	CORSAllowOrigins []string `mapstructure:"cors_allow_origins"` // 前端跨域白名单（空或 * 放行任意，生产限定域名）
 }
 
 // DatabaseConfig PostgreSQL 连接配置。

@@ -69,6 +69,13 @@
 - **L1/L3/L5**：冲正记录以 `Amount` 为准（UnitPrice=0）；未发药处方计费拦截（`6004`）；`port.Patient` 透出 `IsLactating`。
 - **计费/患者隐私**：`charge_records` 与 `patients` 增加 `patient_id` 关联字段。
 
+### 前端就绪（docs/16）
+
+- **CORS 跨域支持**：新增 `middleware.CORS` + `server.cors_allow_origins` 配置
+  （开发默认放行 `*`，生产限定域名；鉴权走 Authorization 头，无需 credentials）。
+- **前端对接指南**：`docs/16-前端开发就绪评估与对接指南.md`（就绪评估矩阵、角色菜单建议、
+  页面-接口对照、前端须知：`patient_id=0` 语义 / 冲正负金额口径 / 分金额 / 时间格式 / 类型生成）。
+
 ## [v1.3.0] - 2026-08-02
 
 ### 基础参考数据（种子）
