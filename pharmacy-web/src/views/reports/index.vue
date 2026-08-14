@@ -12,6 +12,7 @@
     </div>
     <el-tabs v-model="tab" @tab-change="load">
       <el-tab-pane label="进销存汇总" name="summary">
+        <ChartPanel v-if="summaryOption" :option="summaryOption" height="320px" />
         <el-table :data="rows" border>
           <el-table-column prop="drug_name" label="药品" min-width="140" />
           <el-table-column prop="opening" label="期初(LDU)" width="110" />
@@ -21,6 +22,7 @@
         </el-table>
       </el-tab-pane>
       <el-tab-pane label="效期分析" name="expiry">
+        <ChartPanel v-if="expiryOption" :option="expiryOption" height="300px" />
         <el-table :data="rows" border>
           <el-table-column prop="drug_name" label="药品" min-width="140" />
           <el-table-column prop="batch_no" label="批号" width="120" />
@@ -84,7 +86,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import {
   inventorySummary,
   expiryAnalysis,
@@ -94,11 +96,48 @@ import {
   patientCharges,
 } from '@/api/reports'
 import MoneyText from '@/components/MoneyText.vue'
+import ChartPanel from '@/components/ChartPanel.vue'
 import { CHARGE_ITEM_TYPES } from '@/types/business'
+import type { EChartsOption } from 'echarts'
 
 const tab = ref('summary')
 const range = ref<[string, string] | null>(null)
 const rows = ref<any[]>([])
+
+// 进销存：Top10 药品入/出对比柱状图
+const summaryOption = computed<EChartsOption | null>(() => {
+  const top = rows.value.slice(0, 10)
+  if (!top.length) return null
+  return {
+    tooltip: { trigger: 'axis' },
+    legend: { data: ['入库', '出库'] },
+    grid: { left: 40, right: 16, top: 36, bottom: 24 },
+    xAxis: { type: 'category', data: top.map((r) => r.drug_name) },
+    yAxis: { type: 'value' },
+    series: [
+      { name: '入库', type: 'bar', data: top.map((r) => r.inbound) },
+      { name: '出库', type: 'bar', data: top.map((r) => r.outbound) },
+    ],
+  }
+})
+
+// 效期分析：分档总量饼图
+const expiryOption = computed<EChartsOption | null>(() => {
+  const sum = (k: string) => rows.value.reduce((s, r) => s + Number(r[k] ?? 0), 0)
+  const data = [
+    { name: '已过期', value: sum('expired') },
+    { name: '3月内', value: sum('in_3m') },
+    { name: '6月内', value: sum('in_6m') },
+    { name: '12月内', value: sum('in_12m') },
+    { name: '12月以上', value: sum('after_12m') },
+  ].filter((d) => d.value > 0)
+  if (!data.length) return null
+  return {
+    tooltip: { trigger: 'item' },
+    legend: { orient: 'vertical', left: 'left' },
+    series: [{ type: 'pie', radius: '60%', data }],
+  }
+})
 
 async function load() {
   const params = range.value

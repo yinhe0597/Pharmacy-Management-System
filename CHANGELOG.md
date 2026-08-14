@@ -4,6 +4,25 @@
 
 ## [Unreleased]
 
+### 修复（联调实测）
+
+- **修复 GORM 列名错位导致 INSERT 42703（关键 Bug）**：Go 字段 `VPBBatch` 经 GORM 命名策略
+  会转成 `vpb_batch`（V-P-B 错位），而数据库列名为 `vbp_batch`，导致 `drugs`/`vbp_drug_catalog`
+  的 `Create` 报「字段不存在」；`internal/model/drug.go` 与 `internal/model/reference.go`
+  已显式 `gorm:"column:vbp_batch"` 规避，并新增全模型列名自动审计（schema vs information_schema）确认 0 错位。
+- **迁移幂等性补强**：`000004` 索引与 `000014` 软删列改为 `IF NOT EXISTS`，修复在已含 `000001` 更新
+  的库上重跑迁移失败的问题。
+- **本地全链路联调实测通过**：PostgreSQL 16.4 全新迁移（29 版）+ `scripts/smoke_test.py`
+  18 步 HTTP 冒烟全通（登录→药品→采购→入库→调拨→拆零→处方→审核→调配→发药→退药→报表）+
+  `go test -tags=integration` 全绿。
+
+### 新增（前端报表增强）
+
+- **ECharts 报表图表**：`pharmacy-web` 报表页接入 ECharts——进销存汇总柱状图、效期分析饼图
+  （新增 `ChartPanel.vue` 通用图表组件），已通过 lint/format/type-check/build 全部门禁。
+- **二期就诊模块规划**：新增 [docs/20-二期就诊模块规划.md](docs/20-二期就诊模块规划.md)，
+  明确就诊/病历/收费模块 S1 表结构、S2-S7 接口与前端页面规划。
+
 ### 修复（针对 docs/14 审阅发现的问题）
 
 - **RBAC 角色权限落地**：所有业务模块写操作按角色矩阵分组——处方开立（ClinicalStaff）、

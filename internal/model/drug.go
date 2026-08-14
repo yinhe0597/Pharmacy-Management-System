@@ -34,8 +34,8 @@ type Drug struct {
 	ApprovalNumber        string         `gorm:"size:50" json:"approval_number"`
 	Barcode               string         `gorm:"size:50" json:"barcode"`
 	CategoryID            *int64         `gorm:"index" json:"category_id"`
-	InsuranceClass        string         `gorm:"size:4" json:"insurance_class"` // 甲类/乙类（医保目录匹配）
-	VPBBatch              int            `gorm:"default:0" json:"vbp_batch"`    // 集采批次（集采目录匹配）
+	InsuranceClass        string         `gorm:"size:4" json:"insurance_class"`               // 甲类/乙类（医保目录匹配）
+	VPBBatch              int            `gorm:"column:vbp_batch;default:0" json:"vbp_batch"` // 集采批次（集采目录匹配）；字段名 VPBBatch 会被 GORM 误转为 vpb_batch，故显式指定列名
 	BaseUnit              string         `gorm:"size:20;not null" json:"base_unit"`
 	SplitUnit             string         `gorm:"size:20" json:"split_unit"`
 	PackSize              int            `gorm:"not null;default:1" json:"pack_size"`

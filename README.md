@@ -89,7 +89,7 @@ make db-up                                   # 需 Docker Compose
 psql -U postgres -h localhost -c "CREATE ROLE yaofang LOGIN PASSWORD 'yaofang123';"
 psql -U postgres -h localhost -c "CREATE DATABASE yaofang OWNER yaofang;"
 
-# 依次执行全部迁移与种子（migrations/NNNNNN_*.up.sql，共 26 个版本）
+# 依次执行全部迁移与种子（migrations/NNNNNN_*.up.sql，共 29 个版本）
 for f in migrations/*.up.sql; do
   echo "== $f"
   psql -U postgres -h localhost -d yaofang -v ON_ERROR_STOP=1 -f "$f"
@@ -122,7 +122,7 @@ go build -o bin/yaofang.exe ./cmd/server && ./bin/yaofang.exe
 - 接口文档：`http://localhost:8080/swagger/index.html`（含全部端点与 TS 类型生成来源 `docs/swagger.json`）。
 - 对接约定与前端须知见 [docs/16-前端开发就绪评估与对接指南.md](docs/16-前端开发就绪评估与对接指南.md)。
 - 前端技术选型、工程结构、页面规划与进度计划见 [docs/17-前端开发指南与进度规划.md](docs/17-前端开发指南与进度规划.md)。
-- 前端工程 `pharmacy-web/`：P0-P6 全部完成（登录/RBAC/主数据/采购库存/患者处方核心流程含给药途径与分批配伍分组/计费/药学服务/特殊药品/报表/系统管理/CI），详见 [pharmacy-web/README.md](pharmacy-web/README.md)。
+- 前端工程 `pharmacy-web/`：P0-P6 全部完成（登录/RBAC/主数据/采购库存/患者处方核心流程含给药途径与分批配伍分组/计费/药学服务/特殊药品/报表/系统管理/CI），报表页已接入 **ECharts**（进销存汇总柱状图、效期分析饼图），详见 [pharmacy-web/README.md](pharmacy-web/README.md)。
 
 ### ✅ 4️⃣ 测试
 
@@ -153,7 +153,7 @@ yaofang/
 │   ├── middleware/        # 🛡️ JWT、日志、恢复、请求ID
 │   ├── scheduler/         # ⏰ 定时任务
 │   └── pkg/               # 🧰 通用组件（errs/money/pagination/auth）
-├── migrations/            # 📦 golang-migrate SQL 迁移（26 个版本）
+├── migrations/            # 📦 golang-migrate SQL 迁移（29 个版本）
 ├── configs/               # ⚙️ 配置样例
 ├── docs/                  # 📚 开发文档（14 篇）
 ├── scripts/               # 🔧 运维/构建/覆盖率脚本
@@ -197,15 +197,21 @@ yaofang/
 | 诊疗模块复审修复（docs/15） | ✅ 已交付 |
 | 前端就绪（CORS + 对接指南 docs/16 + 开发指南/进度 docs/17） | ✅ 已就绪 |
 | CI 门槛（golangci-lint + 覆盖率 ≥85%） | ✅ 已落地 |
+| 本地全链路联调实测（PG16 迁移 + HTTP 冒烟 + 集成测试） | ✅ 全绿（PG14-16 兼容） |
+| 前端 ECharts 报表增强（进销存汇总/效期分析） | ✅ 已交付 |
+| 二期就诊模块规划（docs/20） | 📋 规划完成，S1 后端待实施 |
 
-> 迁移至 `000025`，共 **26 个版本**；质量门禁：`go build` / `go vet` / `go test` / `gofmt` / `golangci-lint` 全绿 ✅
+> 迁移至 `000028`，共 **29 个版本**；质量门禁：`go build` / `go vet` / `go test` / `gofmt` / `golangci-lint` 全绿 ✅
+>
+> 💡 **已知坑位提示**：GORM 命名策略会把 Go 字段 `VPBBatch` 转成 `vpb_batch`（V-P-B 错位），模型已显式 `column:vbp_batch` 规避；新增含多连大写字母缩写（如 `VBP`/`VPD`）的字段时务必核对 GORM 生成的列名。
 
 ### 🗺️ 路线图
 
 - ✅ **P0** 正确性/合规/安全：RBAC、退回医生死路、双人核对、参考数据接线
 - ✅ **P1** 功能补强：患者档案、计费闭环、目录匹配、拆零单/统计、预警闭环
 - ✅ **P2** 工程化：lint/覆盖率门槛、docker-compose、测试补强
-- 🔭 **二期**：诊疗模块（就诊/病历/检查）、合并结算、前端管理台
+- ✅ **前端联调实测**：本地 PG16 全量迁移 + HTTP 冒烟 18 步全通 + 集成测试全绿；修复 GORM `VPBBatch`→`vpb_batch` 列名错位（42703）
+- 🔭 **二期**：诊疗模块（就诊/病历/检查）、合并结算、前端管理台（规划见 [docs/20](docs/20-二期就诊模块规划.md)）
 
 ---
 
@@ -220,7 +226,7 @@ yaofang/
 | 🗃️ 库存 | 药房内部调用 | 诊疗模块直接调用 |
 | 💰 计价 | 药费 + 计费闭环 | 挂号费/诊疗费/药费合并结算 |
 
-详见 [docs/05-二期预留接口设计.md](docs/05-二期预留接口设计.md)。
+详见 [docs/05-二期预留接口设计.md](docs/05-二期预留接口设计.md)；二期就诊/病历/收费模块的完整规划（表结构、API、页面）见 [docs/20-二期就诊模块规划.md](docs/20-二期就诊模块规划.md)。
 
 ---
 
@@ -238,6 +244,7 @@ yaofang/
 | 🧪 [docs/07-测试方案.md](docs/07-测试方案.md) | 测试方案与覆盖策略 |
 | 🚢 [docs/10-部署运维.md](docs/10-部署运维.md) | 部署与运维指南 |
 | 🛠️ [docs/19-前端工程化提升方案.md](docs/19-前端工程化提升方案.md) | 前端 5 项提升建议评估与融合 |
+| 🏥 [docs/20-二期就诊模块规划.md](docs/20-二期就诊模块规划.md) | 二期就诊/病历/收费模块详细规划（S1 表结构 → S7 前端） |
 
 ---
 

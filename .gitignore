@@ -9,6 +9,12 @@ configs/config.yaml
 configs/config.local.yaml
 .env
 *.log
+.pgdata
+.pgdata16
+
+# 前端
+pharmacy-web/node_modules
+pharmacy-web/dist
 
 # IDE
 .idea/

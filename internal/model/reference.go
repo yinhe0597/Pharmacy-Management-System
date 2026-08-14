@@ -29,7 +29,7 @@ type VBPDrug struct {
 	GenericName    string    `gorm:"size:150;not null" json:"generic_name"`
 	DosageForm     string    `gorm:"size:40;not null" json:"dosage_form"`
 	DosageCategory string    `gorm:"size:30" json:"dosage_category"`
-	VPBBatch       int       `gorm:"not null" json:"vbp_batch"`
+	VPBBatch       int       `gorm:"column:vbp_batch;not null" json:"vbp_batch"` // 字段名 VPBBatch 会被 GORM 误转为 vpb_batch，故显式指定列名
 	PyCode         string    `gorm:"size:50" json:"py_code"`
 	IsCommon       bool      `gorm:"not null;default:false" json:"is_common"`
 	Status         int       `gorm:"not null;default:1" json:"status"`
