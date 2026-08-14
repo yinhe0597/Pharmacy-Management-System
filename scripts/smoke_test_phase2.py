@@ -39,6 +39,10 @@ r = call("POST", "/auth/login", {"username": "admin", "password": "admin123"})
 check("登录", r)
 TOKEN = r["data"]["token"]
 
+# 0. 重置默认诊费为 0（保证结算明细口径确定：仅药费 1 行）
+call("PUT", "/system-settings/default_registration_fee", {"value": "0"})
+call("PUT", "/system-settings/default_consultation_fee", {"value": "0"})
+
 # 2. 患者
 r = call("POST", "/patients", {"card_no": "P2" + SUF, "name": "二期患者" + SUF, "gender": "男", "age": "45岁"})
 check("建档", r)

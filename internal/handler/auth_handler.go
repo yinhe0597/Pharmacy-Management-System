@@ -2,6 +2,7 @@ package handler
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -142,6 +143,8 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 // @Param action query string false "操作动作"
 // @Param resource query string false "操作资源"
 // @Param keyword query string false "关键字"
+// @Param start query string false "开始时间"
+// @Param end query string false "结束时间"
 // @Param page query int false "页码"
 // @Param page_size query int false "每页条数"
 // @Success 200 {object} Body
@@ -153,10 +156,17 @@ func (h *AuthHandler) ListOperationLogs(c *gin.Context) {
 		return
 	}
 	q.Normalize()
+	var start, end time.Time
+	if t := parseTime(c.Query("start")); t != nil {
+		start = *t
+	}
+	if t := parseTime(c.Query("end")); t != nil {
+		end = *t
+	}
 	list, total, err := h.logSvc.List(c.Request.Context(),
 		int64(atoi(c.Query("user_id"))),
 		c.Query("action"), c.Query("resource"), c.Query("keyword"),
-		q.Page, q.PageSize)
+		start, end, q.Page, q.PageSize)
 	if err != nil {
 		Error(c, err)
 		return

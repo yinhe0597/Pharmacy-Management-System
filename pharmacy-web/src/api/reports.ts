@@ -36,3 +36,9 @@ export function deleteUser(id: number) {
 export function listOperationLogs(params?: Record<string, unknown>) {
   return http.get('/operation-logs', { params })
 }
+export function listSystemSettings() {
+  return http.get('/system-settings')
+}
+export function updateSystemSetting(key: string, value: string) {
+  return http.put(`/system-settings/${key}`, { value })
+}

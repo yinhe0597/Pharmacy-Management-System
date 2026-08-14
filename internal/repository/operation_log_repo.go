@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -16,7 +17,7 @@ func (r *OperationLogRepo) Create(ctx context.Context, log *model.OperationLog) 
 	return r.db.WithContext(ctx).Create(log).Error
 }
 
-func (r *OperationLogRepo) List(ctx context.Context, userID int64, action, resource, keyword string, offset, limit int) ([]model.OperationLog, int64, error) {
+func (r *OperationLogRepo) List(ctx context.Context, userID int64, action, resource, keyword string, start, end time.Time, offset, limit int) ([]model.OperationLog, int64, error) {
 	q := r.db.WithContext(ctx).Model(&model.OperationLog{})
 	if userID > 0 {
 		q = q.Where("user_id = ?", userID)
@@ -29,6 +30,12 @@ func (r *OperationLogRepo) List(ctx context.Context, userID int64, action, resou
 	}
 	if keyword != "" {
 		q = q.Where("username ILIKE ? OR detail ILIKE ?", "%"+keyword+"%", "%"+keyword+"%")
+	}
+	if !start.IsZero() {
+		q = q.Where("created_at >= ?", start)
+	}
+	if !end.IsZero() {
+		q = q.Where("created_at <= ?", end)
 	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {

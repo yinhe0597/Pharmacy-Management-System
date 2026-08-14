@@ -44,6 +44,7 @@ type App struct {
 	visits       *service.VisitService
 	records      *service.MedicalRecordService
 	charges      *service.ChargeService
+	settings     *service.SettingService
 
 	patientService port.IPatientService
 	pricingService port.IPricingService
@@ -86,6 +87,7 @@ func NewApp(cfg *config.Config, db *gorm.DB) *App {
 		visits:         service.NewVisitService(db),
 		records:        service.NewMedicalRecordService(db),
 		charges:        service.NewChargeService(db, pricer),
+		settings:       service.NewSettingService(db),
 	}
 }
 
@@ -143,6 +145,7 @@ func (a *App) Engine() *gin.Engine {
 	handler.NewReferenceHandler(a.reference).Register(groups)
 	handler.NewPatientHandler(a.patients).Register(groups)
 	handler.NewVisitHandler(a.visits, a.records, a.charges).Register(groups)
+	handler.NewSettingHandler(a.settings).Register(groups)
 
 	return r
 }

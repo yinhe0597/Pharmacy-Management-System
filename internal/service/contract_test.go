@@ -10,6 +10,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"yaofang/internal/model"
 	"yaofang/internal/repository"
 	"yaofang/internal/service"
 	"yaofang/internal/service/patient"
@@ -150,5 +151,61 @@ func TestPatientServiceContract(t *testing.T) {
 	}
 	if m, err := ps.GetMedicationHistory(ctx, 1); err != nil || len(m) != 0 {
 		t.Fatalf("GetMedicationHistory 契约不符: %v %v", m, err)
+	}
+}
+
+// TestCalculateBillContract 合并结算计价契约（docs/20 S4）：
+// 管理员配置默认诊查费后，CalculateBill 对无处方就诊自动带出诊查费行。
+func TestCalculateBillContract(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	svc := service.NewVisitService(db)
+	pricer := pricing.NewSimplePricingService(db)
+	settingSvc := service.NewSettingService(db)
+	// 自包含：先清零默认诊费，结束时恢复（system_settings 不被 setupTestDB 清空）
+	for _, k := range []string{model.SettingDefaultRegistrationFee, model.SettingDefaultConsultationFee} {
+		if err := settingSvc.Update(ctx, k, "0", "契约测试"); err != nil {
+			t.Fatalf("重置设置 %s 失败: %v", k, err)
+		}
+	}
+	t.Cleanup(func() {
+		_ = settingSvc.Update(context.Background(), model.SettingDefaultRegistrationFee, "0", "契约测试")
+		_ = settingSvc.Update(context.Background(), model.SettingDefaultConsultationFee, "0", "契约测试")
+	})
+
+	// 患者 + 就诊（仅挂号，无处方/计费记录）
+	pat := mustCreatePatient(t, db)
+	visit, err := svc.Register(ctx, service.VisitInput{PatientID: pat.ID, Department: "内科"}, "契约测试")
+	if err != nil {
+		t.Fatalf("挂号失败: %v", err)
+	}
+	// 初始无默认诊费 → 空明细
+	lines, err := pricer.CalculateBill(ctx, visit.ID)
+	if err != nil {
+		t.Fatalf("CalculateBill 失败: %v", err)
+	}
+	if len(lines) != 0 {
+		t.Fatalf("默认诊费为 0 时应无明细, got %+v", lines)
+	}
+	// 配置默认挂号费 500 / 诊查费 2000
+	if err := settingSvc.Update(ctx, model.SettingDefaultRegistrationFee, "500", "契约测试"); err != nil {
+		t.Fatalf("设置挂号费失败: %v", err)
+	}
+	if err := settingSvc.Update(ctx, model.SettingDefaultConsultationFee, "2000", "契约测试"); err != nil {
+		t.Fatalf("设置诊查费失败: %v", err)
+	}
+	lines, err = pricer.CalculateBill(ctx, visit.ID)
+	if err != nil {
+		t.Fatalf("CalculateBill 失败: %v", err)
+	}
+	if len(lines) != 2 {
+		t.Fatalf("应带出挂号费+诊查费 2 行, got %d", len(lines))
+	}
+	got := map[string]int64{}
+	for _, l := range lines {
+		got[l.ItemType] = l.Amount
+	}
+	if got["registration"] != 500 || got["consultation"] != 2000 {
+		t.Fatalf("默认诊费契约不符: %+v", got)
 	}
 }

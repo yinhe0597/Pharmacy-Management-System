@@ -6,6 +6,7 @@ package service_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -78,6 +79,15 @@ func mustCreateDrug(t *testing.T, db *gorm.DB) *model.Drug {
 		t.Fatalf("拆零价计算错误: got %d want 100", d.SplitRetailPrice)
 	}
 	return d
+}
+
+func mustCreatePatient(t *testing.T, db *gorm.DB) *model.Patient {
+	t.Helper()
+	pat := &model.Patient{CardNo: fmt.Sprintf("IT-PAT-%d", time.Now().UnixNano()), Name: "集成测试患者", Gender: "女", Age: "35岁"}
+	if err := repository.NewPatientRepo(db).Create(context.Background(), pat); err != nil {
+		t.Fatalf("创建患者失败: %v", err)
+	}
+	return pat
 }
 
 func TestFullChain(t *testing.T) {

@@ -45,6 +45,19 @@
 - 新增 `api/clinical2.ts` 对接就诊/病历/结算接口；`VISIT_STATUS`/`CHARGE_STATUS` 常量入 business.ts；
   菜单与路由注册（就诊工作台=patient:read，收费台=billing:view）。
 
+### 新增（管理员能力）
+
+- **自定义默认诊费**（迁移 `000030`）：`system_settings` 表 + `GET/PUT /system-settings`（UserAdmin），
+  键 `default_registration_fee`/`default_consultation_fee`（分，非负整数校验）；
+  `CalculateBill` 合并结算时自动带入默认挂号费/诊查费（值>0 且就诊无同类费用行时），
+  契约测试 `TestCalculateBillContract` 固化。
+- **操作日志审计增强**：`/operation-logs` 增加 `start`/`end` 时间窗口筛选（仓库/服务/Handler 贯通）；
+  管理员页日志 Tab 增加用户ID/动作/日期筛选与角色/IP/详情列。
+- **账号密码管理**：管理员页「编辑用户」支持重置密码（留空不修改，后端 `UpdateUser` 已支持）；
+  新建用户覆盖全部 8 类角色。
+- 管理员页新增「系统设置」Tab（挂号费/诊查费配置）；`scripts/smoke_test_admin.py` 冒烟全通
+  （诊费配置+非法值拒绝+新建用户+重置密码+新密码登录+日志三类筛选）。
+
 ### 修复（针对 docs/14 审阅发现的问题）
 
 - **RBAC 角色权限落地**：所有业务模块写操作按角色矩阵分组——处方开立（ClinicalStaff）、

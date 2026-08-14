@@ -3,6 +3,7 @@ package pricing
 
 import (
 	"context"
+	"strconv"
 
 	"gorm.io/gorm"
 
@@ -104,5 +105,41 @@ func (s *SimplePricingService) CalculateBill(ctx context.Context, visitID int64)
 		})
 		lineNo++
 	}
+
+	// ③ 默认诊费（管理员配置，docs/20 S4）：挂号费/诊查费，值>0 且本次无同类费用行时自动带入
+	hasType := func(t string) bool {
+		for _, l := range lines {
+			if l.ItemType == t {
+				return true
+			}
+		}
+		return false
+	}
+	appended := false
+	for _, cfg := range []struct {
+		key, itemType, name string
+	}{
+		{model.SettingDefaultRegistrationFee, enum.ChargeItemTypeRegistration, "挂号费"},
+		{model.SettingDefaultConsultationFee, enum.ChargeItemTypeConsultation, "诊查费"},
+	} {
+		var st model.SystemSetting
+		if err := s.db.WithContext(ctx).First(&st, "key = ?", cfg.key).Error; err != nil {
+			continue
+		}
+		fee, perr := strconv.ParseInt(st.Value, 10, 64)
+		if perr != nil || fee <= 0 || hasType(cfg.itemType) {
+			continue
+		}
+		lines = append(lines, port.PriceLine{
+			LineNo:    lineNo,
+			ItemType:  cfg.itemType,
+			Quantity:  1,
+			UnitPrice: fee,
+			Amount:    fee,
+		})
+		lineNo++
+		appended = true
+	}
+	_ = appended
 	return lines, nil
 }

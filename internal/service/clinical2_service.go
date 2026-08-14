@@ -361,6 +361,12 @@ func (s *ChargeService) Create(ctx context.Context, visitID int64, discount int6
 
 // itemName 从快照源取名称（处方明细/计费记录）。
 func (s *ChargeService) itemName(ctx context.Context, tx *gorm.DB, l port.PriceLine) string {
+	switch l.ItemType {
+	case enum.ChargeItemTypeRegistration:
+		return "挂号费"
+	case enum.ChargeItemTypeConsultation:
+		return "诊查费"
+	}
 	if l.ItemType == enum.ChargeItemTypeDrug || l.ItemType == enum.ChargeItemTypeConsumable {
 		var it model.PrescriptionItem
 		if err := tx.WithContext(ctx).Where("drug_id = ?", l.RefID).Order("id DESC").First(&it).Error; err == nil && it.DrugName != "" {
