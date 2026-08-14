@@ -91,7 +91,7 @@ make db-up                                   # 需 Docker Compose
 psql -U postgres -h localhost -c "CREATE ROLE yaofang LOGIN PASSWORD 'yaofang123';"
 psql -U postgres -h localhost -c "CREATE DATABASE yaofang OWNER yaofang;"
 
-# 依次执行全部迁移与种子（migrations/NNNNNN_*.up.sql，共 29 个版本）
+# 依次执行全部迁移与种子（migrations/NNNNNN_*.up.sql，共 31 个版本）
 for f in migrations/*.up.sql; do
   echo "== $f"
   psql -U postgres -h localhost -d yaofang -v ON_ERROR_STOP=1 -f "$f"
@@ -155,9 +155,9 @@ yaofang/
 │   ├── middleware/        # 🛡️ JWT、日志、恢复、请求ID
 │   ├── scheduler/         # ⏰ 定时任务
 │   └── pkg/               # 🧰 通用组件（errs/money/pagination/auth）
-├── migrations/            # 📦 golang-migrate SQL 迁移（29 个版本）
+├── migrations/            # 📦 golang-migrate SQL 迁移（31 个版本）
 ├── configs/               # ⚙️ 配置样例
-├── docs/                  # 📚 开发文档（14 篇）
+├── docs/                  # 📚 开发文档（20 篇）
 ├── scripts/               # 🔧 运维/构建/覆盖率脚本
 └── docker-compose.yml     # 🐳 本地 PG + 自动迁移
 ```
@@ -207,16 +207,14 @@ yaofang/
 | 管理员能力（默认诊费配置 + 账号/密码管理 + 操作日志筛选） | ✅ 已交付 |
 | 二期就诊模块规划（docs/20） | 📋 S7 报表待实施 |
 
-> 迁移至 `000028`，共 **29 个版本**；质量门禁：`go build` / `go vet` / `go test` / `gofmt` / `golangci-lint` 全绿 ✅
->
-> 💡 **已知坑位提示**：GORM 命名策略会把 Go 字段 `VPBBatch` 转成 `vpb_batch`（V-P-B 错位），模型已显式 `column:vbp_batch` 规避；新增含多连大写字母缩写（如 `VBP`/`VPD`）的字段时务必核对 GORM 生成的列名。
+> 迁移至 `000030`，共 **31 个版本**；质量门禁：`go build` / `go vet` / `go test` / `gofmt` / `golangci-lint` 全绿 ✅
 
 ### 🗺️ 路线图
 
 - ✅ **P0** 正确性/合规/安全：RBAC、退回医生死路、双人核对、参考数据接线
 - ✅ **P1** 功能补强：患者档案、计费闭环、目录匹配、拆零单/统计、预警闭环
 - ✅ **P2** 工程化：lint/覆盖率门槛、docker-compose、测试补强
-- ✅ **前端联调实测**：本地 PG16 全量迁移 + HTTP 冒烟 18 步全通 + 集成测试全绿；修复 GORM `VPBBatch`→`vpb_batch` 列名错位（42703）
+- ✅ **前端联调实测**：本地 PG16 全量迁移 + HTTP 冒烟 18 步全通 + 集成测试全绿
 - ✅ **二期就诊模块后端**：S1 迁移（visits/medical_records(+diagnoses)/charges(+items)）+ S2 就诊域 + S3 病历域 + S4 结算域（`CalculateBill` 合并计价）+ S5 处方联动（`visit_id`/`source`）；二期冒烟 24 步全通
 - ✅ **二期就诊模块前端**：S6 就诊工作台（挂号/接诊/退号/病历/结算）+ 收费台（明细/收费/退费）页面
 - 🔭 **二期**：S7 合并结算报表、前端部署（Nginx 反代）
@@ -243,7 +241,7 @@ yaofang/
 | 文档 | 说明 |
 |------|------|
 | 📋 [CHANGELOG.md](CHANGELOG.md) | 版本与变更记录 |
-| 📚 [docs/README.md](docs/README.md) | 开发文档总览（19 篇） |
+| 📚 [docs/README.md](docs/README.md) | 开发文档总览（20 篇） |
 | 🔍 [docs/14-现状分析与下一步建议.md](docs/14-现状分析与下一步建议.md) | 全量审阅发现与修复进度 |
 | 🩺 [docs/15-诊疗模块复审报告.md](docs/15-诊疗模块复审报告.md) | 诊疗模块业务逻辑/漏洞复审与前端搭建参考 |
 | 🌐 [docs/16-前端开发就绪评估与对接指南.md](docs/16-前端开发就绪评估与对接指南.md) | 前端就绪评估、页面-接口对照与对接须知 |
