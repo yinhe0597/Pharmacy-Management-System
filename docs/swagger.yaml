@@ -117,6 +117,23 @@ definitions:
     required:
     - items
     type: object
+  internal_handler.requisitionOrderRequest:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/yaofang_internal_service.RequisitionOrderItemInput'
+        type: array
+      location_id:
+        type: integer
+      purpose:
+        description: supplement/clinical/other
+        type: string
+      reason:
+        type: string
+    required:
+    - items
+    - location_id
+    type: object
   internal_handler.requisitionRequest:
     properties:
       drug_id:
@@ -823,6 +840,14 @@ definitions:
         type: integer
       received_quantity:
         description: 基本单位
+        type: integer
+    type: object
+  yaofang_internal_service.RequisitionOrderItemInput:
+    properties:
+      drug_id:
+        type: integer
+      quantity:
+        description: LDU
         type: integer
     type: object
   yaofang_internal_service.ReturnItemInput:
@@ -2141,6 +2166,73 @@ paths:
       summary: 领用出库（医护内部消耗，不计费）
       tags:
       - inventory
+  /inventory/requisition-orders:
+    get:
+      parameters:
+      - description: 库房ID
+        in: query
+        name: location_id
+        type: integer
+      - description: 目的（supplement/clinical/other）
+        in: query
+        name: purpose
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: page_size
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 领用/补发登记单列表
+      tags:
+      - inventory
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 领用/补发单
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.requisitionOrderRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 创建领用/补发登记单（多明细，耗材补发/临床领用）
+      tags:
+      - inventory
+  /inventory/requisition-orders/{id}:
+    get:
+      parameters:
+      - description: 登记单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 领用/补发登记单详情
+      tags:
+      - inventory
   /inventory/split:
     post:
       consumes:
@@ -2765,6 +2857,24 @@ paths:
       security:
       - BearerAuth: []
       summary: 新增过敏记录
+      tags:
+      - patients
+  /patients/{id}/medication-history:
+    get:
+      parameters:
+      - description: 患者ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 患者用药史（已发药/已退药明细）
       tags:
       - patients
   /prescriptions:

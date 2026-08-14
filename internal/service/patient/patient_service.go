@@ -68,9 +68,21 @@ func (s *PatientService) GetAllergies(ctx context.Context, patientID int64) ([]p
 	return out, nil
 }
 
-// GetMedicationHistory 查询用药史（二期接入重复用药分析；当前返回空集）。
-func (s *PatientService) GetMedicationHistory(_ context.Context, _ int64) ([]port.MedicationRecord, error) {
-	return nil, nil
+// GetMedicationHistory 查询患者用药史（docs/15 L6：已发药/已退药处方明细）。
+func (s *PatientService) GetMedicationHistory(ctx context.Context, patientID int64) ([]port.MedicationRecord, error) {
+	rows, err := repository.NewPatientRepo(s.db).MedicationHistory(ctx, patientID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]port.MedicationRecord, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, port.MedicationRecord{
+			DrugName:  r.DrugName,
+			Dosage:    r.Dosage,
+			BeginDate: r.BeginDate.Format("2006-01-02"),
+		})
+	}
+	return out, nil
 }
 
 // ---- 档案管理（HTTP 层 CRUD，返回 model 类型） ----

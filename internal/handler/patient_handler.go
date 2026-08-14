@@ -30,6 +30,7 @@ func (h *PatientHandler) Register(g Groups) {
 	g.PatientRead.GET("/patients/:id/allergies", h.ListAllergies)
 	g.Patient.POST("/patients/:id/allergies", h.AddAllergy)
 	g.Patient.DELETE("/patient-allergies/:id", h.DeleteAllergy)
+	g.PatientRead.GET("/patients/:id/medication-history", h.MedicationHistory)
 }
 
 // List godoc
@@ -196,4 +197,25 @@ func (h *PatientHandler) DeleteAllergy(c *gin.Context) {
 		return
 	}
 	OK(c, nil)
+}
+
+// MedicationHistory godoc
+// @Summary 患者用药史（已发药/已退药明细）
+// @Tags patients
+// @Security BearerAuth
+// @Param id path int true "患者ID"
+// @Success 200 {object} Body
+// @Router /patients/{id}/medication-history [get]
+func (h *PatientHandler) MedicationHistory(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		Error(c, errs.ErrBadRequest)
+		return
+	}
+	list, err := h.svc.GetMedicationHistory(c.Request.Context(), id)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+	OK(c, list)
 }

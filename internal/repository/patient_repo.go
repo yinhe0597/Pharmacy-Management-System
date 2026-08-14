@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -96,4 +97,26 @@ func (r *PatientRepo) GetAllergy(ctx context.Context, id int64) (*model.PatientA
 		return nil, err
 	}
 	return &a, nil
+}
+
+// MedicationHistoryRow 患者用药史查询行（docs/18）。
+type MedicationHistoryRow struct {
+	DrugName  string    `json:"drug_name"`
+	Dosage    string    `json:"dosage"`
+	BeginDate time.Time `json:"begin_date"`
+}
+
+// MedicationHistory 查询患者用药史（已发药/已退药处方明细，docs/15 L6）。
+func (r *PatientRepo) MedicationHistory(ctx context.Context, patientID int64) ([]MedicationHistoryRow, error) {
+	rows := []MedicationHistoryRow{}
+	err := r.db.WithContext(ctx).Raw(`
+		SELECT pi.drug_name, COALESCE(pi.usage_text, '') AS dosage, p.created_at AS begin_date
+		FROM prescription_dispense_records dr
+		JOIN prescription_items pi ON pi.id = dr.item_id
+		JOIN prescriptions p ON p.id = dr.prescription_id
+		WHERE p.patient_id = ? AND p.status IN ('dispensed', 'returned')
+		GROUP BY pi.drug_name, pi.usage_text, p.created_at, dr.prescription_id
+		ORDER BY p.created_at DESC
+	`, patientID).Scan(&rows).Error
+	return rows, err
 }

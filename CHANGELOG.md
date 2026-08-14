@@ -92,6 +92,14 @@
   替换 `nurse`；`ClinicalStaff` 增加 `clinic_nurse`。
 - 患者档案写由 Clinical 改 PatientAdmin、读由 Pharmacy 改 PatientRead；计费写由 Pharmacy 改 ChargeStaff。
 
+### 业务闭环补全（迁移 `000027`）
+
+- **耗材领用/补发登记单**（药房护士核心职能）：`requisition_orders` + `requisition_order_items` 表，
+  新增 `POST /inventory/requisition-orders`（多明细 LDU 口径 FEFO 扣减，拆零优先、整盒按 pack_size 折算）、
+  列表与详情接口（按库房/目的筛选）。
+- **患者用药史**（docs/15 L6）：实现 `GetMedicationHistory`，新增 `GET /patients/{id}/medication-history`。
+- **双护士 RBAC 集成用例**：`rbac_integration_test.go`（跟诊护士可建档不可领用，药房护士相反，CI 验证）。
+
 ## [v1.3.0] - 2026-08-02
 
 ### 基础参考数据（种子）

@@ -39,6 +39,9 @@ func (h *InventoryHandler) Register(g Groups) {
 	g.Pharmacy.POST("/inventory/adjust", h.Adjust)
 	g.Pharmacy.POST("/inventory/stock-in", h.StockIn)
 	g.Pharmacy.POST("/inventory/requisition", h.Requisition)
+	g.Pharmacy.POST("/inventory/requisition-orders", h.CreateRequisitionOrder)
+	g.Pharmacy.GET("/inventory/requisition-orders", h.ListRequisitionOrders)
+	g.Pharmacy.GET("/inventory/requisition-orders/:id", h.GetRequisitionOrder)
 	g.Authed.GET("/inventory/transactions", h.ListTransactions)
 	g.Authed.GET("/inventory/expiry-warnings", h.ListExpiryWarnings)
 	g.Authed.GET("/inventory/stock-warnings", h.ListStockWarnings)
@@ -390,6 +393,84 @@ func (h *InventoryHandler) Requisition(c *gin.Context) {
 		return
 	}
 	OK(c, nil)
+}
+
+type requisitionOrderRequest struct {
+	LocationID int64                               `json:"location_id" binding:"required"`
+	Purpose    string                              `json:"purpose"` // supplement/clinical/other
+	Reason     string                              `json:"reason"`
+	Items      []service.RequisitionOrderItemInput `json:"items" binding:"required"`
+}
+
+// CreateRequisitionOrder godoc
+// @Summary 创建领用/补发登记单（多明细，耗材补发/临床领用）
+// @Tags inventory
+// @Accept json
+// @Security BearerAuth
+// @Param body body requisitionOrderRequest true "领用/补发单"
+// @Success 200 {object} Body
+// @Router /inventory/requisition-orders [post]
+func (h *InventoryHandler) CreateRequisitionOrder(c *gin.Context) {
+	var req requisitionOrderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, errs.ErrBadRequest)
+		return
+	}
+	o, err := h.svc.CreateRequisitionOrder(c.Request.Context(), service.RequisitionOrderInput{
+		LocationID: req.LocationID, Purpose: req.Purpose, Reason: req.Reason, Items: req.Items,
+	}, middleware.UserIDFromCtx(c), middleware.UserNameFromCtx(c))
+	if err != nil {
+		Error(c, err)
+		return
+	}
+	OK(c, o)
+}
+
+// ListRequisitionOrders godoc
+// @Summary 领用/补发登记单列表
+// @Tags inventory
+// @Security BearerAuth
+// @Param location_id query int false "库房ID"
+// @Param purpose query string false "目的（supplement/clinical/other）"
+// @Param page query int false "页码"
+// @Param page_size query int false "每页条数"
+// @Success 200 {object} Body
+// @Router /inventory/requisition-orders [get]
+func (h *InventoryHandler) ListRequisitionOrders(c *gin.Context) {
+	var q pagination.Query
+	if err := c.ShouldBindQuery(&q); err != nil {
+		Error(c, errs.ErrBadRequest)
+		return
+	}
+	q.Normalize()
+	list, total, err := h.svc.ListRequisitionOrders(c.Request.Context(),
+		int64(atoi(c.Query("location_id"))), c.Query("purpose"), q.Page, q.PageSize)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+	OK(c, pagination.Of(list, total, &q))
+}
+
+// GetRequisitionOrder godoc
+// @Summary 领用/补发登记单详情
+// @Tags inventory
+// @Security BearerAuth
+// @Param id path int true "登记单ID"
+// @Success 200 {object} Body
+// @Router /inventory/requisition-orders/{id} [get]
+func (h *InventoryHandler) GetRequisitionOrder(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		Error(c, errs.ErrBadRequest)
+		return
+	}
+	o, err := h.svc.GetRequisitionOrder(c.Request.Context(), id)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+	OK(c, o)
 }
 
 // ListTransactions godoc

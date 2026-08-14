@@ -2070,6 +2070,116 @@
                 }
             }
         },
+        "/inventory/requisition-orders": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "领用/补发登记单列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "库房ID",
+                        "name": "location_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "目的（supplement/clinical/other）",
+                        "name": "purpose",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "创建领用/补发登记单（多明细，耗材补发/临床领用）",
+                "parameters": [
+                    {
+                        "description": "领用/补发单",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.requisitionOrderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/inventory/requisition-orders/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "inventory"
+                ],
+                "summary": "领用/补发登记单详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "登记单ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
         "/inventory/split": {
             "post": {
                 "security": [
@@ -3115,6 +3225,36 @@
                         "schema": {
                             "$ref": "#/definitions/yaofang_internal_model.PatientAllergy"
                         }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/patients/{id}/medication-history": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "patients"
+                ],
+                "summary": "患者用药史（已发药/已退药明细）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "患者ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -5286,6 +5426,31 @@
                 }
             }
         },
+        "internal_handler.requisitionOrderRequest": {
+            "type": "object",
+            "required": [
+                "items",
+                "location_id"
+            ],
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/yaofang_internal_service.RequisitionOrderItemInput"
+                    }
+                },
+                "location_id": {
+                    "type": "integer"
+                },
+                "purpose": {
+                    "description": "supplement/clinical/other",
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                }
+            }
+        },
         "internal_handler.requisitionRequest": {
             "type": "object",
             "required": [
@@ -6340,6 +6505,18 @@
                 },
                 "received_quantity": {
                     "description": "基本单位",
+                    "type": "integer"
+                }
+            }
+        },
+        "yaofang_internal_service.RequisitionOrderItemInput": {
+            "type": "object",
+            "properties": {
+                "drug_id": {
+                    "type": "integer"
+                },
+                "quantity": {
+                    "description": "LDU",
                     "type": "integer"
                 }
             }
