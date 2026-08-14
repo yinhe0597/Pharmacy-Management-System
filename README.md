@@ -1,42 +1,89 @@
-# 药房管理系统
+<div align="center">
 
-Go + PostgreSQL 实现的药房进销存与处方调配后端。模块化单体，一期独立运行，二期通过预留接口扩展诊疗模块。
+# 💊 药房管理系统
 
-- 版本与变更：见 [CHANGELOG.md](CHANGELOG.md)
-- 开发文档：见 [docs/README.md](docs/README.md)
-- API 文档：服务启动后访问 `http://localhost:8080/swagger/index.html`
+**Go + PostgreSQL 驱动的药房进销存与处方调配后端**
 
-## 技术栈
+模块化单体架构 · 一期独立运行 · 二期预留诊疗模块无缝扩展
 
-Go 1.22+ / Gin / GORM / PostgreSQL 14+ / golang-migrate（SQL 迁移）/ JWT / robfig-cron
+![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat-square&logo=go&logoColor=white)
+![Gin](https://img.shields.io/badge/Gin-Web%20Framework-00ADD8?style=flat-square&logo=go&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-336791?style=flat-square&logo=postgresql&logoColor=white)
+![GORM](https://img.shields.io/badge/GORM-ORM-2e8b57?style=flat-square)
+![Swagger](https://img.shields.io/badge/Swagger-REST%20API-85EA2D?style=flat-square&logo=swagger&logoColor=black)
+![Tests](https://img.shields.io/badge/tests-passing-brightgreen?style=flat-square)
+![Lint](https://img.shields.io/badge/lint-golangci--lint-2e8b57?style=flat-square)
 
-## 功能概览
+</div>
 
-- **药房物品**：药品+耗材统一管理（item_type），批号效期/FEFO/拆零/配伍禁忌
-- **药物相互作用引擎**：4 策略分层匹配（显式→成分→分类→标签）、患者个体化禁忌（年龄/妊娠/哺乳/过敏史）、37 条种子规则
-- **采购**：供应商、采购单状态机、质检收货（批次/效期绑定）
-- **库存**：FEFO 发药、预占/实扣/释放、调拨、盘点、预警处置闭环、**领用出库**（内部消耗不计费）
-- **拆零**：按盒/按片拆零、混合发药（LDU 精确计价）、自动拆零、**拆零操作单（麻精双人复核）**、拆零统计（量/损耗/毛利）
-- **处方**：录入→药师审核（pass/reject/return）→调配→发药→退药全状态机；麻精「调配+核对」双人强制；退药联动计费冲正
-- **患者档案**：建档/过敏史/哺乳史，处方审核自动带入过敏史禁忌（3010）与哺乳期慎用（3011）
-- **诊疗项目**：手法复位/注射等不入药房库存，独立计价 → 计费记录统一入口（从已发药处方一键计费）
-- **特殊药品「五专」**、**药学服务**、**报表**
-- **用户角色**：7 种角色分级权限（RBAC 按角色矩阵强制），调配+核对由医生/药师兼任
-- **参考数据**：ICD-10 诊断编码（1,586 条）+ 国家集采药品目录（392 品种）+ 医保药品目录（3,313条）+ **非医保常用药品（362种）** + 医用耗材目录（141类），提供只读查询与目录匹配 API
-- **二期预留**：`port` 三接口 + 契约测试
+---
 
-## 快速开始
+## 📖 目录
 
-### 1. 环境要求
+- [✨ 功能特性](#功能特性)
+- [🛠️ 技术栈](#技术栈)
+- [🚀 快速开始](#快速开始)
+- [🏗️ 项目结构](#项目结构)
+- [📡 API 文档](#api-文档)
+- [📊 项目状态与路线图](#项目状态与路线图)
+- [🔭 二期规划](#二期规划)
+- [📄 文档与变更](#文档与变更)
 
-- Go 1.22+
-- PostgreSQL 14+
+---
 
-### 2. 初始化数据库
+## ✨ 功能特性
+
+### 💊 药房物品主数据
+> 药品 + 耗材统一管理（`item_type`），一药多规/一品多商，批号效期全程追踪，FEFO 先进先出，启停用/冻结。
+
+| 🏷️ 模块 | 📋 能力 |
+|---------|--------|
+| 🧬 药物相互作用引擎 | 4 策略分层匹配（显式 → 成分 → 分类 → 标签）、患者个体化禁忌（年龄/妊娠/哺乳/过敏史）、**37 条种子规则** |
+| 📦 采购管理 | 供应商维护、采购单状态机、质检收货（批次/效期绑定）、防超收 |
+| 🗃️ 库存管理 | FEFO 发药、预占/实扣/释放（行锁 + 条件更新双保险）、调拨、盘点、预警处置闭环、领用出库（不计费） |
+| ✂️ 拆零管理 | 按盒/按片拆零、混合发药（LDU 精确计价）、自动拆零、**拆零操作单（麻精双人复核）**、拆零统计（量/损耗/毛利） |
+| 📝 处方全流程 | 录入 → 药师审核（pass/reject/return）→ 调配 → 发药 → 退药全状态机；审计日志可追溯 |
+| 🛡️ 特殊药品「五专」 | 专用处方、双人核对（**调配 ≠ 核对强制分离**）、专账联动、空安瓿回收 |
+| 🧑‍⚕️ 患者档案 | 建档 / 过敏史 / 哺乳史，审核自动带入过敏史禁忌（3010）与哺乳期慎用（3011） |
+| 💰 计费闭环 | 药品/耗材/诊疗项目统一计费入口，**从已发药处方一键生成**，退药自动冲正 |
+| 👥 角色权限 | 7 种角色分级权限，**RBAC 按角色矩阵强制**，调配+核对由医生/药师兼任 |
+| 📚 参考数据 | ICD-10（1,586 条）+ 集采目录（392 品种）+ 医保目录（3,313 条）+ 非医保（362 种）+ 耗材（141 类），只读查询与目录匹配 API |
+| 🔌 二期预留 | `port` 三接口（患者/库存/计价）+ 契约测试固化 |
+
+---
+
+## 🛠️ 技术栈
+
+| 层 | 选型 | 说明 |
+|----|------|------|
+| 🗣️ 语言 | **Go 1.22+** | 静态类型、高并发、编译部署简单 |
+| 🌐 Web 框架 | **Gin** | 高性能、生态成熟 |
+| 🗄️ ORM | **GORM** | 事务、行级锁（`clause.Locking`）、软删除 |
+| 🐘 数据库 | **PostgreSQL 14+** | 行级锁、报表聚合，库存正确性第一 |
+| 📦 迁移 | **golang-migrate（SQL）** | 生产级可控，SQL 为唯一事实来源 |
+| 🔐 鉴权 | **JWT + bcrypt** | 记录操作人，支撑双人核对审计 |
+| 📄 API 文档 | **swaggo/swag** | 注解即文档，随代码生成 |
+| ⏰ 定时任务 | **robfig/cron/v3** | 效期预警、过期锁定、库存下限预警 |
+| 💰 金额 | **int64（分）** | 全整数运算，杜绝浮点误差 |
+
+---
+
+## 🚀 快速开始
+
+### ⚙️ 环境要求
+
+| 依赖 | 版本 |
+|------|------|
+| Go | ≥ 1.22 |
+| PostgreSQL | ≥ 14 |
+| Docker Compose（可选） | 用于一键起库 |
+
+### 🗄️ 1️⃣ 初始化数据库
 
 ```bash
-# 方式一：Docker 一键起库并执行全部迁移（推荐，含集成测试环境）
+# 方式一：Docker 一键起库并执行全部迁移（推荐 🐳）
 make db-up                                   # 需 Docker Compose
+
 # 方式二：本机 PostgreSQL（postgres 超级用户）
 psql -U postgres -h localhost -c "CREATE ROLE yaofang LOGIN PASSWORD 'yaofang123';"
 psql -U postgres -h localhost -c "CREATE DATABASE yaofang OWNER yaofang;"
@@ -47,20 +94,18 @@ for f in migrations/*.up.sql; do
   psql -U postgres -h localhost -d yaofang -v ON_ERROR_STOP=1 -f "$f"
 done
 # 等价：make db-migrate（Linux/Git Bash，可配置 YF_DB_HOST/USER/NAME）
-
-# 若表由其他角色创建，需授予应用角色权限（否则改 OWNER）
-# ALTER TABLE ... OWNER TO yaofang; ALTER SEQUENCE ... OWNER TO yaofang;
 ```
 
-### 3. 配置
+### ⚙️ 2️⃣ 配置
 
 ```bash
 cp configs/config.example.yaml configs/config.yaml   # 首次使用
 ```
-修改数据库密码与 JWT 密钥；也可用环境变量 `YF_` 前缀覆盖（如 `YF_DATABASE_PASSWORD`、`YF_AUTH_JWT_SECRET`）。
-`configs/config.yaml` 含本地凭据，已加入 `.gitignore` 不入库。
 
-### 4. 启动
+修改数据库密码与 JWT 密钥；也可用环境变量 `YF_` 前缀覆盖（如 `YF_DATABASE_PASSWORD`、`YF_AUTH_JWT_SECRET`）。
+`configs/config.yaml` 含本地凭据，已加入 `.gitignore` 不入库。🔒
+
+### ▶️ 3️⃣ 启动
 
 ```bash
 go run ./cmd/server
@@ -68,25 +113,121 @@ go run ./cmd/server
 go build -o bin/yaofang.exe ./cmd/server && ./bin/yaofang.exe
 ```
 
-默认管理员：`admin / admin123`。其他种子用户：`doctor`、`nurse`、`pharmacy_chief`、`pharmacist`、`buyer`、`finance`（密码均 `admin123`，生产环境务必修改）。
+> 👤 默认管理员：`admin / admin123`；其他种子用户：`doctor`、`nurse`、`pharmacy_chief`、`pharmacist`、`buyer`、`finance`（密码均 `admin123`，生产环境务必修改 ⚠️）
 
-### 5. 测试
+### ✅ 4️⃣ 测试
 
 ```bash
 go test ./...                          # 单元测试（domain/service/middleware）
-go test -tags=integration ./internal/service/   # 集成测试（需 PostgreSQL，走全链路；先 make db-up）
+go test -tags=integration ./internal/service/   # 集成测试（需 PostgreSQL；先 make db-up）
 golangci-lint run ./...                # 静态检查（CI 门槛）
 bash scripts/check_domain_coverage.sh  # domain 覆盖率门槛（≥85%）
 python scripts/smoke_test.py           # HTTP 冒烟测试（需服务已启动）
 ```
 
-## 项目状态
+---
 
-一期已全部交付：v1.3.0 新增 5 张参考数据表（ICD-10 + 集采 + 医保 + 非医保 + 耗材，共计 **6,794 条**种子数据），
-并已接线只读查询与目录匹配 API；后续迭代完成 RBAC 落地、麻精双人核对强制、患者档案、计费闭环、
-拆零操作单/统计、预警处置闭环与 CI lint/覆盖率门槛（迁移至 `000024`，共 25 个版本）。
-详见 [CHANGELOG.md](CHANGELOG.md) 与 [docs/14-现状分析与下一步建议.md](docs/14-现状分析与下一步建议.md)。
+## 🏗️ 项目结构
 
-## 二期预留
+```
+yaofang/
+├── cmd/server/            # 🚪 程序入口
+├── internal/
+│   ├── config/            # ⚙️ 配置加载（Viper + 环境变量覆盖）
+│   ├── server/            # 🧩 Gin 引擎、路由注册、依赖装配
+│   ├── model/             # 📊 GORM 数据模型（一张表一个文件）
+│   ├── domain/            # 🧠 纯领域模型：状态机、金额、库存规则、交互引擎
+│   ├── repository/        # 🗄️ 仓储实现（按模块分包）
+│   ├── service/           # ⚡ 领域服务（业务规则、事务编排）
+│   │   └── port/          # 🔌 二期预留接口（IPatientService/IStockService/IPricingService）
+│   ├── handler/           # 🌐 HTTP 处理器 + 路由分组（RBAC）
+│   ├── middleware/        # 🛡️ JWT、日志、恢复、请求ID
+│   ├── scheduler/         # ⏰ 定时任务
+│   └── pkg/               # 🧰 通用组件（errs/money/pagination/auth）
+├── migrations/            # 📦 golang-migrate SQL 迁移（25 个版本）
+├── configs/               # ⚙️ 配置样例
+├── docs/                  # 📚 开发文档（14 篇）
+├── scripts/               # 🔧 运维/构建/覆盖率脚本
+└── docker-compose.yml     # 🐳 本地 PG + 自动迁移
+```
 
-患者/计价/库存能力通过 `internal/service/port` 接口抽象（患者服务已完整实现），详见 [docs/05-二期预留接口设计.md](docs/05-二期预留接口设计.md)。
+---
+
+## 📡 API 文档
+
+服务启动后访问：**http://localhost:8080/swagger/index.html**
+
+接口统一前缀 `/api/v1`，响应信封 `{code, message, data}`，金额一律整数「分」。
+
+| 🗂️ 模块 | 亮点端点 |
+|--------|---------|
+| 🔐 认证 | `POST /auth/login` · 用户管理（admin） |
+| 💊 药品 | 主数据 CRUD · 配伍禁忌 · 交互规则（成分/分类/标签） |
+| 📦 采购 | 采购计划建议 · 采购单 · 收货质检入库 |
+| 🗃️ 库存 | 调拨 · 拆零/按片拆零 · 拆零操作单 · 盘点 · 预警处置 |
+| 📝 处方 | 录入 → 审核 → 调配 → 发药 → 退药 → 作废 |
+| 🧑‍⚕️ 患者 | 建档 / 过敏史 CRUD |
+| 💰 计费 | 手工计费 · `from-prescription` 一键计费 |
+| 📚 参考数据 | 诊断编码 / 集采 / 医保 / 非医保 / 耗材搜索 · 目录匹配 |
+| 📊 报表 | 进销存汇总 · 效期分析 · 特殊药品统计 · 调配工作量 · 拆零统计 |
+
+---
+
+## 📊 项目状态与路线图
+
+### ✅ 当前状态
+
+| 里程碑 | 状态 |
+|--------|------|
+| 一期核心闭环（主数据/采购/库存/处方/拆零） | ✅ 已交付 |
+| 药物相互作用引擎（4 策略 + 患者级检查） | ✅ 已交付 |
+| 参考数据（ICD-10/集采/医保/耗材/非医保，6,794 条） | ✅ 已交付并接线 |
+| RBAC 角色矩阵强制 / 麻精双人核对 | ✅ 已落地 |
+| 患者档案 + 计费闭环 + 拆零操作单/统计 | ✅ 已交付 |
+| CI 门槛（golangci-lint + 覆盖率 ≥85%） | ✅ 已落地 |
+
+> 迁移至 `000024`，共 **25 个版本**；质量门禁：`go build` / `go vet` / `go test` / `gofmt` / `golangci-lint` 全绿 ✅
+
+### 🗺️ 路线图
+
+- ✅ **P0** 正确性/合规/安全：RBAC、退回医生死路、双人核对、参考数据接线
+- ✅ **P1** 功能补强：患者档案、计费闭环、目录匹配、拆零单/统计、预警闭环
+- ✅ **P2** 工程化：lint/覆盖率门槛、docker-compose、测试补强
+- 🔭 **二期**：诊疗模块（就诊/病历/检查）、合并结算、前端管理台
+
+---
+
+## 🔭 二期规划
+
+通过 `internal/service/port` 三接口可插拔接入诊疗模块：
+
+| 能力 | 一期 | 二期扩展 |
+|------|------|---------|
+| 🧑‍⚕️ 患者 | 完整档案 + 过敏史（已实现） | 就诊/病历/检查档案 |
+| 📝 处方开立 | 药房端手工录入 | 医生端开立自动传入 |
+| 🗃️ 库存 | 药房内部调用 | 诊疗模块直接调用 |
+| 💰 计价 | 药费 + 计费闭环 | 挂号费/诊疗费/药费合并结算 |
+
+详见 [docs/05-二期预留接口设计.md](docs/05-二期预留接口设计.md)。
+
+---
+
+## 📄 文档与变更
+
+| 文档 | 说明 |
+|------|------|
+| 📋 [CHANGELOG.md](CHANGELOG.md) | 版本与变更记录 |
+| 📚 [docs/README.md](docs/README.md) | 开发文档总览（14 篇） |
+| 🔍 [docs/14-现状分析与下一步建议.md](docs/14-现状分析与下一步建议.md) | 全量审阅发现与修复进度 |
+| 🧪 [docs/07-测试方案.md](docs/07-测试方案.md) | 测试方案与覆盖策略 |
+| 🚢 [docs/10-部署运维.md](docs/10-部署运维.md) | 部署与运维指南 |
+
+---
+
+<div align="center">
+
+**💊 药房管理系统** — 让药房进销存与处方调配更专业、更安全
+
+⭐ 如果这个项目对你有帮助，欢迎 Star 支持！
+
+</div>
