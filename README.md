@@ -122,6 +122,7 @@ go build -o bin/yaofang.exe ./cmd/server && ./bin/yaofang.exe
 - 接口文档：`http://localhost:8080/swagger/index.html`（含全部端点与 TS 类型生成来源 `docs/swagger.json`）。
 - 对接约定与前端须知见 [docs/16-前端开发就绪评估与对接指南.md](docs/16-前端开发就绪评估与对接指南.md)。
 - 前端技术选型、工程结构、页面规划与进度计划见 [docs/17-前端开发指南与进度规划.md](docs/17-前端开发指南与进度规划.md)。
+- 前端工程 `pharmacy-web/`：P0-P3 已完成（登录/RBAC/主数据/采购库存/患者处方核心流程），详见 [pharmacy-web/README.md](pharmacy-web/README.md)。
 
 ### ✅ 4️⃣ 测试
 

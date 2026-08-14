@@ -1,15 +1,14 @@
-import axios, { type AxiosInstance, type AxiosResponse } from 'axios'
+import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios'
 import { ElMessage } from 'element-plus'
 import type { ApiEnvelope } from '@/types/api'
 import { getToken, clearToken } from '@/utils/auth'
 
-const http: AxiosInstance = axios.create({
+const instance: AxiosInstance = axios.create({
   baseURL: '/api/v1',
   timeout: 15000,
 })
 
-// 请求拦截：注入 token
-http.interceptors.request.use((config) => {
+instance.interceptors.request.use((config) => {
   const token = getToken()
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
@@ -17,12 +16,11 @@ http.interceptors.request.use((config) => {
   return config
 })
 
-// 响应拦截：解包信封 { code, message, data }
-http.interceptors.response.use(
-  (response: AxiosResponse<ApiEnvelope>) => {
-    const body = response.data
+instance.interceptors.response.use(
+  (response): any => {
+    const body = response.data as ApiEnvelope
     if (body.code === 0) {
-      return body.data as never
+      return body.data
     }
     handleError(body.code, body.message)
     return Promise.reject(new Error(body.message))
@@ -35,7 +33,6 @@ http.interceptors.response.use(
 
 function handleError(code: number, message: string): void {
   if (code === 9002) {
-    // 未认证：清 token 跳登录
     clearToken()
     ElMessage.error('登录已失效，请重新登录')
     window.location.href = '/login'
@@ -44,4 +41,23 @@ function handleError(code: number, message: string): void {
   ElMessage.error(message || '操作失败')
 }
 
-export default http
+// 统一请求封装：响应已解包为 data 字段（返回 Promise<T>，默认 any）
+const request = {
+  get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
+    return instance.get(url, config) as unknown as Promise<T>
+  },
+  post<T = any>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+    return instance.post(url, data, config) as unknown as Promise<T>
+  },
+  put<T = any>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+    return instance.put(url, data, config) as unknown as Promise<T>
+  },
+  patch<T = any>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+    return instance.patch(url, data, config) as unknown as Promise<T>
+  },
+  delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
+    return instance.delete(url, config) as unknown as Promise<T>
+  },
+}
+
+export default request
