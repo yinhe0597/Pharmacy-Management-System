@@ -121,6 +121,7 @@ go build -o bin/yaofang.exe ./cmd/server && ./bin/yaofang.exe
 - 后端已支持 **CORS 跨域**（`server.cors_allow_origins` 白名单，开发默认放行 `*`，生产限定域名）。
 - 接口文档：`http://localhost:8080/swagger/index.html`（含全部端点与 TS 类型生成来源 `docs/swagger.json`）。
 - 对接约定与前端须知见 [docs/16-前端开发就绪评估与对接指南.md](docs/16-前端开发就绪评估与对接指南.md)。
+- 前端技术选型、工程结构、页面规划与进度计划见 [docs/17-前端开发指南与进度规划.md](docs/17-前端开发指南与进度规划.md)。
 
 ### ✅ 4️⃣ 测试
 
@@ -193,7 +194,7 @@ yaofang/
 | RBAC 角色矩阵强制 / 麻精双人核对 | ✅ 已落地 |
 | 患者档案 + 计费闭环 + 拆零操作单/统计 | ✅ 已交付 |
 | 诊疗模块复审修复（docs/15） | ✅ 已交付 |
-| 前端就绪（CORS + 对接指南 docs/16） | ✅ 已就绪 |
+| 前端就绪（CORS + 对接指南 docs/16 + 开发指南/进度 docs/17） | ✅ 已就绪 |
 | CI 门槛（golangci-lint + 覆盖率 ≥85%） | ✅ 已落地 |
 
 > 迁移至 `000025`，共 **26 个版本**；质量门禁：`go build` / `go vet` / `go test` / `gofmt` / `golangci-lint` 全绿 ✅
@@ -227,10 +228,11 @@ yaofang/
 | 文档 | 说明 |
 |------|------|
 | 📋 [CHANGELOG.md](CHANGELOG.md) | 版本与变更记录 |
-| 📚 [docs/README.md](docs/README.md) | 开发文档总览（16 篇） |
+| 📚 [docs/README.md](docs/README.md) | 开发文档总览（17 篇） |
 | 🔍 [docs/14-现状分析与下一步建议.md](docs/14-现状分析与下一步建议.md) | 全量审阅发现与修复进度 |
 | 🩺 [docs/15-诊疗模块复审报告.md](docs/15-诊疗模块复审报告.md) | 诊疗模块业务逻辑/漏洞复审与前端搭建参考 |
 | 🌐 [docs/16-前端开发就绪评估与对接指南.md](docs/16-前端开发就绪评估与对接指南.md) | 前端就绪评估、页面-接口对照与对接须知 |
+| 🗺️ [docs/17-前端开发指南与进度规划.md](docs/17-前端开发指南与进度规划.md) | 前端技术选型、工程结构、页面规划与 6 阶段进度计划 |
 | 🧪 [docs/07-测试方案.md](docs/07-测试方案.md) | 测试方案与覆盖策略 |
 | 🚢 [docs/10-部署运维.md](docs/10-部署运维.md) | 部署与运维指南 |
 
