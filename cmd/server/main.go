@@ -30,6 +30,10 @@ func main() {
 		slog.Error("加载配置失败", "err", err)
 		os.Exit(1)
 	}
+	if err := validateJWTSecret(cfg.Auth.JWTSecret); err != nil {
+		slog.Error("JWT 密钥校验失败（拒绝启动）", "err", err)
+		os.Exit(1)
+	}
 	slog.SetDefault(newLogger())
 
 	db, err := server.OpenDB(&cfg.Database)
@@ -75,4 +79,16 @@ func main() {
 
 func newLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+}
+
+// validateJWTSecret 生产启动前校验 JWT 密钥强度：
+// 拒绝默认值「change-me」与长度不足 32 位的密钥（HS256 对称签名，密钥泄露即可离线伪造任意 token）。
+func validateJWTSecret(secret string) error {
+	if secret == "" || secret == "change-me" {
+		return fmt.Errorf("auth.jwt_secret 未配置或仍为默认值：请在 configs/config.yaml 设置 ≥32 位随机密钥，或使用环境变量 YF_AUTH_JWT_SECRET")
+	}
+	if len(secret) < 32 {
+		return fmt.Errorf("auth.jwt_secret 强度不足（%d 字符 < 32）", len(secret))
+	}
+	return nil
 }

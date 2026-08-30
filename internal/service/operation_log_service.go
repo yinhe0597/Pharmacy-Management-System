@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"gorm.io/gorm"
@@ -19,9 +20,12 @@ func NewOperationLogService(db *gorm.DB) *OperationLogService {
 	return &OperationLogService{db: db}
 }
 
-// Log 记录操作日志（非阻塞，失败静默忽略）。
+// Log 记录操作日志（非阻塞：失败不中断业务，但记录错误日志以便排查）。
 func (s *OperationLogService) Log(ctx context.Context, log *model.OperationLog) {
-	_ = repository.NewOperationLogRepo(s.db).Create(ctx, log)
+	if err := repository.NewOperationLogRepo(s.db).Create(ctx, log); err != nil {
+		slog.Error("operation_log_write_failed",
+			"err", err, "action", log.Action, "resource", log.Resource, "path", log.Path)
+	}
 }
 
 // List 分页查询操作日志（支持用户/动作/资源/关键字/时间窗口筛选）。

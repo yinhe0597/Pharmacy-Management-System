@@ -16,7 +16,7 @@
     <el-table v-loading="loading" :data="list" border>
       <el-table-column prop="code" label="编码" width="120" />
       <el-table-column prop="name" label="名称" />
-      <el-table-column prop="contact" label="联系人" width="120" />
+      <el-table-column prop="contact_person" label="联系人" width="120" />
       <el-table-column prop="phone" label="电话" width="140" />
       <el-table-column prop="address" label="地址" min-width="160" />
     </el-table>
@@ -33,7 +33,7 @@
       <el-form label-width="80px">
         <el-form-item label="编码" required><el-input v-model="form.code" /></el-form-item>
         <el-form-item label="名称" required><el-input v-model="form.name" /></el-form-item>
-        <el-form-item label="联系人"><el-input v-model="form.contact" /></el-form-item>
+        <el-form-item label="联系人"><el-input v-model="form.contact_person" /></el-form-item>
         <el-form-item label="电话"><el-input v-model="form.phone" /></el-form-item>
         <el-form-item label="地址"><el-input v-model="form.address" /></el-form-item>
       </el-form>

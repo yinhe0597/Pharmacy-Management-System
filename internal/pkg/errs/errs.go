@@ -24,12 +24,14 @@ func New(code int, message string, httpStatus int) *Error {
 
 // 通用错误（9xxx）
 var (
-	ErrBadRequest    = New(9001, "参数错误", http.StatusBadRequest)
-	ErrUnauthorized  = New(9002, "未认证", http.StatusUnauthorized)
-	ErrForbidden     = New(9003, "无权限", http.StatusForbidden)
-	ErrNotFound      = New(9004, "资源不存在", http.StatusNotFound)
-	ErrStateConflict = New(9005, "状态冲突，请刷新后重试", http.StatusConflict)
-	ErrInternal      = New(9500, "系统异常", http.StatusInternalServerError)
+	ErrBadRequest      = New(9001, "参数错误", http.StatusBadRequest)
+	ErrUnauthorized    = New(9002, "未认证", http.StatusUnauthorized)
+	ErrForbidden       = New(9003, "无权限", http.StatusForbidden)
+	ErrNotFound        = New(9004, "资源不存在", http.StatusNotFound)
+	ErrStateConflict   = New(9005, "状态冲突，请刷新后重试", http.StatusConflict)
+	ErrAccountDisabled = New(9009, "账号已停用，请联系管理员", http.StatusForbidden)
+	ErrTooManyRequests = New(9029, "尝试过于频繁，请稍后再试", http.StatusTooManyRequests)
+	ErrInternal        = New(9500, "系统异常", http.StatusInternalServerError)
 )
 
 // 药品/供应商（1xxx）
@@ -60,6 +62,7 @@ var (
 	ErrReceiveExceeded       = New(2011, "收货数量超过未收数量", http.StatusBadRequest)
 	ErrSplitUnbalanced       = New(2012, "拆零数量不平齐：入拆零+破损 应等于 拆盒数×包装含量", http.StatusBadRequest)
 	ErrSplitDualCheck        = New(2013, "麻精药品拆零须双人复核（复核人 ≠ 操作人）", http.StatusConflict)
+	ErrQCNotComplete         = New(2014, "存在未质检项，请先完成质检登记", http.StatusConflict)
 )
 
 // 处方（3xxx）
@@ -76,6 +79,7 @@ var (
 	ErrAllergyContraindication   = New(3010, "过敏史禁忌", http.StatusBadRequest)
 	ErrLactationWarning          = New(3011, "哺乳期慎用", http.StatusBadRequest)
 	ErrDoseMismatch              = New(3012, "处方数量超过日总剂量×天数，请核对用法用量", http.StatusBadRequest)
+	ErrReturnRowUnit             = New(3013, "整盒发药的退药数量须为整盒倍数", http.StatusBadRequest)
 	ErrPrescriptionWarning       = New(3050, "处方存在提醒项，请确认后通过", http.StatusOK)
 )
 
@@ -93,17 +97,19 @@ var (
 
 // 患者/诊疗（6xxx）
 var (
-	ErrPatientNotFound   = New(6001, "患者不存在", http.StatusNotFound)
-	ErrPatientCardExists = New(6002, "患者卡号已存在", http.StatusConflict)
-	ErrServiceCodeExists = New(6003, "诊疗项目编码已存在", http.StatusConflict)
-	ErrNotDispensed      = New(6004, "处方未发药，无法计费", http.StatusConflict)
-	ErrChargeVoided      = New(6005, "计费记录已红冲，不能重复操作", http.StatusConflict)
-	ErrDiagnosisNotFound = New(6006, "诊断编码不存在", http.StatusBadRequest)
-	ErrVisitNotFound     = New(6101, "就诊不存在", http.StatusNotFound)
-	ErrVisitState        = New(6102, "就诊状态不允许该操作", http.StatusConflict)
-	ErrChargeNotFound    = New(6103, "结算单不存在", http.StatusNotFound)
-	ErrChargeState       = New(6104, "结算单状态不允许该操作", http.StatusConflict)
-	ErrChargeEmpty       = New(6105, "结算单无费用明细", http.StatusBadRequest)
+	ErrPatientNotFound    = New(6001, "患者不存在", http.StatusNotFound)
+	ErrPatientCardExists  = New(6002, "患者卡号已存在", http.StatusConflict)
+	ErrServiceCodeExists  = New(6003, "诊疗项目编码已存在", http.StatusConflict)
+	ErrNotDispensed       = New(6004, "处方未发药，无法计费", http.StatusConflict)
+	ErrChargeVoided       = New(6005, "计费记录已红冲，不能重复操作", http.StatusConflict)
+	ErrDiagnosisNotFound  = New(6006, "诊断编码不存在", http.StatusBadRequest)
+	ErrVisitNotFound      = New(6101, "就诊不存在", http.StatusNotFound)
+	ErrVisitState         = New(6102, "就诊状态不允许该操作", http.StatusConflict)
+	ErrChargeNotFound     = New(6103, "结算单不存在", http.StatusNotFound)
+	ErrChargeState        = New(6104, "结算单状态不允许该操作", http.StatusConflict)
+	ErrChargeEmpty        = New(6105, "结算单无费用明细", http.StatusBadRequest)
+	ErrPaidAmountMismatch = New(6106, "实收金额与应收不一致", http.StatusBadRequest)
+	ErrChargeExists       = New(6107, "该就诊已存在结算单，不能重复结算", http.StatusConflict)
 )
 
 // Is 判断 err 是否为目标业务错误（按 Code 匹配）。

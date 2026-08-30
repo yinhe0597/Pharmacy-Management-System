@@ -2,6 +2,7 @@
 package server
 
 import (
+	"context"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -14,6 +15,8 @@ import (
 	"yaofang/internal/handler"
 	"yaofang/internal/middleware"
 	"yaofang/internal/pkg/auth"
+	"yaofang/internal/pkg/errs"
+	"yaofang/internal/repository"
 	"yaofang/internal/service"
 	"yaofang/internal/service/patient"
 	"yaofang/internal/service/port"
@@ -25,6 +28,7 @@ import (
 // App 应用依赖容器。
 type App struct {
 	cfg *config.Config
+	db  *gorm.DB
 	jwt *auth.Manager
 
 	auth         *service.AuthService
@@ -52,10 +56,11 @@ type App struct {
 
 // NewApp 构建应用依赖。
 func NewApp(cfg *config.Config, db *gorm.DB) *App {
-	jwtMgr := auth.NewManager(cfg.Auth.JWTSecret, cfg.Auth.TokenTTL)
+	// TTL 兜底必须在构建 Manager 之前（否则显式配 0 会签发即时过期 token）
 	if cfg.Auth.TokenTTL <= 0 {
 		cfg.Auth.TokenTTL = 720 * time.Hour
 	}
+	jwtMgr := auth.NewManager(cfg.Auth.JWTSecret, cfg.Auth.TokenTTL)
 
 	inv := service.NewInventoryService(db)
 	special := service.NewSpecialDrugService(db)
@@ -67,6 +72,7 @@ func NewApp(cfg *config.Config, db *gorm.DB) *App {
 
 	return &App{
 		cfg:            cfg,
+		db:             db,
 		jwt:            jwtMgr,
 		auth:           service.NewAuthService(db, jwtMgr),
 		drug:           service.NewDrugService(db),
@@ -107,27 +113,43 @@ func (a *App) Engine() *gin.Engine {
 	r.GET("/readyz", func(c *gin.Context) { c.JSON(200, gin.H{"status": "ready"}) })
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
+	// 用户状态复查：token 有效但账号已被停用/删除时立即拒绝（吊销能力）
+	users := repository.NewUserRepo(a.db)
+	checkActive := middleware.UserStatusChecker(func(ctx context.Context, userID int64) error {
+		u, err := users.GetByID(ctx, userID)
+		if err != nil {
+			return err
+		}
+		if u.Status != 1 {
+			return errs.ErrUnauthorized
+		}
+		return nil
+	})
+	authMW := func() gin.HandlerFunc { return middleware.Auth(a.jwt, checkActive) }
+	// 登录限速：同一「IP+用户名」每分钟最多 5 次尝试（防暴力破解）
+	loginRate := middleware.LoginRateLimit(5, time.Minute)
+
 	v1 := r.Group("/api/v1")
-	authed := v1.Group("", middleware.Auth(a.jwt))
+	authed := v1.Group("", authMW())
 	// 计费查看 = 药房人员 ∪ 报表权限（docs/15 M3）
 	billingRoles := append(append([]string{}, enum.PharmacyStaff...), enum.ReportAccess...)
 	// 角色分组（docs/03 §2 角色矩阵）
 	groups := handler.Groups{
 		Public:      v1,
 		Authed:      authed,
-		DrugAdmin:   v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.DrugAdmin...)),
-		Pharmacy:    v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.PharmacyStaff...)),
-		Clinical:    v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.ClinicalStaff...)),
-		Purchase:    v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.PurchaseStaff...)),
-		Report:      v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.ReportAccess...)),
-		Billing:     v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(billingRoles...)),
-		Patient:     v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.PatientAdmin...)),
-		PatientRead: v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.PatientRead...)),
-		Charge:      v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.ChargeStaff...)),
-		UserAdmin:   v1.Group("", middleware.Auth(a.jwt), middleware.RequireRoles(enum.UserAdmin...)),
+		DrugAdmin:   v1.Group("", authMW(), middleware.RequireRoles(enum.DrugAdmin...)),
+		Pharmacy:    v1.Group("", authMW(), middleware.RequireRoles(enum.PharmacyStaff...)),
+		Clinical:    v1.Group("", authMW(), middleware.RequireRoles(enum.ClinicalStaff...)),
+		Purchase:    v1.Group("", authMW(), middleware.RequireRoles(enum.PurchaseStaff...)),
+		Report:      v1.Group("", authMW(), middleware.RequireRoles(enum.ReportAccess...)),
+		Billing:     v1.Group("", authMW(), middleware.RequireRoles(billingRoles...)),
+		Patient:     v1.Group("", authMW(), middleware.RequireRoles(enum.PatientAdmin...)),
+		PatientRead: v1.Group("", authMW(), middleware.RequireRoles(enum.PatientRead...)),
+		Charge:      v1.Group("", authMW(), middleware.RequireRoles(enum.ChargeStaff...)),
+		UserAdmin:   v1.Group("", authMW(), middleware.RequireRoles(enum.UserAdmin...)),
 	}
 
-	handler.NewAuthHandler(a.auth, a.logSvc).Register(groups)
+	handler.NewAuthHandler(a.auth, a.logSvc, loginRate).Register(groups)
 	handler.NewDrugHandler(a.drug).Register(groups)
 	handler.NewSupplierHandler(a.supplier).Register(groups)
 	handler.NewInventoryHandler(a.inventory).Register(groups)

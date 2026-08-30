@@ -31,3 +31,23 @@ func FromFen(v int64) Cents { return Cents(v) }
 
 // FromYuan 以「元」构造金额（用于便捷录入，仍以分存储）。
 func FromYuan(v float64) Cents { return Cents(int64(v*100 + 0.5)) }
+
+// ItemAmount 按处方明细口径计算 qty（LDU）金额（与处方计价同口径，docs/13 §4.3）：
+//   - isSplit：强制拆零发药，全部按拆零价 unitPrice；
+//   - isSplitAllowed：混合口径，整盒按盒价 retailPrice + 零头按拆零价 unitPrice；
+//   - 其余按整盒价 retailPrice。
+//
+// service 与 pricing 两包共用此实现，保证快照金额与结算净额口径一致。
+func ItemAmount(isSplit, isSplitAllowed bool, packSize int, unitPrice, retailPrice, qty int64) int64 {
+	switch {
+	case isSplit:
+		return qty * unitPrice
+	case isSplitAllowed:
+		pack := int64(packSize)
+		boxes := qty / pack
+		units := qty % pack
+		return boxes*retailPrice + units*unitPrice
+	default:
+		return qty * retailPrice
+	}
+}

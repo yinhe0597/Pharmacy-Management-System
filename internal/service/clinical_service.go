@@ -10,6 +10,7 @@ import (
 	"yaofang/internal/domain/enum"
 	"yaofang/internal/model"
 	"yaofang/internal/pkg/errs"
+	"yaofang/internal/pkg/money"
 	"yaofang/internal/repository"
 )
 
@@ -150,8 +151,13 @@ func (s *ClinicalService) VoidCharge(ctx context.Context, id int64, operatorID i
 		return errs.ErrChargeVoided
 	}
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		if err := repository.NewChargeRecordRepo(tx).MarkVoided(ctx, id); err != nil {
+		// 条件更新（voided=FALSE）：并发双击时仅一个请求成功，其余整体回滚
+		ok, err := repository.NewChargeRecordRepo(tx).MarkVoided(ctx, id)
+		if err != nil {
 			return err
+		}
+		if !ok {
+			return errs.ErrChargeVoided
 		}
 		itemID := cr.ItemID
 		return repository.NewChargeRecordRepo(tx).Create(ctx, &model.ChargeRecord{
@@ -166,31 +172,44 @@ func (s *ClinicalService) VoidCharge(ctx context.Context, id int64, operatorID i
 
 // ChargePrescription 从已发药处方生成计费记录（幂等：同处方仅计费一次）。
 // 仅已发药（dispensed）处方可计费（docs/15 L3）。
+// 整体在事务内完成：锁处方行串行化同一处方的并发计费，幂等检查与写入原子。
 func (s *ClinicalService) ChargePrescription(ctx context.Context, prescriptionID int64, operatorID int64, operatorName string) ([]model.ChargeRecord, error) {
-	chargeRepo := repository.NewChargeRecordRepo(s.db)
-	// 幂等：已有正计费则直接返回空（不重复计费）
-	if n, err := chargeRepo.CountByRef(ctx, "prescription", prescriptionID); err != nil {
-		return nil, err
-	} else if n > 0 {
-		return nil, nil
-	}
-	p, err := repository.NewPrescriptionRepo(s.db).GetByID(ctx, prescriptionID)
+	var charges []model.ChargeRecord
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		p, err := repository.NewPrescriptionRepo(tx).LockForUpdate(ctx, prescriptionID)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errs.ErrNotFound
+			}
+			return err
+		}
+		// 幂等：已有正计费则直接返回空（不重复计费）；锁内复查，防并发重复
+		n, err := repository.NewChargeRecordRepo(tx).CountByRef(ctx, "prescription", prescriptionID)
+		if err != nil {
+			return err
+		}
+		if n > 0 {
+			return nil
+		}
+		if p.Status != "dispensed" {
+			return errs.ErrNotDispensed
+		}
+		records, err := repository.NewDispenseRecordRepo(tx).ListByPrescription(ctx, prescriptionID)
+		if err != nil {
+			return err
+		}
+		charges, err = s.buildChargesFromRecordsTx(ctx, tx, p, records, operatorID, operatorName)
+		return err
+	})
 	if err != nil {
-		return nil, errs.ErrNotFound
-	}
-	if p.Status != "dispensed" {
-		return nil, errs.ErrNotDispensed
-	}
-	records, err := repository.NewDispenseRecordRepo(s.db).ListByPrescription(ctx, prescriptionID)
-	if err != nil {
 		return nil, err
 	}
-	return s.buildChargesFromRecords(ctx, p, records, operatorID, operatorName)
+	return charges, nil
 }
 
-// buildChargesFromRecords 按发药记录构建计费，补药品名。
-func (s *ClinicalService) buildChargesFromRecords(ctx context.Context, p *model.Prescription, records []model.PrescriptionDispenseRecord, operatorID int64, operatorName string) ([]model.ChargeRecord, error) {
-	items, err := repository.NewPrescriptionItemRepo(s.db).ListByPrescription(ctx, p.ID)
+// buildChargesFromRecordsTx 按发药记录构建计费（在给定事务/连接上写入），补药品名。
+func (s *ClinicalService) buildChargesFromRecordsTx(ctx context.Context, tx *gorm.DB, p *model.Prescription, records []model.PrescriptionDispenseRecord, operatorID int64, operatorName string) ([]model.ChargeRecord, error) {
+	items, err := repository.NewPrescriptionItemRepo(tx).ListByPrescription(ctx, p.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +235,7 @@ func (s *ClinicalService) buildChargesFromRecords(ctx context.Context, p *model.
 			OperatorID: &operatorID, OperatorName: operatorName, Remarks: "处方发药计费 " + p.PrescriptionNo,
 		})
 	}
-	if err := repository.NewChargeRecordRepo(s.db).CreateBatch(ctx, toChargePtrs(charges)); err != nil {
+	if err := repository.NewChargeRecordRepo(tx).CreateBatch(ctx, toChargePtrs(charges)); err != nil {
 		return nil, err
 	}
 	return charges, nil
@@ -269,18 +288,9 @@ func (s *ClinicalService) refundPrescriptionTx(ctx context.Context, tx *gorm.DB,
 	return repository.NewChargeRecordRepo(tx).CreateBatch(ctx, toChargePtrs(charges))
 }
 
-// itemAmount 按处方明细快照价计算 qty（LDU）金额（与处方计价同口径，docs/13 §4.3）。
+// itemAmount 按处方明细快照价计算 qty（LDU）金额（统一走 money.ItemAmount，docs/13 §4.3）。
 func itemAmount(it *model.PrescriptionItem, qty int64) int64 {
-	switch {
-	case it.IsSplit:
-		return qty * it.UnitPrice
-	case it.IsSplitAllowed:
-		boxes := qty / int64(it.PackSize)
-		units := qty % int64(it.PackSize)
-		return boxes*it.RetailPrice + units*it.UnitPrice
-	default:
-		return qty * it.RetailPrice
-	}
+	return money.ItemAmount(it.IsSplit, it.IsSplitAllowed, it.PackSize, it.UnitPrice, it.RetailPrice, qty)
 }
 
 func toChargePtrs(list []model.ChargeRecord) []*model.ChargeRecord {

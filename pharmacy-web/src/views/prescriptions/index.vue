@@ -10,14 +10,7 @@
         clearable
         style="width: 130px"
       >
-        <el-option label="普通" :value="0" /><el-option label="麻醉" :value="1" /><el-option
-          label="精神一类"
-          :value="2"
-        />
-        <el-option label="精神二类" :value="3" /><el-option label="毒性" :value="4" /><el-option
-          label="放射性"
-          :value="5"
-        />
+        <el-option v-for="(label, v) in PRESCRIPTION_TYPES" :key="v" :label="label" :value="Number(v)" />
       </el-select>
       <el-input
         v-model="query.patient_name"
@@ -44,9 +37,7 @@
       <el-table-column prop="patient_name" label="患者" width="100" />
       <el-table-column prop="diagnosis" label="诊断" min-width="140" show-overflow-tooltip />
       <el-table-column label="类型" width="90">
-        <template #default="{ row }">{{
-          PRESCRIPTION_TYPE[row.prescription_type] ?? '普通'
-        }}</template>
+        <template #default="{ row }">{{ PRESCRIPTION_TYPES[row.prescription_type] ?? '普通' }}</template>
       </el-table-column>
       <el-table-column label="状态" width="100">
         <template #default="{ row }"
@@ -74,15 +65,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { listPrescriptions } from '@/api/prescriptions'
 import StatusTag from '@/components/StatusTag.vue'
 import MoneyText from '@/components/MoneyText.vue'
-import { PRESCRIPTION_STATUS } from '@/types/business'
-
-const PRESCRIPTION_TYPE: Record<number, string> = {
-  1: '麻醉',
-  2: '精神一类',
-  3: '精神二类',
-  4: '毒性',
-  5: '放射性',
-}
+import { PRESCRIPTION_STATUS, PRESCRIPTION_TYPES } from '@/types/business'
 
 const list = ref<any[]>([])
 const total = ref(0)

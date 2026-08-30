@@ -189,3 +189,11 @@ func (r *ReceiptItemRepo) HasQCFailed(ctx context.Context, receiptID int64) (boo
 		Where("receipt_id = ? AND qc_result = 2", receiptID).Count(&n).Error
 	return n > 0, err
 }
+
+// HasUninspected 判断是否存在未质检项（qc_result 未登记，非 1/2）。
+func (r *ReceiptItemRepo) HasUninspected(ctx context.Context, receiptID int64) (bool, error) {
+	var n int64
+	err := r.db.WithContext(ctx).Model(&model.PurchaseReceiptItem{}).
+		Where("receipt_id = ? AND qc_result NOT IN (1, 2)", receiptID).Count(&n).Error
+	return n > 0, err
+}

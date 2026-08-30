@@ -54,7 +54,7 @@ export interface Supplier {
   id: number
   code: string
   name: string
-  contact?: string
+  contact_person?: string
   phone?: string
   address?: string
   status?: number

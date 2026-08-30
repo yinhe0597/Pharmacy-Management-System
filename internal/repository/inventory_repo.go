@@ -145,6 +145,19 @@ func (r *InventoryRepo) Deduct(ctx context.Context, id, qty int64) (bool, error)
 	return res.RowsAffected > 0, nil
 }
 
+// DeductAvailable 可用量条件扣减：quantity - reserved_quantity >= qty 才扣，返回是否成功。
+// 供领用/报损等「无行锁、无条件更新」出库路径使用，防止扣穿已预占库存
+// （破坏 quantity >= reserved_quantity 不变量导致发药 Consume 失败）。
+func (r *InventoryRepo) DeductAvailable(ctx context.Context, id, qty int64) (bool, error) {
+	res := r.db.WithContext(ctx).Model(&model.Inventory{}).
+		Where("id = ? AND quantity - reserved_quantity >= ?", id, qty).
+		UpdateColumn("quantity", gorm.Expr("quantity - ?", qty))
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected > 0, nil
+}
+
 // Reserve 预占：可用量 quantity-reserved >= qty 才预占，返回是否成功。
 func (r *InventoryRepo) Reserve(ctx context.Context, id, qty int64) (bool, error) {
 	res := r.db.WithContext(ctx).Model(&model.Inventory{}).

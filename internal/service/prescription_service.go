@@ -547,10 +547,14 @@ func (s *PrescriptionService) Review(ctx context.Context, id int64, input AuditI
 				DrugWarnings: auditResult.DrugWarnings,
 			}
 			if auditResult.HasBlocks() {
-				_ = s.interSvc.SaveInteractionResults(ctx, tx, id, auditResult)
+				if err := s.interSvc.SaveInteractionResults(ctx, tx, id, auditResult); err != nil {
+					return err // 禁止原因必须留痕，落库失败则整体回滚
+				}
 				return errs.ErrInteraction
 			}
-			_ = s.interSvc.SaveInteractionResults(ctx, tx, id, auditResult)
+			if err := s.interSvc.SaveInteractionResults(ctx, tx, id, auditResult); err != nil {
+				return err // 审核结果（含提醒项）必须留痕
+			}
 			p.Status = prescription.StatusReviewedPassed.String()
 			p.AuditorID = auditorID
 			p.AuditorName = auditorName
@@ -878,26 +882,44 @@ func (s *PrescriptionService) Return(ctx context.Context, id int64, inputs []Ret
 			if derr != nil && !errors.Is(derr, gorm.ErrRecordNotFound) {
 				return derr
 			}
-			remaining := in.ReturnQuantity
+			remaining := in.ReturnQuantity // LDU（与明细同口径）
 			for _, rec := range records {
 				if remaining <= 0 {
 					break
 				}
-				avail := rec.Quantity - rec.ReturnQuantity
-				if avail <= 0 {
+				// 发药记录为行口径：拆零行 1 行单位 = 1 LDU；整盒行 1 行单位 = packSize LDU。
+				// 先把可用量换算为 LDU 再扣减，修复此前 LDU 与行口径混用导致的错误回补/误报超限。
+				rowLDU := int64(1)
+				if !rec.IsSplit {
+					rowLDU = int64(it.PackSize)
+					if rowLDU <= 0 {
+						rowLDU = 1
+					}
+				}
+				availRows := rec.Quantity - rec.ReturnQuantity // 行口径可用量
+				if availRows <= 0 {
 					continue
 				}
-				take := remaining
-				if take > avail {
-					take = avail
+				availLDU := availRows * rowLDU
+				takeLDU := remaining
+				if takeLDU > availLDU {
+					takeLDU = availLDU
 				}
-				// 回补库存（同批号同口径）
+				// 整盒行只能整盒退回（多退/少退都会账实不符）
+				takeRows := takeLDU
+				if !rec.IsSplit {
+					if takeLDU%rowLDU != 0 {
+						return errs.ErrReturnRowUnit
+					}
+					takeRows = takeLDU / rowLDU
+				}
+				// 回补库存（同批号同口径，行口径数量）
 				invRepo := repository.NewInventoryRepo(tx)
 				inv, err := invRepo.FindByKey(ctx, rec.DrugID, PrescriptionLocationID, rec.BatchNo, rec.ExpiryDate, rec.IsSplit)
 				var before int64
 				if err == nil {
 					before = inv.Quantity
-					if err := invRepo.Add(ctx, inv.ID, take); err != nil {
+					if err := invRepo.Add(ctx, inv.ID, takeRows); err != nil {
 						return err
 					}
 					// 回补批次已过期则锁定，禁止再发药
@@ -924,7 +946,7 @@ func (s *PrescriptionService) Return(ctx context.Context, id int64, inputs []Ret
 					if err := invRepo.Create(ctx, &model.Inventory{
 						DrugID: rec.DrugID, LocationID: PrescriptionLocationID,
 						BatchNo: rec.BatchNo, ExpiryDate: rec.ExpiryDate,
-						Quantity: take, IsSplit: rec.IsSplit, UnitPrice: cost, Status: status,
+						Quantity: takeRows, IsSplit: rec.IsSplit, UnitPrice: cost, Status: status,
 					}); err != nil {
 						return err
 					}
@@ -936,18 +958,30 @@ func (s *PrescriptionService) Return(ctx context.Context, id int64, inputs []Ret
 					TransactionNo: seq.Next("ITN"),
 					DrugID:        rec.DrugID, LocationID: PrescriptionLocationID,
 					BatchNo: rec.BatchNo, ExpiryDate: &expiry,
-					Quantity: take, IsSplit: rec.IsSplit,
-					BeforeQuantity: before, AfterQuantity: before + take,
+					Quantity: takeRows, IsSplit: rec.IsSplit,
+					BeforeQuantity: before, AfterQuantity: before + takeRows,
 					TxnType: enum.TxnDispenseReturn, RefType: "prescription", RefID: id,
 					OperatorID: operatorID, OperatorName: operatorName, Remarks: "退药回补",
 				}
 				if err := repository.NewInventoryTransactionRepo(tx).Create(ctx, txn); err != nil {
 					return err
 				}
-				if err := dispRepo.UpdateReturnQty(ctx, rec.ID, take); err != nil {
+				if err := dispRepo.UpdateReturnQty(ctx, rec.ID, takeRows); err != nil {
 					return err
 				}
-				remaining -= take
+				// 麻精药品退药专账冲正（五专日清日结）：按发药记录行口径负数量回记，与发药专账对平
+				if p.SpecialControlType != enum.SpecialControlNone {
+					if err := repository.NewSpecialDrugLedgerRepo(tx).Create(ctx, &model.SpecialDrugLedger{
+						DrugID: rec.DrugID, BatchNo: rec.BatchNo, PrescriptionID: id,
+						LogType: "return", Quantity: -takeRows,
+						PatientName: p.PatientName, PatientCardNo: p.PatientCardNo,
+						OperatorID: operatorID, OperatorName: operatorName,
+						Notes: "退药冲正",
+					}); err != nil {
+						return err
+					}
+				}
+				remaining -= takeLDU
 			}
 			if remaining > 0 {
 				return errs.ErrReturnExceeded

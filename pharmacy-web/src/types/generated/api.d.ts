@@ -561,6 +561,179 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/charges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 结算单列表 */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description 患者ID */
+                    patient_id?: number;
+                    /** @description 就诊ID */
+                    visit_id?: number;
+                    /** @description 状态 pending/paid/refunded */
+                    status?: string;
+                    /** @description 开始时间 */
+                    start?: string;
+                    /** @description 结束时间 */
+                    end?: string;
+                    /** @description 页码 */
+                    page?: number;
+                    /** @description 每页条数 */
+                    page_size?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["internal_handler.Body"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/charges/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 结算单详情（含明细） */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description 结算单ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["internal_handler.Body"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/charges/{id}/pay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 收费（pending→paid） */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description 结算单ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            /** @description 收费参数 */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["internal_handler.chargePayRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["internal_handler.Body"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/charges/{id}/refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 退费（paid→refunded） */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description 结算单ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["internal_handler.Body"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/class-interactions": {
         parameters: {
             query?: never;
@@ -2925,6 +3098,10 @@ export interface paths {
                     resource?: string;
                     /** @description 关键字 */
                     keyword?: string;
+                    /** @description 开始时间 */
+                    start?: string;
+                    /** @description 结束时间 */
+                    end?: string;
                     /** @description 页码 */
                     page?: number;
                     /** @description 每页条数 */
@@ -4979,6 +5156,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 系统设置列表（默认诊费配置） */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["internal_handler.Body"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system-settings/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** 更新系统设置 */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description 设置键（default_registration_fee/default_consultation_fee） */
+                    key: string;
+                };
+                cookie?: never;
+            };
+            /** @description 设置值 */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["internal_handler.settingUpdateRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["internal_handler.Body"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tag-interactions": {
         parameters: {
             query?: never;
@@ -5239,6 +5496,349 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/visits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 就诊列表 */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description 患者ID */
+                    patient_id?: number;
+                    /** @description 医生ID */
+                    doctor_id?: number;
+                    /** @description 状态 waiting/visiting/finished/cancelled */
+                    status?: string;
+                    /** @description 开始时间 */
+                    start?: string;
+                    /** @description 结束时间 */
+                    end?: string;
+                    /** @description 页码 */
+                    page?: number;
+                    /** @description 每页条数 */
+                    page_size?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["internal_handler.Body"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** 挂号/分诊 */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description 挂号信息 */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["yaofang_internal_service.VisitInput"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["internal_handler.Body"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/visits/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 就诊详情 */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description 就诊ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["internal_handler.Body"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/visits/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 退号（waiting→cancelled） */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description 就诊ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["internal_handler.Body"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/visits/{id}/charge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 按就诊生成合并结算单（聚合药费+诊疗项目费） */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description 就诊ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            /** @description 结算参数 */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["internal_handler.chargeCreateRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["internal_handler.Body"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/visits/{id}/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 结束就诊（visiting→finished） */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description 就诊ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["internal_handler.Body"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/visits/{id}/medical-record": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 就诊病历详情 */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description 就诊ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["internal_handler.Body"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** 保存就诊病历（一就诊一病历，可反复保存；含多诊断） */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description 就诊ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            /** @description 病历 */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["yaofang_internal_service.MedicalRecordInput"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["internal_handler.Body"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/visits/{id}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 接诊（waiting→visiting） */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description 就诊ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["internal_handler.Body"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5261,6 +5861,14 @@ export interface components {
         "internal_handler.changePasswordRequest": {
             new_password: string;
             old_password: string;
+        };
+        "internal_handler.chargeCreateRequest": {
+            /** @description 优惠金额（分），默认 0 */
+            discount?: number;
+        };
+        "internal_handler.chargePayRequest": {
+            /** @description 实收金额（分），默认=应收 */
+            paid_amount?: number;
         };
         "internal_handler.createOrderRequest": {
             expected_at?: string;
@@ -5318,6 +5926,9 @@ export interface components {
             /** @description 1启用 0停用 */
             status: number;
         };
+        "internal_handler.settingUpdateRequest": {
+            value: string;
+        };
         "internal_handler.splitRequest": {
             inventory_id: number;
             packs: number;
@@ -5352,6 +5963,7 @@ export interface components {
             password?: string;
             phone?: string;
             role?: string;
+            /** @description 指针：区分「未传」与「显式停用(0)」 */
             status?: number;
         };
         "internal_handler.verifyOrderRequest": {
@@ -5467,7 +6079,7 @@ export interface components {
             split_unit?: string;
             status?: number;
             updated_at?: string;
-            /** @description 集采批次（集采目录匹配） */
+            /** @description 集采批次（集采目录匹配）；字段名 VPBBatch 会被 GORM 误转为 vpb_batch，故显式指定列名 */
             vbp_batch?: number;
         };
         "yaofang_internal_model.DrugCategory": {
@@ -5619,6 +6231,25 @@ export interface components {
             counted_quantity?: number;
             item_id?: number;
         };
+        "yaofang_internal_service.MedicalRecordDiagnosisIn": {
+            diagnosis_code: string;
+            diagnosis_name?: string;
+            is_primary?: boolean;
+            sort_order?: number;
+        };
+        "yaofang_internal_service.MedicalRecordInput": {
+            chief_complaint?: string;
+            diagnoses?: components["schemas"]["yaofang_internal_service.MedicalRecordDiagnosisIn"][];
+            diagnosis?: string;
+            diagnosis_code?: string;
+            diastolic_pressure?: number;
+            past_history?: string;
+            physical_exam?: string;
+            present_illness?: string;
+            pulse?: number;
+            systolic_pressure?: number;
+            temperature?: number;
+        };
         "yaofang_internal_service.POItemInput": {
             drug_id?: number;
             /** @description 基本单位 */
@@ -5645,8 +6276,14 @@ export interface components {
             patient_name?: string;
             prescription_type?: number;
             remarks?: string;
+            /** @description 处方来源（manual/outpatient/inpatient/refill，docs/20 S5） */
+            source?: string;
+            /** @description 二期：关联就诊（docs/20 S5） */
+            visit_id?: number;
         };
         "yaofang_internal_service.PrescriptionItemInput": {
+            /** @description 分批组（口服组/输液组1 等） */
+            batch_group?: string;
             days?: number;
             drug_id?: number;
             frequency?: string;
@@ -5654,6 +6291,8 @@ export interface components {
             is_split?: boolean;
             /** @description LDU（拆零单位） */
             quantity?: number;
+            /** @description 给药途径（docs/17 P3） */
+            route?: string;
             /** @description 拆零单位 */
             single_dose?: number;
             /** @description 拆零单位 */
@@ -5693,6 +6332,15 @@ export interface components {
             inventory_id?: number;
             /** @description 行口径数量 */
             quantity?: number;
+        };
+        "yaofang_internal_service.VisitInput": {
+            department?: string;
+            doctor_id?: number;
+            doctor_name?: string;
+            patient_id: number;
+            remarks?: string;
+            /** @description 默认 outpatient */
+            visit_type?: string;
         };
     };
     responses: never;

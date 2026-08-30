@@ -41,6 +41,18 @@ definitions:
     - new_password
     - old_password
     type: object
+  internal_handler.chargeCreateRequest:
+    properties:
+      discount:
+        description: 优惠金额（分），默认 0
+        type: integer
+    type: object
+  internal_handler.chargePayRequest:
+    properties:
+      paid_amount:
+        description: 实收金额（分），默认=应收
+        type: integer
+    type: object
   internal_handler.createOrderRequest:
     properties:
       expected_at:
@@ -173,6 +185,13 @@ definitions:
     required:
     - status
     type: object
+  internal_handler.settingUpdateRequest:
+    properties:
+      value:
+        type: string
+    required:
+    - value
+    type: object
   internal_handler.splitRequest:
     properties:
       inventory_id:
@@ -255,6 +274,7 @@ definitions:
       role:
         type: string
       status:
+        description: 指针：区分「未传」与「显式停用(0)」
         type: integer
     type: object
   internal_handler.verifyOrderRequest:
@@ -472,7 +492,7 @@ definitions:
       updated_at:
         type: string
       vbp_batch:
-        description: 集采批次（集采目录匹配）
+        description: 集采批次（集采目录匹配）；字段名 VPBBatch 会被 GORM 误转为 vpb_batch，故显式指定列名
         type: integer
     type: object
   yaofang_internal_model.DrugCategory:
@@ -754,6 +774,46 @@ definitions:
       item_id:
         type: integer
     type: object
+  yaofang_internal_service.MedicalRecordDiagnosisIn:
+    properties:
+      diagnosis_code:
+        type: string
+      diagnosis_name:
+        type: string
+      is_primary:
+        type: boolean
+      sort_order:
+        type: integer
+    required:
+    - diagnosis_code
+    type: object
+  yaofang_internal_service.MedicalRecordInput:
+    properties:
+      chief_complaint:
+        type: string
+      diagnoses:
+        items:
+          $ref: '#/definitions/yaofang_internal_service.MedicalRecordDiagnosisIn'
+        type: array
+      diagnosis:
+        type: string
+      diagnosis_code:
+        type: string
+      diastolic_pressure:
+        type: integer
+      past_history:
+        type: string
+      physical_exam:
+        type: string
+      present_illness:
+        type: string
+      pulse:
+        type: integer
+      systolic_pressure:
+        type: integer
+      temperature:
+        type: number
+    type: object
   yaofang_internal_service.POItemInput:
     properties:
       drug_id:
@@ -801,9 +861,18 @@ definitions:
         type: integer
       remarks:
         type: string
+      source:
+        description: 处方来源（manual/outpatient/inpatient/refill，docs/20 S5）
+        type: string
+      visit_id:
+        description: 二期：关联就诊（docs/20 S5）
+        type: integer
     type: object
   yaofang_internal_service.PrescriptionItemInput:
     properties:
+      batch_group:
+        description: 分批组（口服组/输液组1 等）
+        type: string
       days:
         type: integer
       drug_id:
@@ -816,6 +885,9 @@ definitions:
       quantity:
         description: LDU（拆零单位）
         type: integer
+      route:
+        description: 给药途径（docs/17 P3）
+        type: string
       single_dose:
         description: 拆零单位
         type: integer
@@ -882,6 +954,24 @@ definitions:
       quantity:
         description: 行口径数量
         type: integer
+    type: object
+  yaofang_internal_service.VisitInput:
+    properties:
+      department:
+        type: string
+      doctor_id:
+        type: integer
+      doctor_name:
+        type: string
+      patient_id:
+        type: integer
+      remarks:
+        type: string
+      visit_type:
+        description: 默认 outpatient
+        type: string
+    required:
+    - patient_id
     type: object
 host: localhost:8080
 info:
@@ -1228,6 +1318,109 @@ paths:
       summary: 从已发药处方生成计费记录（幂等）
       tags:
       - charge-records
+  /charges:
+    get:
+      parameters:
+      - description: 患者ID
+        in: query
+        name: patient_id
+        type: integer
+      - description: 就诊ID
+        in: query
+        name: visit_id
+        type: integer
+      - description: 状态 pending/paid/refunded
+        in: query
+        name: status
+        type: string
+      - description: 开始时间
+        in: query
+        name: start
+        type: string
+      - description: 结束时间
+        in: query
+        name: end
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: page_size
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 结算单列表
+      tags:
+      - charges
+  /charges/{id}:
+    get:
+      parameters:
+      - description: 结算单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 结算单详情（含明细）
+      tags:
+      - charges
+  /charges/{id}/pay:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 结算单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 收费参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.chargePayRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 收费（pending→paid）
+      tags:
+      - charges
+  /charges/{id}/refund:
+    post:
+      parameters:
+      - description: 结算单ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 退费（paid→refunded）
+      tags:
+      - charges
   /class-interactions:
     get:
       parameters:
@@ -2692,6 +2885,14 @@ paths:
         in: query
         name: keyword
         type: string
+      - description: 开始时间
+        in: query
+        name: start
+        type: string
+      - description: 结束时间
+        in: query
+        name: end
+        type: string
       - description: 页码
         in: query
         name: page
@@ -3910,6 +4111,44 @@ paths:
       summary: 更新供应商
       tags:
       - suppliers
+  /system-settings:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 系统设置列表（默认诊费配置）
+      tags:
+      - system-settings
+  /system-settings/{key}:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 设置键（default_registration_fee/default_consultation_fee）
+        in: path
+        name: key
+        required: true
+        type: string
+      - description: 设置值
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.settingUpdateRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 更新系统设置
+      tags:
+      - system-settings
   /tag-interactions:
     get:
       parameters:
@@ -4090,6 +4329,208 @@ paths:
       summary: 更新用户
       tags:
       - auth
+  /visits:
+    get:
+      parameters:
+      - description: 患者ID
+        in: query
+        name: patient_id
+        type: integer
+      - description: 医生ID
+        in: query
+        name: doctor_id
+        type: integer
+      - description: 状态 waiting/visiting/finished/cancelled
+        in: query
+        name: status
+        type: string
+      - description: 开始时间
+        in: query
+        name: start
+        type: string
+      - description: 结束时间
+        in: query
+        name: end
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: page_size
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 就诊列表
+      tags:
+      - visits
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 挂号信息
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/yaofang_internal_service.VisitInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 挂号/分诊
+      tags:
+      - visits
+  /visits/{id}:
+    get:
+      parameters:
+      - description: 就诊ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 就诊详情
+      tags:
+      - visits
+  /visits/{id}/cancel:
+    post:
+      parameters:
+      - description: 就诊ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 退号（waiting→cancelled）
+      tags:
+      - visits
+  /visits/{id}/charge:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 就诊ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 结算参数
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.chargeCreateRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 按就诊生成合并结算单（聚合药费+诊疗项目费）
+      tags:
+      - charges
+  /visits/{id}/finish:
+    post:
+      parameters:
+      - description: 就诊ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 结束就诊（visiting→finished）
+      tags:
+      - visits
+  /visits/{id}/medical-record:
+    get:
+      parameters:
+      - description: 就诊ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 就诊病历详情
+      tags:
+      - medical-records
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 就诊ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 病历
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/yaofang_internal_service.MedicalRecordInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 保存就诊病历（一就诊一病历，可反复保存；含多诊断）
+      tags:
+      - medical-records
+  /visits/{id}/start:
+    post:
+      parameters:
+      - description: 就诊ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 接诊（waiting→visiting）
+      tags:
+      - visits
 securityDefinitions:
   BearerAuth:
     in: header

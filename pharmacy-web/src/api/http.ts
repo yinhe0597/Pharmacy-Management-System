@@ -29,19 +29,46 @@ instance.interceptors.response.use(
     if (axios.isCancel(error)) {
       return Promise.reject(error)
     }
-    ElMessage.error(error?.message ?? '网络异常，请重试')
+    // HTTP 层 401/403：后端鉴权失败返回非 2xx（code 9002），必须走 error 拦截器
+    const status = error?.response?.status
+    if (status === 401) {
+      handleUnauthorized()
+      return Promise.reject(error)
+    }
+    const msg = error?.response?.data?.message ?? error?.message ?? '网络异常，请重试'
+    if (status === 403) {
+      ElMessage.error(typeof msg === 'string' && msg ? msg : '无权限执行该操作')
+      return Promise.reject(error)
+    }
+    ElMessage.error(typeof msg === 'string' && msg ? msg : '网络异常，请重试')
     return Promise.reject(error)
   },
 )
 
 function handleError(code: number, message: string): void {
   if (code === 9002) {
-    clearToken()
-    ElMessage.error('登录已失效，请重新登录')
-    window.location.href = '/login'
+    handleUnauthorized()
     return
   }
   ElMessage.error(message || '操作失败')
+}
+
+// 登录失效统一处理：清 token 并跳转登录页（携带回跳地址），并发 401 只提示一次
+let redirectingToLogin = false
+
+function handleUnauthorized(): void {
+  clearToken()
+  if (redirectingToLogin) {
+    return
+  }
+  redirectingToLogin = true
+  ElMessage.error('登录已失效，请重新登录')
+  const current = window.location.pathname + window.location.search
+  const target =
+    current.startsWith('/login') || current === '/'
+      ? '/login'
+      : `/login?redirect=${encodeURIComponent(current)}`
+  window.location.href = target
 }
 
 // 请求取消池：路由切换时统一 abort，避免旧请求覆盖新页面数据（docs/19）

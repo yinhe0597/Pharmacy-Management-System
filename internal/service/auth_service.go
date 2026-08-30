@@ -27,6 +27,8 @@ func NewAuthService(db *gorm.DB, jwt *auth.Manager) *AuthService {
 }
 
 // Login 校验账号密码并签发 JWT。
+// 先验密码再查停用状态：用户不存在/密码错误/停用等失败信息不对未通过认证者泄露
+// （避免无密码探测账号存在性与状态）。
 func (s *AuthService) Login(ctx context.Context, username, password string) (string, *model.User, error) {
 	u, err := repository.NewUserRepo(s.db).GetByUsername(ctx, username)
 	if err != nil {
@@ -35,11 +37,11 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (str
 		}
 		return "", nil, err
 	}
-	if u.Status != 1 {
-		return "", nil, errs.New(9002, "账号已停用", 403)
-	}
 	if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)); err != nil {
 		return "", nil, errs.ErrBadRequest
+	}
+	if u.Status != 1 {
+		return "", nil, errs.ErrAccountDisabled
 	}
 	token, err := s.jwt.Generate(u.ID, u.Username, u.Name, u.Role)
 	if err != nil {
@@ -105,8 +107,12 @@ func (s *AuthService) CreateUser(ctx context.Context, u *model.User, password st
 }
 
 // UpdateUser 更新用户信息。
-func (s *AuthService) UpdateUser(ctx context.Context, id int64, name, role, phone string, status int, newPassword string) error {
+// status 为指针：nil 表示不修改；传 0/1 显式设置（修复此前传 0 被视为未修改、账号无法停用的问题）。
+func (s *AuthService) UpdateUser(ctx context.Context, id int64, name, role, phone string, status *int, newPassword string) error {
 	if role != "" && !enum.IsValidRole(role) {
+		return errs.ErrBadRequest
+	}
+	if status != nil && *status != 0 && *status != 1 {
 		return errs.ErrBadRequest
 	}
 	u, err := repository.NewUserRepo(s.db).GetByID(ctx, id)
@@ -119,8 +125,8 @@ func (s *AuthService) UpdateUser(ctx context.Context, id int64, name, role, phon
 	u.Name = name
 	u.Role = role
 	u.Phone = phone
-	if status > 0 {
-		u.Status = status
+	if status != nil {
+		u.Status = *status
 	}
 	if newPassword != "" {
 		hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)

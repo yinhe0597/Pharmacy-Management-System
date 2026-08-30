@@ -95,7 +95,8 @@ func (s *InventoryService) requisitionDrugTx(ctx context.Context, tx *gorm.DB, i
 	var items []*model.RequisitionOrderItem
 	remaining := in.Quantity
 	takeFromBatch := func(b model.Inventory, take int64) error {
-		ok, err := invRepo.Deduct(ctx, b.ID, take)
+		// 可用量扣减（排除预占）：领用不得吞掉处方已预占库存
+		ok, err := invRepo.DeductAvailable(ctx, b.ID, take)
 		if err != nil {
 			return err
 		}

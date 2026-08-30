@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 
 	"yaofang/internal/domain/enum"
@@ -301,6 +302,14 @@ func (s *ChargeService) Create(ctx context.Context, visitID int64, discount int6
 	if visit.Status != enum.VisitStatusFinished && visit.Status != enum.VisitStatusVisiting {
 		return nil, errs.ErrVisitState
 	}
+	// 幂等：同一就诊仅允许一张结算单（防重复生成 → 重复收费）
+	var n int64
+	if err := s.db.WithContext(ctx).Model(&model.Charge{}).Where("visit_id = ?", visitID).Count(&n).Error; err != nil {
+		return nil, err
+	}
+	if n > 0 {
+		return nil, errs.ErrChargeExists
+	}
 	lines, err := s.pricer.CalculateBill(ctx, visitID)
 	if err != nil {
 		return nil, err
@@ -329,6 +338,11 @@ func (s *ChargeService) Create(ctx context.Context, visitID int64, discount int6
 	}
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&charge).Error; err != nil {
+			// 并发下撞 charges(visit_id) 唯一索引 → 归一为友好业务错误
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+				return errs.ErrChargeExists
+			}
 			return err
 		}
 		for i, l := range lines {
@@ -435,9 +449,37 @@ func (s *ChargeService) Get(ctx context.Context, id int64) (*model.Charge, error
 	return &c, nil
 }
 
-// Pay 收费：pending → paid。
+// Pay 收费：pending → paid。实收金额必须与应收完全一致（优惠由 discount 体现，杜绝多收/少收）。
 func (s *ChargeService) Pay(ctx context.Context, id int64, paidAmount int64, operator string) error {
-	return s.chargeTransition(ctx, id, enum.ChargeStatusPending, enum.ChargeStatusPaid, paidAmount, operator, "paid_at")
+	// 条件更新内嵌金额校验，天然原子（防「读-判-写」竞态）
+	res := s.db.WithContext(ctx).Model(&model.Charge{}).
+		Where("id = ? AND status = ? AND payable_amount = ?", id, enum.ChargeStatusPending, paidAmount).
+		Updates(map[string]interface{}{
+			"status":        enum.ChargeStatusPaid,
+			"paid_amount":   paidAmount,
+			"paid_at":       time.Now(),
+			"updated_at":    time.Now(),
+			"operator_name": operator,
+		})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		// 区分失败原因：不存在 / 状态冲突 / 金额不符
+		var c model.Charge
+		err := s.db.WithContext(ctx).First(&c, id).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errs.ErrChargeNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if c.Status != enum.ChargeStatusPending {
+			return errs.ErrChargeState
+		}
+		return errs.ErrPaidAmountMismatch
+	}
+	return nil
 }
 
 // Refund 退费：paid → refunded（全额退，写负金额冲正建议走 charge_records 红冲，这里仅状态回退）。

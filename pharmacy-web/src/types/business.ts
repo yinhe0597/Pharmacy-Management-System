@@ -98,6 +98,16 @@ export const PRESCRIPTION_STATUS: Record<string, { label: string; tag: string }>
   cancelled: { label: '已作废', tag: 'info' },
 }
 
+// 处方类型（0=普通，1-5 特殊管制，enum.PrescriptionType）
+export const PRESCRIPTION_TYPES: Record<number, string> = {
+  0: '普通',
+  1: '麻醉',
+  2: '精神一类',
+  3: '精神二类',
+  4: '毒性',
+  5: '放射性',
+}
+
 // 计费项目类型
 export const CHARGE_ITEM_TYPES: Record<string, string> = {
   drug: '药品',

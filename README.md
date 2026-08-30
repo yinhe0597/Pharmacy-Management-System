@@ -91,7 +91,7 @@ make db-up                                   # 需 Docker Compose
 psql -U postgres -h localhost -c "CREATE ROLE yaofang LOGIN PASSWORD 'yaofang123';"
 psql -U postgres -h localhost -c "CREATE DATABASE yaofang OWNER yaofang;"
 
-# 依次执行全部迁移与种子（migrations/NNNNNN_*.up.sql，共 31 个版本）
+# 依次执行全部迁移与种子（migrations/NNNNNN_*.up.sql，共 32 个版本）
 for f in migrations/*.up.sql; do
   echo "== $f"
   psql -U postgres -h localhost -d yaofang -v ON_ERROR_STOP=1 -f "$f"
@@ -155,7 +155,7 @@ yaofang/
 │   ├── middleware/        # 🛡️ JWT、日志、恢复、请求ID
 │   ├── scheduler/         # ⏰ 定时任务
 │   └── pkg/               # 🧰 通用组件（errs/money/pagination/auth）
-├── migrations/            # 📦 golang-migrate SQL 迁移（31 个版本）
+├── migrations/            # 📦 golang-migrate SQL 迁移（32 个版本）
 ├── configs/               # ⚙️ 配置样例
 ├── docs/                  # 📚 开发文档（20 篇）
 ├── scripts/               # 🔧 运维/构建/覆盖率脚本
@@ -205,18 +205,20 @@ yaofang/
 | 二期就诊模块 S1-S5（就诊/病历/合并结算后端 + 处方联动） | ✅ 已交付（联调全通） |
 | 二期就诊模块 S6（前端就诊工作台 + 收费台） | ✅ 已交付 |
 | 管理员能力（默认诊费配置 + 账号/密码管理 + 操作日志筛选） | ✅ 已交付 |
+| 安全与正确性加固（登录限速/停用即时失效/重复红冲与重复计费防护/质检闭环/退药单位口径修复） | ✅ 已交付并实测 |
 | 二期就诊模块规划（docs/20） | 📋 S7 报表待实施 |
 
-> 迁移至 `000030`，共 **31 个版本**；质量门禁：`go build` / `go vet` / `go test` / `gofmt` / `golangci-lint` 全绿 ✅
+> 迁移至 `000031`，共 **32 个版本**；质量门禁：`go build` / `go vet` / `go test` / `gofmt` / `golangci-lint` 全绿 ✅
 
 ### 🗺️ 路线图
 
 - ✅ **P0** 正确性/合规/安全：RBAC、退回医生死路、双人核对、参考数据接线
 - ✅ **P1** 功能补强：患者档案、计费闭环、目录匹配、拆零单/统计、预警闭环
 - ✅ **P2** 工程化：lint/覆盖率门槛、docker-compose、测试补强
-- ✅ **前端联调实测**：本地 PG16 全量迁移 + HTTP 冒烟 18 步全通 + 集成测试全绿
-- ✅ **二期就诊模块后端**：S1 迁移（visits/medical_records(+diagnoses)/charges(+items)）+ S2 就诊域 + S3 病历域 + S4 结算域（`CalculateBill` 合并计价）+ S5 处方联动（`visit_id`/`source`）；二期冒烟 24 步全通
+- ✅ **前端联调实测**：本地 PG16 全量迁移 + HTTP 冒烟（15 项检查）全通 + 集成测试全绿
+- ✅ **二期就诊模块后端**：S1 迁移（visits/medical_records(+diagnoses)/charges(+items)）+ S2 就诊域 + S3 病历域 + S4 结算域（`CalculateBill` 合并计价）+ S5 处方联动（`visit_id`/`source`）；二期冒烟（18 项检查）全通
 - ✅ **二期就诊模块前端**：S6 就诊工作台（挂号/接诊/退号/病历/结算）+ 收费台（明细/收费/退费）页面
+- ✅ **安全与正确性加固**：登录限速/停用复查/JWT 密钥校验、重复红冲与重复计费防护、领用不吞预占、退药单位口径修复、质检闭环、结算单幂等（000031 唯一索引）、库存调拨/流水/预警前端补齐
 - 🔭 **二期**：S7 合并结算报表、前端部署（Nginx 反代）
 
 ---

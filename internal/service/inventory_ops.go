@@ -150,7 +150,9 @@ func (s *InventoryService) AdjustStocktake(ctx context.Context, id int64, operat
 		for _, it := range items {
 			diff := it.CountedQuantity - it.BookQuantity
 			if diff == 0 {
-				_ = itemRepo.MarkAdjusted(ctx, it.ID)
+				if err := itemRepo.MarkAdjusted(ctx, it.ID); err != nil {
+					return err
+				}
 				continue
 			}
 			inv, err := invRepo.LockForUpdate(ctx, it.InventoryID)

@@ -93,10 +93,16 @@ func (r *ChargeRecordRepo) GetByID(ctx context.Context, id int64) (*model.Charge
 	return &cr, nil
 }
 
-// MarkVoided 标记红冲（docs/15 G5）。
-func (r *ChargeRecordRepo) MarkVoided(ctx context.Context, id int64) error {
-	return r.db.WithContext(ctx).Model(&model.ChargeRecord{}).Where("id = ?", id).
-		UpdateColumn("voided", true).Error
+// MarkVoided 标记红冲（docs/15 G5）：仅未红冲单可标记，返回是否成功。
+// 条件更新保证并发下只有一个请求能红冲成功（防重复红冲产生多张负冲正单）。
+func (r *ChargeRecordRepo) MarkVoided(ctx context.Context, id int64) (bool, error) {
+	res := r.db.WithContext(ctx).Model(&model.ChargeRecord{}).
+		Where("id = ? AND voided = FALSE", id).
+		UpdateColumn("voided", true)
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected > 0, nil
 }
 
 // CountByRef 统计某来源单据已产生的计费记录数（用于幂等去重）。

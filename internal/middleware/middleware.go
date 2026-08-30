@@ -2,6 +2,7 @@
 package middleware
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"log/slog"
@@ -76,8 +77,13 @@ func Recover() gin.HandlerFunc {
 	}
 }
 
+// UserStatusChecker 用户状态复查器（由 server 层注入仓储实现，中间件不直接依赖 DB）。
+// 返回非 nil 表示拒绝访问（账号停用/删除等）。
+type UserStatusChecker func(ctx context.Context, userID int64) error
+
 // Auth JWT 鉴权中间件。
-func Auth(jwt *auth.Manager) gin.HandlerFunc {
+// statusCheck 非 nil 时，对每个请求复查签发用户当前状态（token TTL 内停用/删除的账号立即失效）。
+func Auth(jwt *auth.Manager, statusCheck UserStatusChecker) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenStr := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
 		if tokenStr == "" {
@@ -92,6 +98,14 @@ func Auth(jwt *auth.Manager) gin.HandlerFunc {
 				"code": errs.ErrUnauthorized.Code, "message": errs.ErrUnauthorized.Message, "data": nil,
 			})
 			return
+		}
+		if statusCheck != nil {
+			if err := statusCheck(c.Request.Context(), claims.UserID); err != nil {
+				c.AbortWithStatusJSON(errs.ErrUnauthorized.HTTP, gin.H{
+					"code": errs.ErrUnauthorized.Code, "message": errs.ErrUnauthorized.Message, "data": nil,
+				})
+				return
+			}
 		}
 		c.Set(ctxKeyUserID, claims.UserID)
 		c.Set(ctxKeyUserName, claims.Name)

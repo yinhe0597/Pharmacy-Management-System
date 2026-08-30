@@ -17,7 +17,7 @@ func newTestRouter() (*gin.Engine, *auth.Manager) {
 	mgr := auth.NewManager("test-secret-for-rbac", time.Hour)
 	r := gin.New()
 	// 受保护路由：仅 admin/pharmacist 可访问
-	r.GET("/protected", Auth(mgr), RequireRoles("admin", "pharmacist"),
+	r.GET("/protected", Auth(mgr, nil), RequireRoles("admin", "pharmacist"),
 		func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"ok": true}) })
 	return r, mgr
 }

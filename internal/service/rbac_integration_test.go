@@ -11,10 +11,25 @@ import (
 	"testing"
 	"time"
 
+	"gorm.io/gorm"
+
 	"yaofang/internal/config"
+	"yaofang/internal/model"
 	"yaofang/internal/pkg/auth"
 	"yaofang/internal/server"
 )
+
+// seedRBACUsers 预置测试用户（Auth 中间件会复查签发用户状态，token 中的用户必须真实存在且启用）。
+func seedRBACUsers(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	users := []model.User{
+		{ID: 1001, Username: "rbac_clinic_nurse", Name: "跟诊护士", Role: "clinic_nurse", Status: 1},
+		{ID: 1002, Username: "rbac_pharmacy_nurse", Name: "药房护士", Role: "pharmacy_nurse", Status: 1},
+	}
+	for i := range users {
+		db.Where("id = ?", users[i].ID).Assign(users[i]).FirstOrCreate(&users[i])
+	}
+}
 
 func doJSON(t *testing.T, router http.Handler, method, path, token, body string) *httptest.ResponseRecorder {
 	t.Helper()
@@ -36,6 +51,7 @@ func doJSON(t *testing.T, router http.Handler, method, path, token, body string)
 // TestNurseRoleRBAC 跟诊护士可建档患者但不可领用耗材；药房护士相反。
 func TestNurseRoleRBAC(t *testing.T) {
 	db := setupTestDB(t)
+	seedRBACUsers(t, db)
 	cfg, err := config.Load()
 	if err != nil {
 		t.Fatalf("加载配置失败: %v", err)

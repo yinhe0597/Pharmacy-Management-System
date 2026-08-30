@@ -15,18 +15,23 @@ import (
 
 // AuthHandler 用户与鉴权接口。
 type AuthHandler struct {
-	svc    *service.AuthService
-	logSvc *service.OperationLogService
+	svc       *service.AuthService
+	logSvc    *service.OperationLogService
+	loginRate gin.HandlerFunc // 登录限速中间件（可为 nil，测试场景）
 }
 
 // NewAuthHandler 构建鉴权 Handler。
-func NewAuthHandler(svc *service.AuthService, logSvc *service.OperationLogService) *AuthHandler {
-	return &AuthHandler{svc: svc, logSvc: logSvc}
+func NewAuthHandler(svc *service.AuthService, logSvc *service.OperationLogService, loginRate gin.HandlerFunc) *AuthHandler {
+	return &AuthHandler{svc: svc, logSvc: logSvc, loginRate: loginRate}
 }
 
 // Register 注册路由。
 func (h *AuthHandler) Register(g Groups) {
-	g.Public.POST("/auth/login", h.Login)
+	if h.loginRate != nil {
+		g.Public.POST("/auth/login", h.loginRate, h.Login)
+	} else {
+		g.Public.POST("/auth/login", h.Login)
+	}
 	g.Authed.POST("/auth/logout", h.Logout)
 	g.Authed.GET("/auth/profile", h.Profile)
 	g.Authed.PUT("/auth/password", h.ChangePassword)
@@ -219,7 +224,7 @@ type updateUserRequest struct {
 	Name     string `json:"name"`
 	Role     string `json:"role"`
 	Phone    string `json:"phone"`
-	Status   int    `json:"status"`
+	Status   *int   `json:"status"` // 指针：区分「未传」与「显式停用(0)」
 	Password string `json:"password"`
 }
 

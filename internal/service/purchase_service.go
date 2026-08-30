@@ -231,6 +231,14 @@ func (s *PurchaseService) CompleteReceipt(ctx context.Context, receiptID int64, 
 			qcFailed = true
 			return nil // 提交状态变更
 		}
+		// 存在未质检项（qc_result 未登记）时禁止入库：缺省 0 不得视同合格
+		uninspected, err := repository.NewReceiptItemRepo(tx).HasUninspected(ctx, receiptID)
+		if err != nil {
+			return err
+		}
+		if uninspected {
+			return errs.ErrQCNotComplete
+		}
 		return nil
 	}); err != nil {
 		return err

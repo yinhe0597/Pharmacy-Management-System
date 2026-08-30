@@ -109,7 +109,10 @@ func (s *InventoryService) Requisition(ctx context.Context, drugID, locationID, 
 		if err != nil {
 			return err
 		}
-		splitBatches, _ := invRepo.FindAvailableForDispenseUnit(ctx, drugID, locationID, true, todayNow())
+		splitBatches, err := invRepo.FindAvailableForDispenseUnit(ctx, drugID, locationID, true, todayNow())
+		if err != nil {
+			return err
+		}
 		batches = append(batches, splitBatches...)
 
 		remaining := quantity
@@ -125,7 +128,8 @@ func (s *InventoryService) Requisition(ctx context.Context, drugID, locationID, 
 			if take > avail {
 				take = avail
 			}
-			ok, err := invRepo.Deduct(ctx, batches[i].ID, take)
+			// 可用量扣减（排除预占）：领用不得吞掉处方已预占库存
+			ok, err := invRepo.DeductAvailable(ctx, batches[i].ID, take)
 			if err != nil {
 				return err
 			}

@@ -563,6 +563,173 @@
                 }
             }
         },
+        "/charges": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "charges"
+                ],
+                "summary": "结算单列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "患者ID",
+                        "name": "patient_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "就诊ID",
+                        "name": "visit_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态 pending/paid/refunded",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "开始时间",
+                        "name": "start",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间",
+                        "name": "end",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/charges/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "charges"
+                ],
+                "summary": "结算单详情（含明细）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "结算单ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/charges/{id}/pay": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "charges"
+                ],
+                "summary": "收费（pending→paid）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "结算单ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "收费参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.chargePayRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/charges/{id}/refund": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "charges"
+                ],
+                "summary": "退费（paid→refunded）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "结算单ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
         "/class-interactions": {
             "get": {
                 "security": [
@@ -2971,6 +3138,18 @@
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "开始时间",
+                        "name": "start",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间",
+                        "name": "end",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "description": "页码",
                         "name": "page",
@@ -4955,6 +5134,69 @@
                 }
             }
         },
+        "/system-settings": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "system-settings"
+                ],
+                "summary": "系统设置列表（默认诊费配置）",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/system-settings/{key}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system-settings"
+                ],
+                "summary": "更新系统设置",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "设置键（default_registration_fee/default_consultation_fee）",
+                        "name": "key",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "设置值",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.settingUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
         "/tag-interactions": {
             "get": {
                 "security": [
@@ -5248,6 +5490,336 @@
                     }
                 }
             }
+        },
+        "/visits": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "visits"
+                ],
+                "summary": "就诊列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "患者ID",
+                        "name": "patient_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "医生ID",
+                        "name": "doctor_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "状态 waiting/visiting/finished/cancelled",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "开始时间",
+                        "name": "start",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间",
+                        "name": "end",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页条数",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "visits"
+                ],
+                "summary": "挂号/分诊",
+                "parameters": [
+                    {
+                        "description": "挂号信息",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/yaofang_internal_service.VisitInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/visits/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "visits"
+                ],
+                "summary": "就诊详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "就诊ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/visits/{id}/cancel": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "visits"
+                ],
+                "summary": "退号（waiting→cancelled）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "就诊ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/visits/{id}/charge": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "charges"
+                ],
+                "summary": "按就诊生成合并结算单（聚合药费+诊疗项目费）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "就诊ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "结算参数",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.chargeCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/visits/{id}/finish": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "visits"
+                ],
+                "summary": "结束就诊（visiting→finished）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "就诊ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/visits/{id}/medical-record": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "medical-records"
+                ],
+                "summary": "就诊病历详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "就诊ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "medical-records"
+                ],
+                "summary": "保存就诊病历（一就诊一病历，可反复保存；含多诊断）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "就诊ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "病历",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/yaofang_internal_service.MedicalRecordInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/visits/{id}/start": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "visits"
+                ],
+                "summary": "接诊（waiting→visiting）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "就诊ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.Body"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -5310,6 +5882,24 @@
                 },
                 "old_password": {
                     "type": "string"
+                }
+            }
+        },
+        "internal_handler.chargeCreateRequest": {
+            "type": "object",
+            "properties": {
+                "discount": {
+                    "description": "优惠金额（分），默认 0",
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_handler.chargePayRequest": {
+            "type": "object",
+            "properties": {
+                "paid_amount": {
+                    "description": "实收金额（分），默认=应收",
+                    "type": "integer"
                 }
             }
         },
@@ -5509,6 +6099,17 @@
                 }
             }
         },
+        "internal_handler.settingUpdateRequest": {
+            "type": "object",
+            "required": [
+                "value"
+            ],
+            "properties": {
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
         "internal_handler.splitRequest": {
             "type": "object",
             "required": [
@@ -5630,6 +6231,7 @@
                     "type": "string"
                 },
                 "status": {
+                    "description": "指针：区分「未传」与「显式停用(0)」",
                     "type": "integer"
                 }
             }
@@ -5956,7 +6558,7 @@
                     "type": "string"
                 },
                 "vbp_batch": {
-                    "description": "集采批次（集采目录匹配）",
+                    "description": "集采批次（集采目录匹配）；字段名 VPBBatch 会被 GORM 误转为 vpb_batch，故显式指定列名",
                     "type": "integer"
                 }
             }
@@ -6381,6 +6983,67 @@
                 }
             }
         },
+        "yaofang_internal_service.MedicalRecordDiagnosisIn": {
+            "type": "object",
+            "required": [
+                "diagnosis_code"
+            ],
+            "properties": {
+                "diagnosis_code": {
+                    "type": "string"
+                },
+                "diagnosis_name": {
+                    "type": "string"
+                },
+                "is_primary": {
+                    "type": "boolean"
+                },
+                "sort_order": {
+                    "type": "integer"
+                }
+            }
+        },
+        "yaofang_internal_service.MedicalRecordInput": {
+            "type": "object",
+            "properties": {
+                "chief_complaint": {
+                    "type": "string"
+                },
+                "diagnoses": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/yaofang_internal_service.MedicalRecordDiagnosisIn"
+                    }
+                },
+                "diagnosis": {
+                    "type": "string"
+                },
+                "diagnosis_code": {
+                    "type": "string"
+                },
+                "diastolic_pressure": {
+                    "type": "integer"
+                },
+                "past_history": {
+                    "type": "string"
+                },
+                "physical_exam": {
+                    "type": "string"
+                },
+                "present_illness": {
+                    "type": "string"
+                },
+                "pulse": {
+                    "type": "integer"
+                },
+                "systolic_pressure": {
+                    "type": "integer"
+                },
+                "temperature": {
+                    "type": "number"
+                }
+            }
+        },
         "yaofang_internal_service.POItemInput": {
             "type": "object",
             "properties": {
@@ -6448,12 +7111,24 @@
                 },
                 "remarks": {
                     "type": "string"
+                },
+                "source": {
+                    "description": "处方来源（manual/outpatient/inpatient/refill，docs/20 S5）",
+                    "type": "string"
+                },
+                "visit_id": {
+                    "description": "二期：关联就诊（docs/20 S5）",
+                    "type": "integer"
                 }
             }
         },
         "yaofang_internal_service.PrescriptionItemInput": {
             "type": "object",
             "properties": {
+                "batch_group": {
+                    "description": "分批组（口服组/输液组1 等）",
+                    "type": "string"
+                },
                 "days": {
                     "type": "integer"
                 },
@@ -6470,6 +7145,10 @@
                 "quantity": {
                     "description": "LDU（拆零单位）",
                     "type": "integer"
+                },
+                "route": {
+                    "description": "给药途径（docs/17 P3）",
+                    "type": "string"
                 },
                 "single_dose": {
                     "description": "拆零单位",
@@ -6568,6 +7247,33 @@
                 "quantity": {
                     "description": "行口径数量",
                     "type": "integer"
+                }
+            }
+        },
+        "yaofang_internal_service.VisitInput": {
+            "type": "object",
+            "required": [
+                "patient_id"
+            ],
+            "properties": {
+                "department": {
+                    "type": "string"
+                },
+                "doctor_id": {
+                    "type": "integer"
+                },
+                "doctor_name": {
+                    "type": "string"
+                },
+                "patient_id": {
+                    "type": "integer"
+                },
+                "remarks": {
+                    "type": "string"
+                },
+                "visit_type": {
+                    "description": "默认 outpatient",
+                    "type": "string"
                 }
             }
         }

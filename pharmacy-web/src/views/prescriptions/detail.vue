@@ -191,16 +191,10 @@ import {
 import { chargePrescription } from '@/api/billing'
 import StatusTag from '@/components/StatusTag.vue'
 import MoneyText from '@/components/MoneyText.vue'
-import { PRESCRIPTION_STATUS } from '@/types/business'
+import { PRESCRIPTION_STATUS, PRESCRIPTION_TYPES } from '@/types/business'
 import type { PrescriptionDetail } from '@/types/entities'
 
-const PRESCRIPTION_TYPE: Record<number, string> = {
-  1: '麻醉',
-  2: '精神一类',
-  3: '精神二类',
-  4: '毒性',
-  5: '放射性',
-}
+const PRESCRIPTION_TYPE = PRESCRIPTION_TYPES
 const ROUTE_LABEL: Record<string, string> = {
   oral: '口服',
   external: '外用',

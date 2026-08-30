@@ -4,12 +4,14 @@ package pricing
 import (
 	"context"
 	"strconv"
+	"time"
 
 	"gorm.io/gorm"
 
 	"yaofang/internal/domain/enum"
 	"yaofang/internal/model"
 	"yaofang/internal/pkg/errs"
+	"yaofang/internal/pkg/money"
 	"yaofang/internal/service/port"
 )
 
@@ -58,7 +60,8 @@ func (s *SimplePricingService) CalculateBill(ctx context.Context, visitID int64)
 	lines := make([]port.PriceLine, 0, 8)
 	lineNo := 1
 
-	// ① 处方药费（已发药处方的明细快照，含退药后的净额=Amount 已按 ReturnedQuantity 回算？按快照价计）
+	// ① 处方药费（已发药处方的明细快照）：部分退药按 ReturnedQuantity 回算净额，
+	// 快照金额 Amount 与退回部分金额同口径（money.ItemAmount，docs/13 §4.3）
 	var prescs []model.Prescription
 	if err := s.db.WithContext(ctx).Where("visit_id = ? AND status = ?", visitID, "dispensed").Find(&prescs).Error; err != nil {
 		return nil, err
@@ -69,23 +72,36 @@ func (s *SimplePricingService) CalculateBill(ctx context.Context, visitID int64)
 			return nil, err
 		}
 		for _, it := range items {
+			returned := it.ReturnedQuantity
+			netQty := it.Quantity - returned
+			if netQty <= 0 {
+				continue // 已全部退回，不计费
+			}
+			netAmount := it.Amount - money.ItemAmount(it.IsSplit, it.IsSplitAllowed, it.PackSize, it.UnitPrice, it.RetailPrice, returned)
 			lines = append(lines, port.PriceLine{
 				LineNo:    lineNo,
 				ItemType:  enum.ChargeItemTypeDrug,
 				RefID:     it.DrugID,
-				Quantity:  it.Quantity,
+				Quantity:  netQty,
 				UnitPrice: it.UnitPrice,
-				Amount:    it.Amount,
+				Amount:    netAmount,
 			})
 			lineNo++
 		}
 	}
 
-	// ② 诊疗项目/耗材计费记录（就诊患者、未红冲；period 取就诊时间窗口）
+	// ② 诊疗项目/耗材计费记录：限定「本次就诊时间窗口」（挂号 → 结束，未结束取当前时间），
+	// 避免把患者既往就诊的未红冲记录重复并入本次结算
+	windowEnd := time.Now()
+	if visit.FinishedAt != nil {
+		windowEnd = *visit.FinishedAt
+	}
 	var crs []model.ChargeRecord
 	if err := s.db.WithContext(ctx).
-		Where("patient_id = ? AND item_type IN ? AND voided = false", visit.PatientID,
-			[]string{enum.ChargeItemTypeClinicalService, enum.ChargeItemTypeConsumable}).
+		Where("patient_id = ? AND item_type IN ? AND voided = false AND created_at >= ? AND created_at <= ?",
+			visit.PatientID,
+			[]string{enum.ChargeItemTypeClinicalService, enum.ChargeItemTypeConsumable},
+			visit.RegisteredAt, windowEnd).
 		Find(&crs).Error; err != nil {
 		return nil, err
 	}
