@@ -2,13 +2,15 @@
 
 # 💊 药房管理系统
 
-**Go + PostgreSQL 驱动的药房进销存与处方调配后端**
+**Go + Vue3 全栈药房管理系统——进销存 · 处方调配 · 二期就诊 · Docker 一键部署**
 
-模块化单体架构 · 一期独立运行 · 二期预留诊疗模块无缝扩展
+模块化单体架构 · 全栈交付（Vue3 + ECharts）· 容器化一键部署 · 二期诊疗无缝扩展
 
 ![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat-square&logo=go&logoColor=white)
+![Vue3](https://img.shields.io/badge/Vue3-4FC08D?style=flat-square&logo=vuedotjs&logoColor=white)
 ![Gin](https://img.shields.io/badge/Gin-Web%20Framework-00ADD8?style=flat-square&logo=go&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-336791?style=flat-square&logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-一键部署-2496ED?style=flat-square&logo=docker&logoColor=white)
 ![GORM](https://img.shields.io/badge/GORM-ORM-2e8b57?style=flat-square)
 ![Swagger](https://img.shields.io/badge/Swagger-REST%20API-85EA2D?style=flat-square&logo=swagger&logoColor=black)
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen?style=flat-square)
