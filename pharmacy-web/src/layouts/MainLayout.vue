@@ -6,7 +6,7 @@
         :default-active="activePath"
         router
         background-color="#001529"
-        text-color="#rgba(255,255,255,0.7)"
+        text-color="rgba(255,255,255,0.7)"
         active-text-color="#fff"
       >
         <el-menu-item v-for="item in visibleMenu" :key="item.path" :index="item.path">
@@ -26,7 +26,8 @@
           </span>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="logout">退出登录</el-dropdown-item>
+              <el-dropdown-item command="profile">个人中心</el-dropdown-item>
+              <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
@@ -61,7 +62,9 @@ const visibleMenu = computed(() => {
 })
 
 async function onCommand(cmd: string) {
-  if (cmd === 'logout') {
+  if (cmd === 'profile') {
+    router.push('/profile')
+  } else if (cmd === 'logout') {
     store.clear()
     ElMessage.success('已退出登录')
     router.push('/login')

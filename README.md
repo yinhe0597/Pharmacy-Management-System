@@ -91,7 +91,7 @@ make db-up                                   # 需 Docker Compose
 psql -U postgres -h localhost -c "CREATE ROLE yaofang LOGIN PASSWORD 'yaofang123';"
 psql -U postgres -h localhost -c "CREATE DATABASE yaofang OWNER yaofang;"
 
-# 依次执行全部迁移与种子（migrations/NNNNNN_*.up.sql，共 32 个版本）
+# 依次执行全部迁移与种子（migrations/NNNNNN_*.up.sql，共 33 个版本）
 for f in migrations/*.up.sql; do
   echo "== $f"
   psql -U postgres -h localhost -d yaofang -v ON_ERROR_STOP=1 -f "$f"
@@ -155,7 +155,7 @@ yaofang/
 │   ├── middleware/        # 🛡️ JWT、日志、恢复、请求ID
 │   ├── scheduler/         # ⏰ 定时任务
 │   └── pkg/               # 🧰 通用组件（errs/money/pagination/auth）
-├── migrations/            # 📦 golang-migrate SQL 迁移（32 个版本）
+├── migrations/            # 📦 golang-migrate SQL 迁移（33 个版本）
 ├── configs/               # ⚙️ 配置样例
 ├── docs/                  # 📚 开发文档（20 篇）
 ├── scripts/               # 🔧 运维/构建/覆盖率脚本
@@ -208,7 +208,7 @@ yaofang/
 | 安全与正确性加固（登录限速/停用即时失效/重复红冲与重复计费防护/质检闭环/退药单位口径修复） | ✅ 已交付并实测 |
 | 二期就诊模块规划（docs/20） | 📋 S7 报表待实施 |
 
-> 迁移至 `000031`，共 **32 个版本**；质量门禁：`go build` / `go vet` / `go test` / `gofmt` / `golangci-lint` 全绿 ✅
+> 迁移至 `000032`，共 **33 个版本**；质量门禁：`go build` / `go vet` / `go test` / `gofmt` / `golangci-lint` 全绿 ✅
 
 ### 🗺️ 路线图
 

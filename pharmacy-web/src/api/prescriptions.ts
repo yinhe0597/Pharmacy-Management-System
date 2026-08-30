@@ -67,3 +67,8 @@ export function returnPrescription(
 export function cancelPrescription(id: number) {
   return http.post(`/prescriptions/${id}/cancel`)
 }
+
+// 审计日志（流转全记录）
+export function getAuditLog(id: number) {
+  return http.get(`/prescriptions/${id}/audit-log`)
+}

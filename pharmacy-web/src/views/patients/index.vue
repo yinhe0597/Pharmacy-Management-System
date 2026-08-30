@@ -25,6 +25,13 @@
             ><el-tag v-if="row.is_lactating" type="warning" size="small">哺乳期</el-tag></template
           >
         </el-table-column>
+        <el-table-column label="操作" width="90" fixed="right">
+          <template #default="{ row }">
+            <el-button v-permission="'patient:write'" link type="primary" @click.stop="openEdit(row)"
+              >编辑</el-button
+            >
+          </template>
+        </el-table-column>
       </el-table>
       <el-pagination
         v-model:current-page="query.page"
@@ -36,9 +43,11 @@
       />
     </el-card>
 
-    <el-dialog v-model="createVisible" title="患者建档" width="480px">
+    <el-dialog v-model="createVisible" :title="form.id ? '编辑患者' : '患者建档'" width="480px">
       <el-form label-width="80px">
-        <el-form-item label="卡号" required><el-input v-model="form.card_no" /></el-form-item>
+        <el-form-item label="卡号" required
+          ><el-input v-model="form.card_no" :disabled="!!form.id"
+        /></el-form-item>
         <el-form-item label="姓名" required><el-input v-model="form.name" /></el-form-item>
         <el-form-item label="性别"
           ><el-select v-model="form.gender"
@@ -106,6 +115,7 @@ import {
   listPatients,
   getPatient,
   createPatient,
+  updatePatient,
   listAllergies,
   addAllergy as apiAddAllergy,
   deleteAllergy,
@@ -140,9 +150,27 @@ function openCreate() {
   form.gender = '男'
   createVisible.value = true
 }
+function openEdit(row: any) {
+  Object.keys(form).forEach((k) => delete form[k])
+  Object.assign(form, {
+    id: row.id,
+    card_no: row.card_no,
+    name: row.name,
+    gender: row.gender,
+    age: row.age,
+    phone: row.phone,
+    is_lactating: !!row.is_lactating,
+  })
+  createVisible.value = true
+}
 async function save() {
-  await createPatient(form)
-  ElMessage.success('已建档')
+  if (form.id) {
+    const { id, ...payload } = form
+    await updatePatient(id, payload)
+  } else {
+    await createPatient(form)
+  }
+  ElMessage.success('已保存')
   createVisible.value = false
   load()
 }

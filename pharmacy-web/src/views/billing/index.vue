@@ -16,12 +16,7 @@
               value="consumable"
             /><el-option label="诊疗项目" value="clinical_service" />
           </el-select>
-          <el-input
-            v-model="query.patient_id"
-            placeholder="患者ID"
-            clearable
-            style="width: 110px"
-          />
+          <PatientPicker v-model="query.patient_id" placeholder="患者" style="width: 190px" />
           <el-button type="primary" @click="loadCharges">查询</el-button>
           <el-button v-permission="'charge:write'" type="success" @click="openCreate"
             >手工计费</el-button
@@ -87,14 +82,20 @@
               }}</el-tag></template
             >
           </el-table-column>
-          <el-table-column label="操作" width="100" fixed="right">
+          <el-table-column label="操作" width="160" fixed="right">
             <template #default="{ row }">
+              <el-button v-permission="'drug:write'" link type="primary" @click="openService(row)"
+                >编辑</el-button
+              >
               <el-button
                 v-permission="'drug:write'"
                 link
                 type="warning"
                 @click="toggleService(row)"
                 >{{ row.status === 1 ? '停用' : '启用' }}</el-button
+              >
+              <el-button v-permission="'drug:write'" link type="danger" @click="removeService(row)"
+                >删除</el-button
               >
             </template>
           </el-table-column>
@@ -131,9 +132,11 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="serviceVisible" title="新增诊疗项目" width="440px">
+    <el-dialog v-model="serviceVisible" :title="serviceForm.id ? '编辑诊疗项目' : '新增诊疗项目'" width="440px">
       <el-form label-width="80px">
-        <el-form-item label="编码" required><el-input v-model="serviceForm.code" /></el-form-item>
+        <el-form-item label="编码" required
+          ><el-input v-model="serviceForm.code" :disabled="!!serviceForm.id"
+        /></el-form-item>
         <el-form-item label="名称" required><el-input v-model="serviceForm.name" /></el-form-item>
         <el-form-item label="分类"><el-input v-model="serviceForm.category" /></el-form-item>
         <el-form-item label="单价(分)"
@@ -153,16 +156,19 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   listChargeRecords,
   createCharge,
   voidCharge,
   listClinicalServices,
   createClinicalService,
+  updateClinicalService,
+  deleteClinicalService,
   setClinicalServiceStatus,
 } from '@/api/billing'
 import MoneyText from '@/components/MoneyText.vue'
+import PatientPicker from '@/components/PatientPicker.vue'
 import { CHARGE_ITEM_TYPES } from '@/types/business'
 
 const tab = ref('charges')
@@ -170,7 +176,7 @@ const charges = ref<any[]>([])
 const total = ref(0)
 const page = ref(1)
 const loading = ref(false)
-const query = reactive({ keyword: '', item_type: '', patient_id: '' })
+const query = reactive({ keyword: '', item_type: '', patient_id: undefined as number | undefined })
 const chargeVisible = ref(false)
 const chargeForm = reactive({
   patient_name: '',
@@ -181,7 +187,14 @@ const chargeForm = reactive({
 })
 const services = ref<any[]>([])
 const serviceVisible = ref(false)
-const serviceForm = reactive({ code: '', name: '', category: '', unit_price: 0, unit: '次' })
+const serviceForm = reactive<Record<string, any>>({
+  id: 0,
+  code: '',
+  name: '',
+  category: '',
+  unit_price: 0,
+  unit: '次',
+})
 
 onMounted(() => {
   loadCharges()
@@ -222,14 +235,33 @@ async function doVoid(row: any) {
   ElMessage.success('已红冲')
   loadCharges()
 }
-function openService() {
-  Object.assign(serviceForm, { code: '', name: '', category: '', unit_price: 0, unit: '次' })
+function openService(row?: any) {
+  Object.assign(serviceForm, {
+    id: row?.id ?? 0,
+    code: row?.code ?? '',
+    name: row?.name ?? '',
+    category: row?.category ?? '',
+    unit_price: row?.unit_price ?? 0,
+    unit: row?.unit ?? '次',
+  })
   serviceVisible.value = true
 }
 async function saveService() {
-  await createClinicalService(serviceForm)
-  ElMessage.success('已新增')
+  if (serviceForm.id) {
+    const { id, ...payload } = serviceForm
+    await updateClinicalService(id, payload)
+  } else {
+    const { id, ...payload } = serviceForm
+    await createClinicalService(payload)
+  }
+  ElMessage.success('已保存')
   serviceVisible.value = false
+  loadServices()
+}
+async function removeService(row: any) {
+  await ElMessageBox.confirm(`确认删除诊疗项目「${row.name}」？`, '提示', { type: 'warning' })
+  await deleteClinicalService(row.id)
+  ElMessage.success('已删除')
   loadServices()
 }
 async function toggleService(row: any) {

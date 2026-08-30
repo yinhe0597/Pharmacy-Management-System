@@ -5,6 +5,8 @@
         <PharmaPanel
           :api="listConsultations"
           :create="createConsultation"
+          :update="updateConsultation"
+          :remove="deleteConsultation"
           :columns="consultColumns"
           :fields="consultFields"
         />
@@ -13,6 +15,8 @@
         <PharmaPanel
           :api="listAdverseReactions"
           :create="createAdverseReaction"
+          :update="updateAdverseReaction"
+          :remove="deleteAdverseReaction"
           :columns="adverseColumns"
           :fields="adverseFields"
         />
@@ -21,6 +25,8 @@
         <PharmaPanel
           :api="listGuidances"
           :create="createGuidance"
+          :update="updateGuidance"
+          :remove="deleteGuidance"
           :columns="guidanceColumns"
           :fields="guidanceFields"
         />
@@ -35,10 +41,16 @@ import PharmaPanel from './PharmaPanel.vue'
 import {
   listConsultations,
   createConsultation,
+  updateConsultation,
+  deleteConsultation,
   listAdverseReactions,
   createAdverseReaction,
+  updateAdverseReaction,
+  deleteAdverseReaction,
   listGuidances,
   createGuidance,
+  updateGuidance,
+  deleteGuidance,
 } from '@/api/pharma'
 
 const tab = ref('consultations')

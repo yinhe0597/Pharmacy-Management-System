@@ -904,7 +904,7 @@ func (s *InventoryService) ListStocktakes(ctx context.Context, status string, pa
 	return repository.NewStocktakeRepo(s.db).List(ctx, status, (page-1)*pageSize, pageSize)
 }
 
-// GetStocktake 盘点单详情（含明细）。
+// GetStocktake 盘点单详情（含明细，聚合药名供盘点录入界面展示）。
 func (s *InventoryService) GetStocktake(ctx context.Context, id int64) (*StocktakeDetail, error) {
 	st, err := repository.NewStocktakeRepo(s.db).GetByID(ctx, id)
 	if err != nil {
@@ -917,13 +917,37 @@ func (s *InventoryService) GetStocktake(ctx context.Context, id int64) (*Stockta
 	if err != nil {
 		return nil, err
 	}
-	return &StocktakeDetail{Stocktake: *st, Items: items}, nil
+	rows := make([]StocktakeItemRow, 0, len(items))
+	if len(items) > 0 {
+		drugIDs := make([]int64, 0, len(items))
+		for _, it := range items {
+			drugIDs = append(drugIDs, it.DrugID)
+		}
+		var drugs []model.Drug
+		if err := s.db.WithContext(ctx).Where("id IN ?", drugIDs).Find(&drugs).Error; err != nil {
+			return nil, err
+		}
+		nameByID := make(map[int64]string, len(drugs))
+		for _, d := range drugs {
+			nameByID[d.ID] = d.GenericName
+		}
+		for _, it := range items {
+			rows = append(rows, StocktakeItemRow{StocktakeItem: it, DrugName: nameByID[it.DrugID]})
+		}
+	}
+	return &StocktakeDetail{Stocktake: *st, Items: rows}, nil
 }
 
 // StocktakeDetail 盘点单详情聚合。
 type StocktakeDetail struct {
 	model.Stocktake
-	Items []model.StocktakeItem `json:"items"`
+	Items []StocktakeItemRow `json:"items"`
+}
+
+// StocktakeItemRow 盘点明细行（附药名便于录入）。
+type StocktakeItemRow struct {
+	model.StocktakeItem
+	DrugName string `json:"drug_name"`
 }
 
 // ListSplitOrders 拆零操作单列表。

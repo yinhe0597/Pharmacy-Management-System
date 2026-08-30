@@ -16,3 +16,7 @@ export function verifyAmpouleReturn(id: number) {
 export function listLedgers(params?: Record<string, unknown>) {
   return http.get('/special-drugs/ledgers', { params })
 }
+// 发药专册登记（手工补录）
+export function registerDispense(data: Record<string, unknown>) {
+  return http.post('/special-drugs/dispense-register', data)
+}

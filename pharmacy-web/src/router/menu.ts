@@ -14,6 +14,7 @@ export const MENU: MenuItem[] = [
   { path: '/prescriptions', title: '处方管理', icon: 'Document' },
   { path: '/drugs', title: '药品主数据', icon: 'FirstAidKit' },
   { path: '/categories', title: '分类管理', icon: 'Folder', permission: 'drug:write' },
+  { path: '/interactions', title: '交互规则', icon: 'Connection', permission: 'drug:write' },
   { path: '/suppliers', title: '供应商', icon: 'OfficeBuilding', permission: 'purchase:write' },
   { path: '/reference', title: '参考数据', icon: 'Collection' },
   { path: '/inventory', title: '库存管理', icon: 'Box' },

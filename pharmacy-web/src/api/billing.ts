@@ -22,3 +22,9 @@ export function createClinicalService(data: Record<string, unknown>) {
 export function setClinicalServiceStatus(id: number, status: number) {
   return http.patch(`/clinical-services/${id}/status`, { status })
 }
+export function updateClinicalService(id: number, data: Record<string, unknown>) {
+  return http.put(`/clinical-services/${id}`, data)
+}
+export function deleteClinicalService(id: number) {
+  return http.delete(`/clinical-services/${id}`)
+}

@@ -25,10 +25,13 @@
           </el-table-column>
           <el-table-column prop="quantity" label="数量" width="80" />
           <el-table-column prop="reserved_quantity" label="已预占" width="80" />
-          <el-table-column v-if="canWrite" label="操作" width="140" fixed="right">
+          <el-table-column v-if="canWrite" label="操作" width="200" fixed="right">
             <template #default="{ row }">
               <el-button link type="primary" @click="openTransfer(row)">调拨</el-button>
               <el-button link type="warning" @click="openAdjust(row)">调整</el-button>
+              <el-button v-if="!row.is_split" link type="success" @click="openSplitUnits(row)"
+                >按片拆零</el-button
+              >
             </template>
           </el-table-column>
         </el-table>
@@ -64,6 +67,75 @@
           :total="orderTotal"
           :page-size="20"
           @current-change="loadOrders"
+        />
+      </el-tab-pane>
+
+      <el-tab-pane label="盘点管理" name="stocktake">
+        <div class="toolbar">
+          <el-button v-permission="'inventory:write'" type="success" @click="openStocktake"
+            >新建盘点单</el-button
+          >
+          <span class="hint">流程：新建（冻结库存变动）→ 开始盘点 → 录实盘 → 差异调整入账 → 归档完成</span>
+        </div>
+        <el-table v-loading="loading" :data="stocktakes" border>
+          <el-table-column prop="stocktake_no" label="盘点单号" width="160" />
+          <el-table-column prop="location_id" label="库房" width="100">
+            <template #default="{ row }">{{ locationName(row.location_id) }}</template>
+          </el-table-column>
+          <el-table-column label="类型" width="90">
+            <template #default="{ row }">{{ row.type === 1 ? '周期' : '动态' }}</template>
+          </el-table-column>
+          <el-table-column label="状态" width="90">
+            <template #default="{ row }">
+              <el-tag :type="ST_TAKE_TAG[row.status] ?? 'info'" size="small">{{
+                ST_TAKE_LABEL[row.status] ?? row.status
+              }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="started_at" label="开始时间" width="170" />
+          <el-table-column prop="completed_at" label="完成时间" width="170" />
+          <el-table-column label="操作" width="220" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="openStocktakeDetail(row)">详情/录实盘</el-button>
+              <el-button
+                v-if="row.status === 'draft'"
+                v-permission="'inventory:write'"
+                link
+                type="success"
+                @click="doStartStocktake(row)"
+                >开始</el-button
+              >
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-pagination
+          v-model:current-page="stTakePage"
+          class="pager"
+          layout="total, prev, pager, next"
+          :total="stTakeTotal"
+          :page-size="20"
+          @current-change="loadStocktakes"
+        />
+      </el-tab-pane>
+
+      <el-tab-pane label="拆零操作单" name="splitorders">
+        <el-table v-loading="loading" :data="splitOrders" border>
+          <el-table-column prop="id" label="单号" width="80" />
+          <el-table-column prop="drug_id" label="药品ID" width="90" />
+          <el-table-column prop="batch_no" label="批号" width="120" />
+          <el-table-column prop="boxes" label="拆盒数" width="90" />
+          <el-table-column prop="units_in" label="入片数" width="90" />
+          <el-table-column prop="damaged" label="破损" width="80" />
+          <el-table-column prop="reviewer_name" label="复核人" width="100" />
+          <el-table-column prop="created_at" label="时间" width="170" />
+        </el-table>
+        <el-pagination
+          v-model:current-page="splitPage"
+          class="pager"
+          layout="total, prev, pager, next"
+          :total="splitTotal"
+          :page-size="20"
+          @current-change="loadSplitOrders"
         />
       </el-tab-pane>
 
@@ -103,7 +175,13 @@
       </el-tab-pane>
 
       <el-tab-pane label="库存预警" name="alerts">
-        <el-table v-loading="loading" :data="alerts" border>
+        <div class="toolbar">
+          <el-radio-group v-model="alertKind" @change="loadAlerts">
+            <el-radio-button value="below">库存下限</el-radio-button>
+            <el-radio-button value="expiry">效期预警</el-radio-button>
+          </el-radio-group>
+        </div>
+        <el-table v-if="alertKind === 'below'" v-loading="loading" :data="alerts" border>
           <el-table-column prop="id" label="ID" width="70" />
           <el-table-column prop="drug_id" label="药品ID" width="80" />
           <el-table-column prop="message" label="预警信息" min-width="200" />
@@ -116,6 +194,15 @@
               <el-button link type="info" @click="resolve(row, 'ignored')">忽略</el-button>
             </template>
           </el-table-column>
+        </el-table>
+        <el-table v-else v-loading="loading" :data="expiry" border>
+          <el-table-column prop="drug_id" label="药品ID" width="90" />
+          <el-table-column prop="drug_name" label="药品" min-width="140" />
+          <el-table-column prop="batch_no" label="批号" width="120" />
+          <el-table-column prop="expiry_date" label="到期日" width="120" />
+          <el-table-column prop="quantity" label="库存" width="90" />
+          <el-table-column prop="days_left" label="剩余天数" width="100" />
+          <el-table-column prop="location_name" label="库房" width="110" />
         </el-table>
         <el-pagination
           v-model:current-page="alertPage"
@@ -203,6 +290,34 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="splitUnitsVisible" title="按片拆零（整盒→片）" width="560px">
+      <el-form label-width="110px">
+        <el-form-item label="药品批次">
+          <span>{{ splitUnitsForm.drug_name }}（{{ splitUnitsForm.batch_no }}，库存
+            {{ splitUnitsForm.quantity }}）</span>
+        </el-form-item>
+        <el-form-item label="拆出盒数" required>
+          <el-input-number v-model="splitUnitsForm.boxes" :min="1" />
+        </el-form-item>
+        <el-form-item label="实际入片数" required>
+          <el-input-number v-model="splitUnitsForm.units" :min="0" />
+          <div class="hint">账目平齐：入片数 + 破损 = 拆盒数 × 包装含量</div>
+        </el-form-item>
+        <el-form-item label="破损片数">
+          <el-input-number v-model="splitUnitsForm.damaged" :min="0" />
+        </el-form-item>
+        <el-form-item label="复核人" required>
+          <el-select v-model="splitUnitsForm.reviewer_id" filterable placeholder="选择复核人（须 ≠ 操作人）">
+            <el-option v-for="u in users" :key="u.id" :label="`${u.name}（${u.username}）`" :value="u.id" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="splitUnitsVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveSplitUnits">保存</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="stockInVisible" title="其他入库" width="720px">
       <el-form label-width="90px">
         <el-form-item label="明细">
@@ -229,6 +344,89 @@
         <el-button type="primary" @click="saveStockIn">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="stTakeCreateVisible" title="新建盘点单" width="440px">
+      <el-form label-width="90px">
+        <el-form-item label="库房" required>
+          <el-select v-model="stTakeForm.location_id" placeholder="选择库房">
+            <el-option v-for="l in locations" :key="l.id" :label="l.name" :value="l.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="类型" required>
+          <el-radio-group v-model="stTakeForm.type">
+            <el-radio :value="1">周期盘点</el-radio>
+            <el-radio :value="2">动态盘点</el-radio>
+          </el-radio-group>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="stTakeCreateVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveStocktake">创建并冻结库存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-drawer v-model="stTakeDetailVisible" :title="`盘点单 ${stTakeDetail?.stocktake_no ?? ''}`" size="720px">
+      <template v-if="stTakeDetail">
+        <el-descriptions :column="3" border size="small" style="margin-bottom: 12px">
+          <el-descriptions-item label="库房">{{
+            locationName(stTakeDetail.location_id)
+          }}</el-descriptions-item>
+          <el-descriptions-item label="类型">{{
+            stTakeDetail.type === 1 ? '周期' : '动态'
+          }}</el-descriptions-item>
+          <el-descriptions-item label="状态">{{
+            ST_TAKE_LABEL[stTakeDetail.status] ?? stTakeDetail.status
+          }}</el-descriptions-item>
+        </el-descriptions>
+        <div class="toolbar">
+          <el-button
+            v-if="stTakeDetail.status === 'counting' && canWrite"
+            type="primary"
+            size="small"
+            @click="saveCounted"
+            >保存实盘录入</el-button
+          >
+          <el-button
+            v-if="stTakeDetail.status === 'counting' && canWrite"
+            type="warning"
+            size="small"
+            @click="doAdjustStocktake"
+            >确认差异调整</el-button
+          >
+          <el-button
+            v-if="stTakeDetail.status === 'adjusted' && canWrite"
+            type="success"
+            size="small"
+            @click="doCompleteStocktake"
+            >归档完成</el-button
+          >
+        </div>
+        <el-table :data="stTakeDetail.items ?? []" border size="small">
+          <el-table-column prop="drug_name" label="药品" min-width="130" />
+          <el-table-column prop="batch_no" label="批号" width="100" />
+          <el-table-column label="口径" width="60">
+            <template #default="{ row }">{{ row.is_split ? '拆零' : '整盒' }}</template>
+          </el-table-column>
+          <el-table-column prop="book_quantity" label="账面" width="70" />
+          <el-table-column label="实盘" width="120">
+            <template #default="{ row }">
+              <el-input-number
+                v-if="stTakeDetail.status === 'counting' && canWrite"
+                v-model="counted[row.id]"
+                :min="0"
+                size="small"
+              />
+              <span v-else>{{ row.counted_quantity ?? '—' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="差异" width="70">
+            <template #default="{ row }">{{
+              row.counted_quantity != null ? row.counted_quantity - row.book_quantity : '—'
+            }}</template>
+          </el-table-column>
+        </el-table>
+      </template>
+    </el-drawer>
   </el-card>
 </template>
 
@@ -246,7 +444,18 @@ import {
   listTransactions,
   listAlerts,
   resolveAlert,
+  listExpiryWarnings,
+  splitUnits,
+  listSplitOrders,
+  createStocktake,
+  listStocktakes,
+  getStocktake,
+  startStocktake,
+  enterCounted,
+  completeStocktake,
+  adjustStocktake,
 } from '@/api/inventory'
+import { listUsers } from '@/api/reports'
 import { hasPermission } from '@/types/business'
 import { useUserStore } from '@/stores/user'
 import DrugPicker from '@/components/DrugPicker.vue'
@@ -265,6 +474,18 @@ const TXN_TYPES: Record<string, string> = {
   split_in: '拆零入片',
   waste: '报损',
 }
+const ST_TAKE_LABEL: Record<string, string> = {
+  draft: '待盘点',
+  counting: '盘点中',
+  completed: '已完成',
+  adjusted: '已调整',
+}
+const ST_TAKE_TAG: Record<string, string> = {
+  draft: 'info',
+  counting: 'warning',
+  completed: 'primary',
+  adjusted: 'success',
+}
 
 const tab = ref('stock')
 const stock = ref<any[]>([])
@@ -272,13 +493,22 @@ const stockTotal = ref(0)
 const orders = ref<any[]>([])
 const orderTotal = ref(0)
 const orderPage = ref(1)
+const stocktakes = ref<any[]>([])
+const stTakeTotal = ref(0)
+const stTakePage = ref(1)
+const splitOrders = ref<any[]>([])
+const splitTotal = ref(0)
+const splitPage = ref(1)
 const transactions = ref<any[]>([])
 const txnTotal = ref(0)
 const alerts = ref<any[]>([])
+const expiry = ref<any[]>([])
 const alertTotal = ref(0)
 const alertPage = ref(1)
+const alertKind = ref<'below' | 'expiry'>('below')
 const loading = ref(false)
 const locations = ref<any[]>([])
+const users = ref<any[]>([])
 const userStore = useUserStore()
 const canWrite = computed(() => userStore.role !== '' && hasPermission(userStore.role as never, 'inventory:write'))
 const query = reactive({ keyword: '', page: 1, page_size: 20 })
@@ -313,8 +543,33 @@ const adjustForm = reactive<{
   reason: string
 }>({ inventory_id: 0, drug_name: '', batch_no: '', current: 0, quantity: 0, reason: '' })
 
+const splitUnitsVisible = ref(false)
+const splitUnitsForm = reactive<{
+  inventory_id: number
+  drug_name: string
+  batch_no: string
+  quantity: number
+  boxes: number
+  units: number
+  damaged: number
+  reviewer_id: number | undefined
+}>({ inventory_id: 0, drug_name: '', batch_no: '', quantity: 0, boxes: 1, units: 0, damaged: 0, reviewer_id: undefined })
+
 const stockInVisible = ref(false)
 const stockInForm = reactive<{ entries: any[] }>({ entries: [] })
+
+const stTakeCreateVisible = ref(false)
+const stTakeForm = reactive<{ location_id: number | undefined; type: number }>({
+  location_id: undefined,
+  type: 1,
+})
+const stTakeDetailVisible = ref(false)
+const stTakeDetail = ref<any>(null)
+const counted = reactive<Record<number, number>>({})
+
+function locationName(id: number) {
+  return locations.value.find((l) => l.id === id)?.name ?? `库房${id}`
+}
 
 function newStockInEntry() {
   return { drug_id: null, location_id: undefined, batch_no: '', expiry_date: '', quantity: 1 }
@@ -322,13 +577,23 @@ function newStockInEntry() {
 
 onMounted(() => {
   loadLocations()
+  loadUsers()
   loadStock()
   loadOrders()
+  loadStocktakes()
+  loadSplitOrders()
 })
 
 async function loadLocations() {
-  const res = await listLocations()
-  locations.value = res ?? []
+  locations.value = (await listLocations()) ?? []
+}
+async function loadUsers() {
+  try {
+    const res = await listUsers({ page: 1, page_size: 200 })
+    users.value = res?.list ?? []
+  } catch {
+    users.value = [] // 无 user:admin 权限时忽略（复核人仅药房主管可见完整列表）
+  }
 }
 
 async function loadStock() {
@@ -351,6 +616,16 @@ async function loadOrders() {
     loading.value = false
   }
 }
+async function loadStocktakes() {
+  const res = await listStocktakes({ page: stTakePage.value, page_size: 20 })
+  stocktakes.value = res?.list ?? []
+  stTakeTotal.value = res?.total ?? 0
+}
+async function loadSplitOrders() {
+  const res = await listSplitOrders({ page: splitPage.value, page_size: 20 })
+  splitOrders.value = res?.list ?? []
+  splitTotal.value = res?.total ?? 0
+}
 async function loadTransactions() {
   loading.value = true
   try {
@@ -364,9 +639,14 @@ async function loadTransactions() {
 async function loadAlerts() {
   loading.value = true
   try {
-    const res = await listAlerts({ page: alertPage.value, page_size: 20 })
-    alerts.value = res?.list ?? []
-    alertTotal.value = res?.total ?? 0
+    const res =
+      alertKind.value === 'below'
+        ? await listAlerts({ page: alertPage.value, page_size: 20 })
+        : await listExpiryWarnings({ page: alertPage.value, page_size: 20 })
+    const rows = res?.list ?? res ?? []
+    if (alertKind.value === 'below') alerts.value = rows
+    else expiry.value = rows
+    alertTotal.value = res?.total ?? rows.length ?? 0
   } finally {
     loading.value = false
   }
@@ -445,6 +725,37 @@ async function saveAdjust() {
   loadStock()
 }
 
+function openSplitUnits(row: any) {
+  splitUnitsForm.inventory_id = row.id
+  splitUnitsForm.drug_name = row.drug_name
+  splitUnitsForm.batch_no = row.batch_no
+  splitUnitsForm.quantity = row.quantity
+  splitUnitsForm.boxes = 1
+  splitUnitsForm.units = 0
+  splitUnitsForm.damaged = 0
+  splitUnitsForm.reviewer_id = undefined
+  splitUnitsVisible.value = true
+}
+async function saveSplitUnits() {
+  if (!splitUnitsForm.reviewer_id) {
+    ElMessage.warning('麻精药品拆零须双人复核，请选择复核人')
+    return
+  }
+  const reviewer = users.value.find((u) => u.id === splitUnitsForm.reviewer_id)
+  await splitUnits({
+    inventory_id: splitUnitsForm.inventory_id,
+    boxes: splitUnitsForm.boxes,
+    units: splitUnitsForm.units,
+    damaged: splitUnitsForm.damaged,
+    reviewer_id: splitUnitsForm.reviewer_id,
+    reviewer_name: reviewer?.name ?? '',
+  })
+  ElMessage.success('已拆零')
+  splitUnitsVisible.value = false
+  loadStock()
+  loadSplitOrders()
+}
+
 function openStockIn() {
   stockInForm.entries = [newStockInEntry()]
   stockInVisible.value = true
@@ -476,6 +787,62 @@ async function saveStockIn() {
   stockInVisible.value = false
   loadStock()
 }
+
+// ---- 盘点 ----
+function openStocktake() {
+  stTakeForm.location_id = undefined
+  stTakeForm.type = 1
+  stTakeCreateVisible.value = true
+}
+async function saveStocktake() {
+  if (!stTakeForm.location_id) {
+    ElMessage.warning('请选择库房')
+    return
+  }
+  await createStocktake({ location_id: stTakeForm.location_id, type: stTakeForm.type })
+  ElMessage.success('盘点单已创建（期间该库房禁止库存变动）')
+  stTakeCreateVisible.value = false
+  loadStocktakes()
+}
+async function doStartStocktake(row: any) {
+  await startStocktake(row.id)
+  ElMessage.success('盘点已开始')
+  loadStocktakes()
+}
+async function openStocktakeDetail(row: any) {
+  const res = await getStocktake(row.id)
+  stTakeDetail.value = res
+  Object.keys(counted).forEach((k) => delete counted[Number(k)])
+  for (const it of res?.items ?? []) {
+    if (it.counted_quantity != null) counted[it.id] = it.counted_quantity
+  }
+  stTakeDetailVisible.value = true
+}
+async function saveCounted() {
+  const items = Object.entries(counted).map(([itemId, qty]) => ({
+    item_id: Number(itemId),
+    counted_quantity: qty,
+  }))
+  if (!items.length) {
+    ElMessage.warning('请先录入实盘数量')
+    return
+  }
+  await enterCounted(stTakeDetail.value.id, { items })
+  ElMessage.success('实盘已保存')
+  openStocktakeDetail(stTakeDetail.value)
+}
+async function doCompleteStocktake() {
+  await completeStocktake(stTakeDetail.value.id)
+  ElMessage.success('盘点单已归档')
+  openStocktakeDetail(stTakeDetail.value)
+  loadStocktakes()
+}
+async function doAdjustStocktake() {
+  await adjustStocktake(stTakeDetail.value.id)
+  ElMessage.success('差异已调整入账，可归档完成')
+  openStocktakeDetail(stTakeDetail.value)
+  loadStock()
+}
 </script>
 
 <style scoped>
@@ -483,6 +850,7 @@ async function saveStockIn() {
   display: flex;
   gap: 8px;
   margin-bottom: 12px;
+  align-items: center;
 }
 .pager {
   margin-top: 12px;

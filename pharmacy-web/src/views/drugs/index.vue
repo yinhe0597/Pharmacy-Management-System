@@ -38,7 +38,7 @@
             }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
             <el-button v-permission="'drug:write'" link type="primary" @click="openEdit(row)"
               >编辑</el-button
@@ -46,6 +46,13 @@
             <el-button v-permission="'drug:write'" link type="warning" @click="toggleStatus(row)">{{
               row.status === 1 ? '停用' : '启用'
             }}</el-button>
+            <el-button
+              v-permission="'purchase:write'"
+              link
+              type="success"
+              @click="openSuppliers(row)"
+              >供货商</el-button
+            >
           </template>
         </el-table-column>
       </el-table>
@@ -59,6 +66,37 @@
         @current-change="load"
       />
     </el-card>
+
+    <!-- 供货关系管理：某药品 ↔ 供应商 -->
+    <el-dialog v-model="supplierVisible" :title="`供货关系 — ${supplierDrug?.generic_name ?? ''}`" width="640px">
+      <el-table :data="drugSuppliers" border size="small">
+        <el-table-column prop="supplier_id" label="供应商ID" width="90" />
+        <el-table-column prop="supplier_name" label="供应商" min-width="140" />
+        <el-table-column label="进价" width="100">
+          <template #default="{ row }"><MoneyText :amount="row.purchase_price" /></template>
+        </el-table-column>
+        <el-table-column label="默认" width="70">
+          <template #default="{ row }">
+            <el-tag v-if="row.is_default" type="success" size="small">默认</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="" width="70">
+          <template #default="{ row }">
+            <el-button v-permission="'purchase:write'" link type="danger" @click="unbindSupplier(row)"
+              >解绑</el-button
+            >
+          </template>
+        </el-table-column>
+      </el-table>
+      <div class="toolbar" style="margin-top: 12px">
+        <el-select v-model="bindSupplierId" filterable placeholder="选择供应商" style="width: 220px">
+          <el-option v-for="s in supplierOptions" :key="s.id" :label="s.name" :value="s.id" />
+        </el-select>
+        <el-input-number v-model="bindPrice" :min="0" placeholder="进价(分)" />
+        <el-checkbox v-model="bindDefault">设为默认</el-checkbox>
+        <el-button v-permission="'purchase:write'" type="primary" @click="doBind">绑定</el-button>
+      </div>
+    </el-dialog>
 
     <el-dialog v-model="dialogVisible" :title="form.id ? '编辑药品' : '新增药品'" width="640px">
       <el-form :model="form" label-width="110px">
@@ -125,8 +163,10 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { listDrugs, createDrug, updateDrug, setDrugStatus } from '@/api/drugs'
+import { listDrugSuppliers, bindDrugSupplier, deleteDrugSupplier } from '@/api/suppliers'
+import { listSuppliers } from '@/api/suppliers'
 import { matchDrug } from '@/api/reference'
 import MoneyText from '@/components/MoneyText.vue'
 import type { Drug } from '@/types/entities'
@@ -181,6 +221,48 @@ async function toggleStatus(row: Drug) {
   await setDrugStatus(row.id, row.status === 1 ? 0 : 1)
   ElMessage.success('已更新')
   load()
+}
+
+// ---- 供货关系 ----
+const supplierVisible = ref(false)
+const supplierDrug = ref<Drug | null>(null)
+const drugSuppliers = ref<any[]>([])
+const supplierOptions = ref<any[]>([])
+const bindSupplierId = ref<number | null>(null)
+const bindPrice = ref(0)
+const bindDefault = ref(false)
+
+async function openSuppliers(row: Drug) {
+  supplierDrug.value = row
+  supplierVisible.value = true
+  drugSuppliers.value = (await listDrugSuppliers(row.id)) ?? []
+  if (!supplierOptions.value.length) {
+    supplierOptions.value = (await listSuppliers({ page: 1, page_size: 200 }))?.list ?? []
+  }
+}
+async function doBind() {
+  if (!supplierDrug.value || !bindSupplierId.value) {
+    ElMessage.warning('请选择供应商')
+    return
+  }
+  await bindDrugSupplier(supplierDrug.value.id, {
+    supplier_id: bindSupplierId.value,
+    purchase_price: bindPrice.value,
+    is_default: bindDefault.value,
+  })
+  ElMessage.success('已绑定')
+  bindSupplierId.value = null
+  bindPrice.value = 0
+  bindDefault.value = false
+  drugSuppliers.value = (await listDrugSuppliers(supplierDrug.value.id)) ?? []
+}
+async function unbindSupplier(row: any) {
+  await ElMessageBox.confirm(`确认解除与该供应商的供货关系？`, '提示', { type: 'warning' })
+  await deleteDrugSupplier(row.id)
+  ElMessage.success('已解绑')
+  if (supplierDrug.value) {
+    drugSuppliers.value = (await listDrugSuppliers(supplierDrug.value.id)) ?? []
+  }
 }
 </script>
 

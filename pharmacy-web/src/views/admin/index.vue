@@ -78,6 +78,32 @@
         />
       </el-tab-pane>
 
+      <!-- 库房管理：药房库房台账（新建/编辑） -->
+      <el-tab-pane label="库房管理" name="locations">
+        <div class="toolbar">
+          <el-button type="success" @click="openLocation">新建库房</el-button>
+        </div>
+        <el-table :data="locations" border>
+          <el-table-column prop="code" label="编码" width="120" />
+          <el-table-column prop="name" label="名称" min-width="140" />
+          <el-table-column label="类型" width="110">
+            <template #default="{ row }">{{ LOCATION_TYPES[row.type] ?? row.type }}</template>
+          </el-table-column>
+          <el-table-column label="状态" width="90">
+            <template #default="{ row }"
+              ><el-tag :type="row.is_active ? 'success' : 'info'" size="small">{{
+                row.is_active ? '启用' : '停用'
+              }}</el-tag></template
+            >
+          </el-table-column>
+          <el-table-column label="操作" width="90" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="openLocation(row)">编辑</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-tab-pane>
+
       <!-- 系统设置：自定义默认诊费（合并结算自动带入） -->
       <el-tab-pane label="系统设置" name="settings">
         <div class="toolbar">
@@ -98,11 +124,11 @@
     </el-tabs>
 
     <el-dialog v-model="userVisible" :title="userForm.id ? '编辑用户' : '新建用户'" width="480px">
-      <el-form label-width="90px">
-        <el-form-item label="账号" required
+      <el-form ref="userFormRef" :model="userForm" :rules="userRules" label-width="90px">
+        <el-form-item label="账号" prop="username"
           ><el-input v-model="userForm.username" :disabled="!!userForm.id"
         /></el-form-item>
-        <el-form-item :label="userForm.id ? '重置密码' : '密码'" :required="!userForm.id">
+        <el-form-item :label="userForm.id ? '重置密码' : '密码'" prop="password">
           <el-input
             v-model="userForm.password"
             type="password"
@@ -110,9 +136,9 @@
             :placeholder="userForm.id ? '留空则不修改' : '初始密码'"
           />
         </el-form-item>
-        <el-form-item label="姓名" required><el-input v-model="userForm.name" /></el-form-item>
+        <el-form-item label="姓名" prop="name"><el-input v-model="userForm.name" /></el-form-item>
         <el-form-item label="电话"><el-input v-model="userForm.phone" /></el-form-item>
-        <el-form-item label="角色">
+        <el-form-item label="角色" prop="role">
           <el-select v-model="userForm.role">
             <el-option v-for="(label, key) in ROLE_LABELS" :key="key" :label="label" :value="key" />
           </el-select>
@@ -128,12 +154,31 @@
         <el-button type="primary" @click="saveUser">保存</el-button>
       </template>
     </el-dialog>
+    <el-dialog v-model="locationVisible" :title="locationForm.id ? '编辑库房' : '新建库房'" width="440px">
+      <el-form label-width="80px">
+        <el-form-item label="编码" required
+          ><el-input v-model="locationForm.code" :disabled="!!locationForm.id"
+        /></el-form-item>
+        <el-form-item label="名称" required><el-input v-model="locationForm.name" /></el-form-item>
+        <el-form-item label="类型">
+          <el-select v-model="locationForm.type">
+            <el-option v-for="(label, key) in LOCATION_TYPES" :key="key" :label="label" :value="Number(key)" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="启用"><el-switch v-model="locationForm.is_active" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="locationVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveLocation">保存</el-button>
+      </template>
+    </el-dialog>
   </el-card>
 </template>
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import type { FormInstance, FormRules } from 'element-plus'
 import {
   listUsers,
   createUser,
@@ -144,6 +189,14 @@ import {
   updateSystemSetting,
 } from '@/api/reports'
 import { ROLE_LABELS, type Role } from '@/types/business'
+import { listLocations, createLocation, updateLocation } from '@/api/inventory'
+
+const LOCATION_TYPES: Record<number, string> = {
+  1: '药库',
+  2: '药房',
+  3: '科室',
+  4: '其他',
+}
 
 const tab = ref('users')
 const users = ref<any[]>([])
@@ -158,15 +211,63 @@ const LOG_ACTIONS = ['login', 'create', 'update', 'delete', 'change_password', '
 
 const userVisible = ref(false)
 const userForm = reactive<Record<string, any>>({})
+const userFormRef = ref<FormInstance>()
+const userRules: FormRules = {
+  username: [
+    { required: true, message: '请输入账号', trigger: 'blur' },
+    { min: 3, message: '至少 3 位', trigger: 'blur' },
+  ],
+  password: [
+    {
+      validator: (_r, v: string, cb) => {
+        if (!userForm.id && !v) cb(new Error('请输入初始密码'))
+        else if (v && v.length < 8) cb(new Error('至少 8 位'))
+        else if (v && !(/[A-Za-z]/.test(v) && /\d/.test(v))) cb(new Error('须同时包含字母与数字'))
+        else cb()
+      },
+      trigger: 'blur',
+    },
+  ],
+  name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
+  role: [{ required: true, message: '请选择角色', trigger: 'change' }],
+}
 
 const feeRegistration = ref(0)
 const feeConsultation = ref(0)
+const locations = ref<any[]>([])
+const locationVisible = ref(false)
+const locationForm = reactive<Record<string, any>>({ code: '', name: '', type: 2, is_active: true })
 
 onMounted(async () => {
   loadUsers()
   loadLogs()
   loadSettings()
+  loadLocations()
 })
+async function loadLocations() {
+  locations.value = (await listLocations()) ?? []
+}
+function openLocation(row?: any) {
+  Object.assign(locationForm, {
+    id: row?.id ?? 0,
+    code: row?.code ?? '',
+    name: row?.name ?? '',
+    type: row?.type ?? 2,
+    is_active: row?.is_active ?? true,
+  })
+  locationVisible.value = true
+}
+async function saveLocation() {
+  if (!locationForm.code || !locationForm.name) {
+    ElMessage.warning('请填写编码与名称')
+    return
+  }
+  if (locationForm.id) await updateLocation(locationForm.id, locationForm)
+  else await createLocation(locationForm)
+  ElMessage.success('已保存')
+  locationVisible.value = false
+  loadLocations()
+}
 async function loadUsers() {
   users.value = (await listUsers({ page: 1, page_size: 200 }))?.list ?? []
 }
@@ -213,6 +314,7 @@ function editUser(row: any) {
   userVisible.value = true
 }
 async function saveUser() {
+  await userFormRef.value?.validate()
   const payload: Record<string, any> = {
     name: userForm.name,
     role: userForm.role,

@@ -5,7 +5,7 @@
         <el-select v-model="query.status" placeholder="状态" clearable style="width: 130px">
           <el-option v-for="(v, k) in CHARGE_STATUS" :key="k" :label="v.label" :value="k" />
         </el-select>
-        <el-input v-model="query.patient_id" placeholder="患者ID" clearable style="width: 110px" />
+        <PatientPicker v-model="query.patient_id" placeholder="患者" style="width: 200px" />
         <el-date-picker
           v-model="range"
           type="daterange"
@@ -117,6 +117,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { listCharges, getCharge, payCharge, refundCharge } from '@/api/clinical2'
 import MoneyText from '@/components/MoneyText.vue'
+import PatientPicker from '@/components/PatientPicker.vue'
 import { CHARGE_ITEM_TYPES } from '@/types/business'
 
 const CHARGE_STATUS: Record<string, { label: string; tag: string }> = {
@@ -128,7 +129,7 @@ const CHARGE_STATUS: Record<string, { label: string; tag: string }> = {
 const list = ref<any[]>([])
 const total = ref(0)
 const loading = ref(false)
-const query = reactive({ status: '', patient_id: '', page: 1, page_size: 20 })
+const query = reactive({ status: '', patient_id: undefined as number | undefined, page: 1, page_size: 20 })
 const range = ref<[string, string] | null>(null)
 const detailVisible = ref(false)
 const detail = ref<any>(null)

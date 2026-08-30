@@ -25,3 +25,11 @@ export function receivePurchaseOrder(id: number, data: Record<string, unknown>) 
 export function completeReceipt(id: number) {
   return http.post(`/purchase-receipts/${id}/complete`)
 }
+
+//  ’ªıµ•
+export function listReceipts(params?: Record<string, unknown>) {
+  return http.get('/purchase-receipts', { params })
+}
+export function getReceipt(id: number) {
+  return http.get(`/purchase-receipts/${id}`)
+}

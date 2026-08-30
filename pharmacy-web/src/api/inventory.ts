@@ -46,3 +46,40 @@ export function listAlerts(params?: Record<string, unknown>) {
 export function resolveAlert(id: number, action: string) {
   return http.post(`/inventory/alerts/${id}/resolve`, { action })
 }
+export function getInventory(id: number) {
+  return http.get(`/inventory/${id}`)
+}
+export function listExpiryWarnings(params?: Record<string, unknown>) {
+  return http.get('/inventory/expiry-warnings', { params })
+}
+export function createLocation(data: Record<string, unknown>) {
+  return http.post('/inventory/locations', data)
+}
+export function updateLocation(id: number, data: Record<string, unknown>) {
+  return http.put(`/inventory/locations/${id}`, data)
+}
+export function getSplitOrder(id: number) {
+  return http.get(`/inventory/split-orders/${id}`)
+}
+// 盘点
+export function createStocktake(data: Record<string, unknown>) {
+  return http.post('/inventory/stocktakes', data)
+}
+export function listStocktakes(params?: Record<string, unknown>) {
+  return http.get('/inventory/stocktakes', { params })
+}
+export function getStocktake(id: number) {
+  return http.get(`/inventory/stocktakes/${id}`)
+}
+export function enterCounted(id: number, data: Record<string, unknown>) {
+  return http.post(`/inventory/stocktakes/${id}/items`, data)
+}
+export function startStocktake(id: number) {
+  return http.post(`/inventory/stocktakes/${id}/start`)
+}
+export function completeStocktake(id: number) {
+  return http.post(`/inventory/stocktakes/${id}/complete`)
+}
+export function adjustStocktake(id: number) {
+  return http.post(`/inventory/stocktakes/${id}/adjust`)
+}

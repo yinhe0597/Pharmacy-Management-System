@@ -5,7 +5,7 @@
         <el-select v-model="query.status" placeholder="状态" clearable style="width: 130px">
           <el-option v-for="(v, k) in VISIT_STATUS" :key="k" :label="v.label" :value="k" />
         </el-select>
-        <el-input v-model="query.patient_id" placeholder="患者ID" clearable style="width: 110px" />
+        <PatientPicker v-model="query.patient_id" placeholder="患者" style="width: 200px" />
         <el-date-picker
           v-model="range"
           type="daterange"
@@ -88,8 +88,8 @@
     <!-- 挂号 -->
     <el-dialog v-model="regVisible" title="挂号/分诊" width="460px">
       <el-form label-width="80px">
-        <el-form-item label="患者ID" required
-          ><el-input v-model="regForm.patient_id"
+        <el-form-item label="患者" required
+          ><PatientPicker v-model="regForm.patient_id"
         /></el-form-item>
         <el-form-item label="科室"><el-input v-model="regForm.department" /></el-form-item>
         <el-form-item label="医生"><el-input v-model="regForm.doctor_name" /></el-form-item>
@@ -170,6 +170,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import PatientPicker from '@/components/PatientPicker.vue'
 import {
   listVisits,
   registerVisit,
@@ -196,12 +197,12 @@ const VISIT_TYPES: Record<string, string> = {
 const list = ref<any[]>([])
 const total = ref(0)
 const loading = ref(false)
-const query = reactive({ status: '', patient_id: '', page: 1, page_size: 20 })
+const query = reactive({ status: '', patient_id: undefined as number | undefined, page: 1, page_size: 20 })
 const range = ref<[string, string] | null>(null)
 
 const regVisible = ref(false)
 const regForm = reactive({
-  patient_id: '',
+  patient_id: undefined as number | undefined,
   department: '',
   doctor_name: '',
   visit_type: 'outpatient',
@@ -244,7 +245,7 @@ async function load() {
 
 function openRegister() {
   Object.assign(regForm, {
-    patient_id: '',
+    patient_id: undefined,
     department: '',
     doctor_name: '',
     visit_type: 'outpatient',
@@ -254,9 +255,9 @@ function openRegister() {
 }
 
 async function doRegister() {
-  if (!regForm.patient_id) return ElMessage.warning('请填写患者ID')
+  if (!regForm.patient_id) return ElMessage.warning('请选择患者')
   await registerVisit({
-    patient_id: Number(regForm.patient_id),
+    patient_id: regForm.patient_id,
     department: regForm.department,
     doctor_name: regForm.doctor_name,
     visit_type: regForm.visit_type,

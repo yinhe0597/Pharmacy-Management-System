@@ -58,6 +58,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '分类管理', permission: 'drug:write' as Permission },
       },
       {
+        path: 'interactions',
+        name: 'interactions',
+        component: () => import('@/views/interactions/index.vue'),
+        meta: { title: '交互规则', permission: 'drug:write' as Permission },
+      },
+      {
         path: 'suppliers',
         name: 'suppliers',
         component: () => import('@/views/suppliers/index.vue'),
@@ -122,6 +128,12 @@ const routes: RouteRecordRaw[] = [
         name: 'admin',
         component: () => import('@/views/admin/index.vue'),
         meta: { title: '系统管理', permission: 'user:admin' as Permission },
+      },
+      {
+        path: 'profile',
+        name: 'profile',
+        component: () => import('@/views/profile/index.vue'),
+        meta: { title: '个人中心' },
       },
     ],
   },
