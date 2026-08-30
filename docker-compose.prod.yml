@@ -1,0 +1,75 @@
+# 药房管理系统 · 生产一键部署编排
+# 用法：双击 start.bat（Windows）或 ./start.sh（Linux）
+# 访问：http://<服务器IP>:${HTTP_PORT:-80}   （内网其它设备直接浏览器登录）
+#
+# 与开发环境 docker-compose.yml 的区别：
+#   1. 数据库端口不对外发布（仅容器网络内可达，更安全）
+#   2. 独立数据卷 pgdata_prod，不影响开发库
+#   3. 后端以 release 模式运行，全部配置走环境变量
+#   4. 前端 Nginx 同源反代 /api，浏览器无需 CORS
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: yaofang
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-yaofang123}
+      POSTGRES_DB: yaofang
+    volumes:
+      - pgdata_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yaofang"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  # 自动执行全部迁移（migrations/*.up.sql，可重复执行，幂等由迁移本身保证）
+  migrate:
+    image: postgres:16
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${DB_PASSWORD:-yaofang123}
+    volumes:
+      - ./migrations:/migrations:ro
+    command: >
+      bash -c "for f in /migrations/*.up.sql; do
+        echo \"== $$f\";
+        psql -h db -U yaofang -d yaofang -v ON_ERROR_STOP=1 -f \"$$f\" || exit 1;
+      done"
+    restart: "no"
+
+  backend:
+    build: .
+    environment:
+      YF_SERVER_MODE: release
+      YF_DATABASE_HOST: db
+      YF_DATABASE_PORT: "5432"
+      YF_DATABASE_USER: yaofang
+      YF_DATABASE_PASSWORD: ${DB_PASSWORD:-yaofang123}
+      YF_DATABASE_NAME: yaofang
+      YF_AUTH_JWT_SECRET: ${JWT_SECRET:?请在 .env 中设置 JWT_SECRET（≥32 位随机串，start 脚本会自动生成）}
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:8080/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  frontend:
+    build: ./pharmacy-web
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata_prod:

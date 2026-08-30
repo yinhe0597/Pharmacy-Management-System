@@ -118,6 +118,22 @@ go build -o bin/yaofang.exe ./cmd/server && ./bin/yaofang.exe
 
 > 👤 默认管理员：`admin / admin123`；其他种子用户：`doctor`、`clinic_nurse`（跟诊护士）、`pharmacy_nurse`（药房护士）、`pharmacy_chief`、`pharmacist`、`buyer`、`finance`（密码均 `admin123`，生产环境务必修改 ⚠️）
 
+### 🚀 服务器一键部署（Docker 生产包）
+
+无需安装 Go/Node/PostgreSQL，装好 Docker 即可：
+
+```bash
+# Windows：双击 start.bat        Linux：./start.sh
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+- 首次运行自动生成 `.env`（**随机 JWT 密钥** + 数据库密码 + 端口），密钥不入库
+- 自动执行全部迁移与种子数据（独立数据卷 `pgdata_prod`，不影响开发库）
+- 架构：`Nginx(前端+API反代) → Go 后端 → PostgreSQL`，数据库端口不对外发布
+- 访问：`http://localhost` 或 **`http://<服务器内网IP>`**（内网其它设备浏览器直接登录，同源反代无需 CORS）
+- 运维：`docker compose -f docker-compose.prod.yml ps|logs -f|down`；数据备份即备份 `pgdata_prod` 卷
+- ⚠️ 上线后请立即修改默认密码；已部署库升级时只需增量执行新迁移，勿全量重放
+
 ### 🌐 前端联调
 
 - 后端已支持 **CORS 跨域**（`server.cors_allow_origins` 白名单，开发默认放行 `*`，生产限定域名）。
@@ -208,6 +224,7 @@ yaofang/
 | 管理员能力（默认诊费配置 + 账号/密码管理 + 操作日志筛选） | ✅ 已交付 |
 | 安全与正确性加固（登录限速/停用即时失效/重复红冲与重复计费防护/质检闭环/退药单位口径修复） | ✅ 已交付并实测 |
 | 前端生产级补全（盘点全流程/收货质检/交互规则维护/个人中心/供货关系/工作台重构） | ✅ 已交付并端到端实测 |
+| Docker 一键部署包（Nginx+后端+PG 全容器化，内网浏览器直访，自动迁移/随机密钥） | ✅ 已实测（镜像构建/迁移/登录/内网访问全通） |
 | 二期就诊模块规划（docs/20） | 📋 S7 报表待实施 |
 
 > 迁移至 `000032`，共 **33 个版本**；质量门禁：`go build` / `go vet` / `go test` / `gofmt` / `golangci-lint` 全绿 ✅

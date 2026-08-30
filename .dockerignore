@@ -1,0 +1,7 @@
+.git
+bin
+ruanzhu
+pharmacy-web/node_modules
+pharmacy-web/dist
+configs
+*.log
