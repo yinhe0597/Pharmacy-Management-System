@@ -49,6 +49,17 @@
 - **CI/CD 流水线**：`ci.yml` Go 版本对齐 go.mod（1.26.5）并新增编译产物步骤；新增 `docker-image.yml`（三镜像推送 GHCR，多架构）与 `deploy.yml`（裸机 systemd 部署：交叉编译 → SCP → 迁移 → 重启 → `/readyz` 探活）；新增裸机部署单元 `deploy/yaofang.service`。
 - **无 Docker 可用**：本机无 Docker 不影响以上落地——裸机部署路径（§7）完整可用，Docker/K8s 资产待有环境直接构建。
 
+### 安全加固与健康检查（feature/healthcheck-sprint-2026-09-06）
+
+- **弱 JWT 密钥拒绝启动（Fix/P1）**：`auth.jwt_secret` 为空/`change-me`/`CHANGE_ME` 系列占位值或长度 <32 时 `config.Load` 拒绝启动（与主线 `59c3c71` 的启动校验合并，统一收敛到配置层）；开发模式使用占位值记 `slog.Warn`。杜绝默认密钥静默上线。
+- **登录失败审计日志（Fix/P1）**：登录失败写入 `operation_logs`（`action=login_failed`，含失败原因与客户端 IP），与主线登录限速（5 次/分）互补——限速拦截、日志追溯。
+- **RequireRoles 健壮性（Fix）**：上下文角色改安全类型断言——未挂载 Auth 时返回 403 而非 panic。
+- **依赖升级（Chore）**：`golang.org/x/crypto` v0.54.0→v0.56.0（bcrypt 所在安全库）；连带 `x/mod`/`x/net`/`x/text`/`x/tools` patch 升级。
+- **测试补齐（Test）**：`internal/config`（原零测试）新增 6 测试——弱密钥判定/启动校验/连接池钳制/DSN sslmode；`internal/pkg/sanitize` 新增脱敏边界用例；`internal/middleware` 新增探针判定/探针免日志/无 Auth 上下文 3 测试。
+- **文档修正（Docs）**：README 三处与 docs/00 的迁移版本计数修正为实际值 32 版（000001-000032）；CHANGELOG v1.0.0 迁移标题 6→12 版本；docs/00 Go 版本 1.22→1.26 对齐 go.mod。
+- **与主线并线说明**：rebase 至含 `59c3c71`（登录限速/停用即时失效/资金安全加固）与 `e14f6ab`（Docker 一键部署）的主线之上；Dockerfile/nginx.conf 取两方案并集（版本注入 + 非 root + 国内加速 + 模板化反代），`docker-compose.prod.yml` 注入 `API_UPSTREAM` 适配模板。
+
+
 ### 修复（联调实测）
 
 - **修复 GORM 列名错位导致 INSERT 42703（关键 Bug）**：Go 字段 `VPBBatch` 经 GORM 命名策略
@@ -333,7 +344,7 @@
 - **自动拆零**：零头拆零不足时预占自动预留待拆盒（`need_split`），发药确认自动拆盒入账。
 - 完整方案与对照见 [docs/13-药品拆零方案.md](docs/13-药品拆零方案.md)。
 
-### 数据库迁移（6 个版本）
+### 数据库迁移（12 个版本）
 
 | 版本 | 说明 |
 |------|------|

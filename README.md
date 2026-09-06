@@ -102,7 +102,7 @@ make db-up                                   # 需 Docker Compose
 psql -U postgres -h localhost -c "CREATE ROLE yaofang LOGIN PASSWORD 'yaofang123';"
 psql -U postgres -h localhost -c "CREATE DATABASE yaofang OWNER yaofang;"
 
-# 依次执行全部迁移与种子（migrations/NNNNNN_*.up.sql，共 33 个版本）
+# 依次执行全部迁移与种子（migrations/NNNNNN_*.up.sql，共 32 个版本）
 for f in migrations/*.up.sql; do
   echo "== $f"
   psql -U postgres -h localhost -d yaofang -v ON_ERROR_STOP=1 -f "$f"
@@ -183,7 +183,7 @@ yaofang/
 │   ├── middleware/        # 🛡️ JWT、日志、恢复、请求ID
 │   ├── scheduler/         # ⏰ 定时任务
 │   └── pkg/               # 🧰 通用组件（errs/money/pagination/auth）
-├── migrations/            # 📦 golang-migrate SQL 迁移（33 个版本）
+├── migrations/            # 📦 golang-migrate SQL 迁移（32 个版本）
 ├── configs/               # ⚙️ 配置样例
 ├── deploy/                # 🚢 部署资产：systemd 单元、K8s manifests、日志聚合配置
 ├── docs/                  # 📚 开发文档（20 篇）
@@ -241,9 +241,10 @@ yaofang/
 | 前端生产级补全（盘点全流程/收货质检/交互规则维护/个人中心/供货关系/工作台重构） | ✅ 已交付并端到端实测 |
 | Docker 一键部署包（Nginx+后端+PG 全容器化，内网浏览器直访，自动迁移/随机密钥） | ✅ 已实测（镜像构建/迁移/登录/内网访问全通） |
 | 部署运维完善（容器化 + 健康检查 + 日志聚合 + 连接池 + CI/CD） | ✅ 已交付 |
+| 健康检查冲刺（安全加固 + 测试补齐 + 依赖升级 + 文档修正） | ✅ 已交付 |
 | 二期就诊模块规划（docs/20） | 📋 S7 报表待实施 |
 
-> 迁移至 `000032`，共 **33 个版本**；质量门禁：`go build` / `go vet` / `go test` / `gofmt` / `golangci-lint` 全绿 ✅
+> 迁移至 `000032`，共 **32 个版本**；质量门禁：`go build` / `go vet` / `go test` / `gofmt` / `golangci-lint` 全绿 ✅
 
 ### 🗺️ 路线图
 
@@ -256,6 +257,8 @@ yaofang/
 - ✅ **安全与正确性加固**：登录限速/停用复查/JWT 密钥校验、重复红冲与重复计费防护、领用不吞预占、退药单位口径修复、质检闭环、结算单幂等（000031 唯一索引）、库存调拨/流水/预警前端补齐
 - ✅ **部署运维**：Dockerfile（后端/前端/迁移）+ 全栈 compose + K8s manifests + 裸机 systemd +
   健康检查（/healthz /readyz /version）+ 结构化日志 + Loki 日志聚合栈 + 连接池配置说明 + CI/CD 流水线
+- ✅ **健康检查冲刺**：生产禁弱 JWT 密钥启动 + 登录失败审计日志 + RequireRoles 安全断言 +
+  x/crypto 升级 + config/sanitize/middleware 单测补齐 + 文档计数修正
 - 🔭 **二期**：S7 合并结算报表
 
 ---
