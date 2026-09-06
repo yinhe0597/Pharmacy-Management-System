@@ -1,9 +1,12 @@
 package middleware
 
 import (
+	"bytes"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -77,5 +80,67 @@ func TestAuthInjectsRole(t *testing.T) {
 	_ = json.Unmarshal(w.Body.Bytes(), &body)
 	if body["code"] != float64(9003) {
 		t.Fatalf("错误码应为 9003，got %v", body["code"])
+	}
+}
+
+func TestIsProbePath(t *testing.T) {
+	cases := []struct {
+		path string
+		want bool
+	}{
+		{"/healthz", true},
+		{"/readyz", true},
+		{"/version", false},
+		{"/api/v1/auth/login", false},
+		{"/healthz/sub", false},
+	}
+	for _, c := range cases {
+		if got := isProbePath(c.path); got != c.want {
+			t.Errorf("isProbePath(%q) = %v, want %v", c.path, got, c.want)
+		}
+	}
+}
+
+// TestLoggerSkipsProbes 探针路径不产生访问日志，业务路径正常记录。
+func TestLoggerSkipsProbes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	var buf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
+	defer slog.SetDefault(prev)
+
+	r := gin.New()
+	r.Use(Logger())
+	h := func(c *gin.Context) { c.Status(http.StatusOK) }
+	r.GET("/healthz", h)
+	r.GET("/readyz", h)
+	r.GET("/api/v1/ping", h)
+
+	for _, p := range []string{"/healthz", "/readyz", "/api/v1/ping"} {
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, p, nil))
+		if w.Code != http.StatusOK {
+			t.Fatalf("%s status = %d, want 200", p, w.Code)
+		}
+	}
+	out := buf.String()
+	if strings.Contains(out, "/healthz") || strings.Contains(out, "/readyz") {
+		t.Errorf("探针请求不应出现在访问日志中：\n%s", out)
+	}
+	if !strings.Contains(out, "/api/v1/ping") {
+		t.Errorf("业务请求应记录访问日志：\n%s", out)
+	}
+}
+
+// TestRequireRolesWithoutAuth 未挂载 Auth 时安全断言不 panic，直接 403。
+func TestRequireRolesWithoutAuth(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.GET("/protected", RequireRoles("admin"),
+		func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"ok": true}) })
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/protected", nil))
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("无 Auth 上下文应 403，got %d", w.Code)
 	}
 }

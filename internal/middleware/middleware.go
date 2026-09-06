@@ -131,7 +131,8 @@ func RequireRoles(roles ...string) gin.HandlerFunc {
 	}
 	return func(c *gin.Context) {
 		role, _ := c.Get(ctxKeyUserRole)
-		if !allowed[role.(string)] {
+		rs, _ := role.(string) // 未挂载 Auth 时为 nil，安全断言避免 panic
+		if !allowed[rs] {
 			c.AbortWithStatusJSON(errs.ErrForbidden.HTTP, gin.H{
 				"code": errs.ErrForbidden.Code, "message": errs.ErrForbidden.Message, "data": nil,
 			})
