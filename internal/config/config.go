@@ -10,6 +10,21 @@ import (
 	"github.com/spf13/viper"
 )
 
+// weakJWTSecrets 已知的弱 JWT 密钥（默认值）。
+// 生产模式（release）下使用弱/占位密钥将拒绝启动，防止默认密钥静默上线。
+var weakJWTSecrets = map[string]bool{
+	"":          true,
+	"change-me": true,
+}
+
+// isWeakJWTSecret 判断 JWT 密钥是否为弱/占位值（含 CHANGE_ME 系列占位符变体）。
+func isWeakJWTSecret(s string) bool {
+	if weakJWTSecrets[s] {
+		return true
+	}
+	return strings.Contains(strings.ToUpper(s), "CHANGE_ME")
+}
+
 // Config 应用配置根。
 type Config struct {
 	Server    ServerConfig    `mapstructure:"server"`
@@ -125,7 +140,22 @@ func Load() (*Config, error) {
 		cfg.Database.Password = os.Getenv("YF_DATABASE_PASSWORD")
 	}
 	cfg.normalize()
+	if err := cfg.validate(); err != nil {
+		return nil, err
+	}
 	return &cfg, nil
+}
+
+// validate 校验安全关键配置。与主线 59c3c71 的启动校验合并、统一收敛到配置层：
+// JWT 密钥为空/默认/占位值或长度不足 32 位时一律拒绝启动（HS256 对称签名，弱钥即可离线伪造任意 token）。
+func (c *Config) validate() error {
+	if isWeakJWTSecret(c.Auth.JWTSecret) {
+		return fmt.Errorf("auth.jwt_secret 为默认/占位值：请在 configs/config.yaml 设置 ≥32 位随机密钥，或使用环境变量 YF_AUTH_JWT_SECRET（建议 openssl rand -base64 48）")
+	}
+	if len(c.Auth.JWTSecret) < 32 {
+		return fmt.Errorf("auth.jwt_secret 强度不足：当前 %d 字符 < 32（HS256 对称签名，密钥泄露即可离线伪造任意 token）", len(c.Auth.JWTSecret))
+	}
+	return nil
 }
 
 // normalize 对关键配置做钳制/兜底，避免非法值导致运行期异常（连接池、日志）。

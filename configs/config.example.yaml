@@ -21,7 +21,7 @@ database:
   conn_max_idle_time: 30m          # 空闲连接回收时长
 
 auth:
-  jwt_secret: "CHANGE_ME_32chars+"  # JWT 密钥，生产必须改为 ≥32 位随机串
+  jwt_secret: "example-only-secret-please-override-32chars"  # JWT 密钥（≥32 位），生产必须改为强随机串（openssl rand -base64 48）
   token_ttl: 720h
 
 scheduler:

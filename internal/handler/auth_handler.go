@@ -63,6 +63,14 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 	token, user, err := h.svc.Login(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
+		// 登录失败同样记审计日志（爆破攻击追溯依据，docs/14 安全项）
+		if h.logSvc != nil {
+			h.logSvc.Log(c.Request.Context(), &model.OperationLog{
+				Username: req.Username, Action: "login_failed", Resource: "auth",
+				Method: "POST", Path: "/auth/login", IP: c.ClientIP(),
+				Detail: err.Error(),
+			})
+		}
 		Error(c, err)
 		return
 	}
