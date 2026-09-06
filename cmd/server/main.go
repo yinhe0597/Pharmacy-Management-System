@@ -4,16 +4,19 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+	_ "time/tzdata" // 内嵌时区数据库：-trimpath 静态二进制/精简容器也能解析 DSN TimeZone
 
 	"yaofang/internal/config"
 	"yaofang/internal/scheduler"
 	"yaofang/internal/server"
+	"yaofang/internal/version"
 )
 
 // @title 药房管理系统 API
@@ -30,11 +33,13 @@ func main() {
 		slog.Error("加载配置失败", "err", err)
 		os.Exit(1)
 	}
-	if err := validateJWTSecret(cfg.Auth.JWTSecret); err != nil {
-		slog.Error("JWT 密钥校验失败（拒绝启动）", "err", err)
+	logger, err := newLogger(&cfg.Log)
+	if err != nil {
+		slog.Error("初始化日志失败", "err", err)
 		os.Exit(1)
 	}
-	slog.SetDefault(newLogger())
+	slog.SetDefault(logger)
+	slog.Info("配置加载完成", "version", version.Version, "commit", version.Commit, "build_time", version.BuildTime)
 
 	db, err := server.OpenDB(&cfg.Database)
 	if err != nil {
@@ -58,18 +63,19 @@ func main() {
 	}
 
 	go func() {
-		slog.Info("服务启动", "addr", addr)
+		slog.Info("服务启动", "addr", addr, "version", version.Version, "commit", version.Commit)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("服务异常退出", "err", err)
 			os.Exit(1)
 		}
 	}()
 
-	// 优雅退出
+	// 优雅退出：先标记关闭（/healthz 转 503 摘流量），再排空存量请求。
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	slog.Info("正在优雅关闭")
+	app.BeginShutdown()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
@@ -77,18 +83,36 @@ func main() {
 	}
 }
 
-func newLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
-}
+// newLogger 按配置构建 slog 处理器：
+//   - format=json：结构化 JSON（推荐生产，供 Loki/ELK/Promtail 直接采集解析）；
+//   - format=text：人类可读文本（本地开发）；
+//   - file 非空：追加写入该文件（裸机部署配合 logrotate 轮转；容器内务必留空走 stdout）。
+func newLogger(cfg *config.LogConfig) (*slog.Logger, error) {
+	level := slog.LevelInfo
+	switch cfg.Level {
+	case "debug":
+		level = slog.LevelDebug
+	case "warn":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	}
+	opts := &slog.HandlerOptions{Level: level}
 
-// validateJWTSecret 生产启动前校验 JWT 密钥强度：
-// 拒绝默认值「change-me」与长度不足 32 位的密钥（HS256 对称签名，密钥泄露即可离线伪造任意 token）。
-func validateJWTSecret(secret string) error {
-	if secret == "" || secret == "change-me" {
-		return fmt.Errorf("auth.jwt_secret 未配置或仍为默认值：请在 configs/config.yaml 设置 ≥32 位随机密钥，或使用环境变量 YF_AUTH_JWT_SECRET")
+	out := io.Writer(os.Stdout)
+	if cfg.File != "" {
+		f, err := os.OpenFile(cfg.File, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+		if err != nil {
+			return nil, fmt.Errorf("打开日志文件失败: %w", err)
+		}
+		out = f
 	}
-	if len(secret) < 32 {
-		return fmt.Errorf("auth.jwt_secret 强度不足（%d 字符 < 32）", len(secret))
+
+	var h slog.Handler
+	if cfg.Format == "json" {
+		h = slog.NewJSONHandler(out, opts)
+	} else {
+		h = slog.NewTextHandler(out, opts)
 	}
-	return nil
+	return slog.New(h).With("service", "yaofang"), nil
 }

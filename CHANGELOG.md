@@ -40,6 +40,15 @@
   （手工补录 prescription_id=0 此前必然外键违规 500）。
 - **测试**：新增 5 个计费/领用集成回归测试；swag 重生成（二期 15 路由入档）；前端生成类型同步。
 
+### 新增（部署运维完善，docs/10）
+
+- **容器化部署**：新增后端 `Dockerfile`（多阶段静态编译 + Alpine 非 root）、前端 `pharmacy-web/Dockerfile`（Vite → Nginx SPA + `/api` 反代）、迁移镜像 `deploy/Dockerfile.migrate`；`docker-compose.yml` 升级为全栈（db → migrate → api → web，依赖健康等待 + healthcheck）；`deploy/k8s/` 提供 Deployment/Service/HPA/迁移 Job/Ingress 全套 manifest。
+- **健康检查端点**：`/healthz`（存活，进入优雅关闭后返回 503 摘流量）、`/readyz`（就绪，2s 超时探测数据库连通性）、`/version`（ldflags 注入 version/commit/build_time）；探针请求不写访问日志。
+- **结构化日志**：新增 `log.level/format/file` 配置（text/json，生产建议 json），slog 统一 `service=yaofang` + `request_id`；新增 Loki + Promtail + Grafana 聚合栈（`compose.logging.yml` + `deploy/logging/promtail-config.yml`），文档给出裸机 journald/文件采集与 logrotate 兜底方案。
+- **数据库连接池说明**：新增 `sslmode`、`conn_max_idle_time` 配置与非法值钳制（idle ≤ open 强制成立）；docs/10 §9 给出容量公式、监控 SQL 与调优建议。
+- **CI/CD 流水线**：`ci.yml` Go 版本对齐 go.mod（1.26.5）并新增编译产物步骤；新增 `docker-image.yml`（三镜像推送 GHCR，多架构）与 `deploy.yml`（裸机 systemd 部署：交叉编译 → SCP → 迁移 → 重启 → `/readyz` 探活）；新增裸机部署单元 `deploy/yaofang.service`。
+- **无 Docker 可用**：本机无 Docker 不影响以上落地——裸机部署路径（§7）完整可用，Docker/K8s 资产待有环境直接构建。
+
 ### 修复（联调实测）
 
 - **修复 GORM 列名错位导致 INSERT 42703（关键 Bug）**：Go 字段 `VPBBatch` 经 GORM 命名策略

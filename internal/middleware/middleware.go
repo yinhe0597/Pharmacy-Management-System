@@ -43,9 +43,13 @@ func RequestID() gin.HandlerFunc {
 	}
 }
 
-// Logger 结构化访问日志。
+// Logger 结构化访问日志（健康检查探测不记录，避免探针刷屏日志/告警）。
 func Logger() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if isProbePath(c.Request.URL.Path) {
+			c.Next()
+			return
+		}
 		start := time.Now()
 		path := c.Request.URL.Path
 		c.Next()
@@ -58,6 +62,11 @@ func Logger() gin.HandlerFunc {
 			"request_id", RequestIDFromCtx(c),
 		)
 	}
+}
+
+// isProbePath 健康检查探活路径。
+func isProbePath(path string) bool {
+	return path == "/healthz" || path == "/readyz"
 }
 
 // Recover 捕获 panic，返回统一 500。

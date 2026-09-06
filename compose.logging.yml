@@ -1,0 +1,36 @@
+# 日志聚合栈（可选）：Loki + Promtail + Grafana
+# 用法（与主编排同目录）：
+#   docker compose -f compose.logging.yml up -d
+#   docker compose -f compose.logging.yml down
+#
+# 采集对象：同一 Docker 引擎上全部容器（promtail 按 label 过滤，见 deploy/logging/promtail-config.yml）
+# 访问：
+#   Grafana  http://localhost:3000  admin / admin123（首次登录请修改）
+#   Loki     http://localhost:3100/ready
+# 在 Grafana 中：Connections → Data sources → 添加 Loki（URL http://loki:3100）→ 保存并测试，
+# 然后 Explore 选择 Loki，查询 {container_name=~"yaofang.*"} 即可检索全部服务日志。
+services:
+  loki:
+    image: grafana/loki:3.2.1
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:3.2.1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock   # docker_sd 发现容器
+      - ./deploy/logging/promtail-config.yml:/etc/promtail/config.yml:ro
+    command: -config.file=/etc/promtail/config.yml
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123   # 生产必改
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+    restart: unless-stopped

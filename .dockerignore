@@ -1,7 +1,22 @@
+# 后端镜像构建上下文排除清单：镜像只需要 Go 源码与迁移文件
 .git
-bin
+.gitignore
+.github
+.idea
+.vscode
+.claude
+bin/
 ruanzhu
-pharmacy-web/node_modules
-pharmacy-web/dist
-configs
+*.exe
 *.log
+.pgdata
+.pgdata16
+coverage.out
+.env
+configs
+data/
+docs/
+pharmacy-web/
+node_modules/
+dist/
+scripts/

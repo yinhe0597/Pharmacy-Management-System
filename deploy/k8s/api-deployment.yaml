@@ -1,0 +1,60 @@
+# 后端 Deployment：健康检查探针 + 优雅关闭（terminationGracePeriodSeconds 需 > 应用关闭超时）
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yaofang-api
+  namespace: yaofang
+  labels:
+    app: yaofang-api
+spec:
+  replicas: 2
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: yaofang-api
+  template:
+    metadata:
+      labels:
+        app: yaofang-api
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: api
+          image: registry.example.com/yaofang-api:latest  # 替换为你的镜像地址
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: yaofang-api-config
+            - secretRef:
+                name: yaofang-api-secret
+          # 存活探针：进程僵死/死锁时重启
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # 就绪探针：数据库不可达时摘流量，滚动更新时保证新 Pod 就绪才继续
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi

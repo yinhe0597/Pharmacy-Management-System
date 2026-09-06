@@ -1,0 +1,30 @@
+# 药房管理系统 systemd 单元（无 Docker 裸机部署，docs/10 §7）
+# 安装：sudo cp deploy/yaofang.service /etc/systemd/system/ && sudo systemctl daemon-reload
+# 启用：sudo systemctl enable --now yaofang
+[Unit]
+Description=Yaofang Pharmacy API
+Documentation=https://github.com/  # 替换为项目仓库
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+# 二进制路径（部署脚本/手工发布时放置）
+ExecStart=/opt/yaofang/bin/yaofang
+WorkingDirectory=/opt/yaofang
+# 生产配置全部走环境变量，避免敏感信息落盘
+EnvironmentFile=/etc/yaofang/env
+Restart=always
+RestartSec=3
+# 安全加固
+User=yaofang
+Group=yaofang
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+
+# 慢启动保护：90s 内未就绪则按失败处理（配合 /readyz 探活）
+TimeoutStartSec=90
+
+[Install]
+WantedBy=multi-user.target

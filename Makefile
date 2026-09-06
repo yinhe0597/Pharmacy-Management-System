@@ -1,10 +1,24 @@
 # 药房管理系统 Makefile（Linux / Git Bash）
-.PHONY: build run vet fmt fmt-check lint test test-integration swag ci db-migrate db-up db-down
+.PHONY: build run vet fmt fmt-check lint test test-integration swag ci db-migrate db-up db-down docker-build docker-up docker-down docker-logs
 
 APP := bin/yaofang
 
+# 构建时注入版本信息（/version 端点与启动日志可见）
+VERSION ?= dev
+COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+BUILDTIME ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+
+LDFLAGS := -s -w \
+	-X yaofang/internal/version.Version=$(VERSION) \
+	-X yaofang/internal/version.Commit=$(COMMIT) \
+	-X yaofang/internal/version.BuildTime=$(BUILDTIME)
+
 build:
-	go build -o $(APP) ./cmd/server
+	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o $(APP) ./cmd/server
+
+# 交叉编译 Linux amd64（无 Docker 裸机部署用）
+build-linux:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/yaofang-linux-amd64 ./cmd/server
 
 run:
 	go run ./cmd/server
@@ -37,6 +51,28 @@ db-up:
 
 db-down:
 	docker compose down
+
+# ── 容器化部署 ──
+docker-build:
+	docker build --build-arg VERSION=$(VERSION) --build-arg COMMIT=$(COMMIT) --build-arg BUILDTIME=$(BUILDTIME) -t yaofang-api:$(VERSION) .
+	docker build -t yaofang-web:$(VERSION) pharmacy-web
+	docker build -f deploy/Dockerfile.migrate -t yaofang-migrate:$(VERSION) .
+
+docker-up:
+	docker compose up -d --build
+
+docker-down:
+	docker compose down
+
+docker-logs:
+	docker compose logs -f --tail=200 api web
+
+# 日志聚合栈（Loki + Promtail + Grafana）
+logging-up:
+	docker compose -f compose.logging.yml up -d
+
+logging-down:
+	docker compose -f compose.logging.yml down
 
 swag:
 	swag init -g cmd/server/main.go -o docs --parseDependency --parseInternal

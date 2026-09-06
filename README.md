@@ -6,7 +6,7 @@
 
 模块化单体架构 · 全栈交付（Vue3 + ECharts）· 容器化一键部署 · 二期诊疗无缝扩展
 
-![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat-square&logo=go&logoColor=white)
+![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?style=flat-square&logo=go&logoColor=white)
 ![Vue3](https://img.shields.io/badge/Vue3-4FC08D?style=flat-square&logo=vuedotjs&logoColor=white)
 ![Gin](https://img.shields.io/badge/Gin-Web%20Framework-00ADD8?style=flat-square&logo=go&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-336791?style=flat-square&logo=postgresql&logoColor=white)
@@ -61,7 +61,7 @@
 
 | 层 | 选型 | 说明 |
 |----|------|------|
-| 🗣️ 语言 | **Go 1.22+** | 静态类型、高并发、编译部署简单 |
+| 🗣️ 语言 | **Go 1.26+** | 静态类型、高并发、编译部署简单 |
 | 🌐 Web 框架 | **Gin** | 高性能、生态成熟 |
 | 🗄️ ORM | **GORM** | 事务、行级锁（`clause.Locking`）、软删除 |
 | 🐘 数据库 | **PostgreSQL 14+** | 行级锁、报表聚合，库存正确性第一 |
@@ -79,9 +79,18 @@
 
 | 依赖 | 版本 |
 |------|------|
-| Go | ≥ 1.22 |
+| Go | ≥ 1.26.5 |
 | PostgreSQL | ≥ 14 |
-| Docker Compose（可选） | 用于一键起库 |
+| Docker Compose（可选） | 一键起库 / 全栈部署 |
+
+### 🐳 容器化一键部署（可选，需 Docker）
+
+```bash
+docker compose up -d --build    # db → migrate → api → web 全栈
+# 前端 http://localhost:8088 ，API 健康检查 http://localhost:8080/readyz
+```
+
+无 Docker 的服务器可走 **裸机 systemd 部署**（`deploy/yaofang.service`），K8s 部署见 `deploy/k8s/`，完整说明见 [docs/10-部署运维.md](docs/10-部署运维.md)。
 
 ### 🗄️ 1️⃣ 初始化数据库
 
@@ -176,9 +185,11 @@ yaofang/
 │   └── pkg/               # 🧰 通用组件（errs/money/pagination/auth）
 ├── migrations/            # 📦 golang-migrate SQL 迁移（33 个版本）
 ├── configs/               # ⚙️ 配置样例
+├── deploy/                # 🚢 部署资产：systemd 单元、K8s manifests、日志聚合配置
 ├── docs/                  # 📚 开发文档（20 篇）
 ├── scripts/               # 🔧 运维/构建/覆盖率脚本
-└── docker-compose.yml     # 🐳 本地 PG + 自动迁移
+├── Dockerfile             # 🐳 后端镜像（多阶段构建）
+└── docker-compose.yml     # 🐳 全栈编排（db + migrate + api + web）
 ```
 
 ---
@@ -188,6 +199,8 @@ yaofang/
 服务启动后访问：**http://localhost:8080/swagger/index.html**
 
 接口统一前缀 `/api/v1`，响应信封 `{code, message, data}`，金额一律整数「分」。
+
+健康检查（无鉴权，供负载均衡 / K8s 探针）：`GET /healthz`（存活）、`GET /readyz`（就绪，含数据库连通性）、`GET /version`（构建版本）。
 
 | 🗂️ 模块 | 亮点端点 |
 |--------|---------|
@@ -227,6 +240,7 @@ yaofang/
 | 安全与正确性加固（登录限速/停用即时失效/重复红冲与重复计费防护/质检闭环/退药单位口径修复） | ✅ 已交付并实测 |
 | 前端生产级补全（盘点全流程/收货质检/交互规则维护/个人中心/供货关系/工作台重构） | ✅ 已交付并端到端实测 |
 | Docker 一键部署包（Nginx+后端+PG 全容器化，内网浏览器直访，自动迁移/随机密钥） | ✅ 已实测（镜像构建/迁移/登录/内网访问全通） |
+| 部署运维完善（容器化 + 健康检查 + 日志聚合 + 连接池 + CI/CD） | ✅ 已交付 |
 | 二期就诊模块规划（docs/20） | 📋 S7 报表待实施 |
 
 > 迁移至 `000032`，共 **33 个版本**；质量门禁：`go build` / `go vet` / `go test` / `gofmt` / `golangci-lint` 全绿 ✅
@@ -240,7 +254,9 @@ yaofang/
 - ✅ **二期就诊模块后端**：S1 迁移（visits/medical_records(+diagnoses)/charges(+items)）+ S2 就诊域 + S3 病历域 + S4 结算域（`CalculateBill` 合并计价）+ S5 处方联动（`visit_id`/`source`）；二期冒烟（18 项检查）全通
 - ✅ **二期就诊模块前端**：S6 就诊工作台（挂号/接诊/退号/病历/结算）+ 收费台（明细/收费/退费）页面
 - ✅ **安全与正确性加固**：登录限速/停用复查/JWT 密钥校验、重复红冲与重复计费防护、领用不吞预占、退药单位口径修复、质检闭环、结算单幂等（000031 唯一索引）、库存调拨/流水/预警前端补齐
-- 🔭 **二期**：S7 合并结算报表、前端部署（Nginx 反代）
+- ✅ **部署运维**：Dockerfile（后端/前端/迁移）+ 全栈 compose + K8s manifests + 裸机 systemd +
+  健康检查（/healthz /readyz /version）+ 结构化日志 + Loki 日志聚合栈 + 连接池配置说明 + CI/CD 流水线
+- 🔭 **二期**：S7 合并结算报表
 
 ---
 

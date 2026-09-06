@@ -3,6 +3,7 @@ package server
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -30,6 +31,9 @@ type App struct {
 	cfg *config.Config
 	db  *gorm.DB
 	jwt *auth.Manager
+
+	startedAt    time.Time
+	shuttingDown atomic.Bool
 
 	auth         *service.AuthService
 	drug         *service.DrugService
@@ -74,6 +78,7 @@ func NewApp(cfg *config.Config, db *gorm.DB) *App {
 		cfg:            cfg,
 		db:             db,
 		jwt:            jwtMgr,
+		startedAt:      time.Now(),
 		auth:           service.NewAuthService(db, jwtMgr),
 		drug:           service.NewDrugService(db),
 		supplier:       service.NewSupplierService(db),
@@ -100,6 +105,10 @@ func NewApp(cfg *config.Config, db *gorm.DB) *App {
 // Inventory 返回库存服务（供调度器使用）。
 func (a *App) Inventory() *service.InventoryService { return a.inventory }
 
+// BeginShutdown 标记服务进入关闭流程（/healthz 随即返回 503，便于负载均衡/编排摘流量）。
+// 在收到退出信号后、调用 http.Server.Shutdown 之前调用。
+func (a *App) BeginShutdown() { a.shuttingDown.Store(true) }
+
 // Engine 构建 Gin 引擎并注册全部路由。
 func (a *App) Engine() *gin.Engine {
 	if a.cfg.Server.Mode == "release" {
@@ -108,9 +117,10 @@ func (a *App) Engine() *gin.Engine {
 	r := gin.New()
 	r.Use(middleware.Recover(), middleware.RequestID(), middleware.Logger(), middleware.CORS(a.cfg.Server.CORSAllowOrigins))
 
-	// 探活
-	r.GET("/healthz", func(c *gin.Context) { c.JSON(200, gin.H{"status": "ok"}) })
-	r.GET("/readyz", func(c *gin.Context) { c.JSON(200, gin.H{"status": "ready"}) })
+	// 健康检查（无鉴权，供负载均衡 / 容器编排 / K8s 探针使用）
+	r.GET("/healthz", a.healthz) // 存活：进程存活即 200，关闭中 503
+	r.GET("/readyz", a.readyz)   // 就绪：依赖（数据库）连通才 200，否则 503
+	r.GET("/version", a.versionInfo)
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// 用户状态复查：token 有效但账号已被停用/删除时立即拒绝（吊销能力）

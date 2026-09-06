@@ -1,0 +1,43 @@
+# 数据库迁移 Job：升级时先执行迁移，再滚动发布 API。
+# 镜像：docker build -f deploy/Dockerfile.migrate -t registry.example.com/yaofang-migrate:latest .
+# 用法：kubectl apply -f migrate-job.yaml（迁移完成后 Job 进入 Completed 状态，可删除重建）
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: yaofang-migrate
+  namespace: yaofang
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: registry.example.com/yaofang-migrate:latest  # 替换为你的镜像地址
+          env:
+            - name: PGHOST
+              valueFrom:
+                configMapKeyRef:
+                  name: yaofang-api-config
+                  key: YF_DATABASE_HOST
+            - name: PGPORT
+              valueFrom:
+                configMapKeyRef:
+                  name: yaofang-api-config
+                  key: YF_DATABASE_PORT
+            - name: PGDATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: yaofang-api-config
+                  key: YF_DATABASE_NAME
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: yaofang-api-secret
+                  key: YF_DATABASE_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: yaofang-api-secret
+                  key: YF_DATABASE_PASSWORD

@@ -1,0 +1,34 @@
+# 入口网关（可选）：按域名路由，前端 / 与后端 /api 同域，无需 CORS。
+# 需集群已安装 Ingress Controller（如 ingress-nginx）。
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: yaofang
+  namespace: yaofang
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: pharmacy.example.com   # 替换为你的域名
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: yaofang-web
+                port:
+                  name: http
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: yaofang-api
+                port:
+                  name: http
+  # 启用 HTTPS 后取消注释（需 cert-manager）：
+  # tls:
+  #   - hosts:
+  #       - pharmacy.example.com
+  #     secretName: yaofang-tls

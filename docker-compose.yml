@@ -1,14 +1,19 @@
-# 本地开发/集成测试环境：PostgreSQL 16 + 自动执行全部迁移
+# 药房管理系统 全栈编排：PostgreSQL + 迁移 + 后端 API + 前端 Web（Nginx）
+#
 # 用法：
-#   docker compose up -d db          # 仅启动数据库
-#   docker compose run --rm migrate  # 执行 migrations/*.up.sql（可重复）
-#   make db-up                       # 等价上面两步
+#   docker compose up -d --build          # 一键起全栈（db → migrate → api → web）
+#   docker compose up -d db               # 仅起数据库（本地开发）
+#   docker compose run --rm migrate       # 手动执行迁移（可重复）
+#   docker compose down                   # 停止（加 -v 删除数据卷）
+#
+# 生产环境敏感配置通过环境变量覆盖，例如：
+#   YF_DATABASE_PASSWORD=*** YF_AUTH_JWT_SECRET=*** docker compose up -d
 services:
   db:
     image: postgres:16
     environment:
       POSTGRES_USER: yaofang
-      POSTGRES_PASSWORD: yaofang123
+      POSTGRES_PASSWORD: ${YF_DATABASE_PASSWORD:-yaofang123}
       POSTGRES_DB: yaofang
     ports:
       - "5432:5432"
@@ -19,21 +24,74 @@ services:
       retries: 10
     volumes:
       - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
 
+  # 迁移服务：按版本顺序执行 migrations/*.up.sql（幂等，可重复）
   migrate:
     image: postgres:16
     depends_on:
       db:
         condition: service_healthy
     environment:
-      PGPASSWORD: yaofang123
+      PGPASSWORD: ${YF_DATABASE_PASSWORD:-yaofang123}
+      PGHOST: db
+      PGUSER: yaofang
+      PGDATABASE: yaofang
     volumes:
       - ./migrations:/migrations:ro
     command: >
       bash -c "for f in /migrations/*.up.sql; do
         echo \"== $$f\";
-        psql -h db -U yaofang -d yaofang -v ON_ERROR_STOP=1 -f \"$$f\" || exit 1;
+        psql -v ON_ERROR_STOP=1 -f \"$$f\" || exit 1;
       done"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${YF_VERSION:-dev}
+        COMMIT: ${YF_COMMIT:-unknown}
+        BUILDTIME: ${YF_BUILDTIME:-unknown}
+    image: yaofang-api:${YF_VERSION:-dev}
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      YF_SERVER_PORT: "8080"
+      YF_SERVER_MODE: release
+      YF_DATABASE_HOST: db
+      YF_DATABASE_PORT: "5432"
+      YF_DATABASE_USER: yaofang
+      YF_DATABASE_PASSWORD: ${YF_DATABASE_PASSWORD:-yaofang123}
+      YF_DATABASE_NAME: yaofang
+      YF_DATABASE_SSLMODE: disable
+      YF_AUTH_JWT_SECRET: ${YF_AUTH_JWT_SECRET:-yaofang-compose-dev-secret-change-me}
+      YF_LOG_FORMAT: json        # 结构化日志 → 容器 stdout，供 Promtail/日志平台采集
+      YF_LOG_LEVEL: info
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/readyz >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: pharmacy-web
+      dockerfile: Dockerfile
+    image: yaofang-web:${YF_VERSION:-dev}
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      API_UPSTREAM: api:8080      # Nginx 模板替换：/api/* 反代到后端
+    ports:
+      - "8088:80"                 # 访问 http://localhost:8088
+    restart: unless-stopped
 
 volumes:
   pgdata:

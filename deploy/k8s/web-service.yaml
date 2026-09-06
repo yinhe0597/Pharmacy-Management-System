@@ -1,0 +1,13 @@
+# 前端 Service（ClusterIP）
+apiVersion: v1
+kind: Service
+metadata:
+  name: yaofang-web
+  namespace: yaofang
+spec:
+  selector:
+    app: yaofang-web
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

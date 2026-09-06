@@ -27,7 +27,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.26.5'   # 与 go.mod 保持一致
           cache: true
 
       - name: 安装 PostgreSQL 客户端
@@ -41,6 +41,13 @@ jobs:
             echo "== $f"
             psql -h localhost -U yaofang -d yaofang -v ON_ERROR_STOP=1 -f "$f"
           done
+
+      - name: 编译产物（含版本注入）
+        run: |
+          CGO_ENABLED=0 go build -trimpath -ldflags "-s -w \
+            -X yaofang/internal/version.Version=${GITHUB_REF_NAME} \
+            -X yaofang/internal/version.Commit=${GITHUB_SHA::7}" \
+            -o /tmp/yaofang-check ./cmd/server
 
       - name: 静态检查（vet + 格式）
         run: |

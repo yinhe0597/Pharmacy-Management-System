@@ -1,0 +1,102 @@
+# 裸机部署（无 Docker 目标机）：交叉编译 Linux 二进制 → SCP 上传 → 迁移 → 重启 systemd 服务
+# 适合当前无 Docker 环境的服务器；容器/K8s 环境请用 docker-image.yml + deploy/k8s。
+#
+# 手动触发：Actions → 部署（裸机 systemd）→ Run workflow
+# 所需仓库 Secrets（Settings → Secrets and variables → Actions）：
+#   DEPLOY_HOST / DEPLOY_USER / DEPLOY_SSH_KEY（私钥）/ DEPLOY_PORT（默认 22）
+#   DB_HOST / DB_PORT / DB_NAME / DB_USER / DB_PASSWORD（迁移用）
+#   JWT_SECRET（生产 JWT 密钥，≥32 位随机串）
+name: 部署（裸机 systemd）
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 部署环境
+        required: true
+        default: production
+        type: choice
+        options:
+          - production
+          - staging
+      version:
+        description: 版本号（注入 /version 与日志）
+        required: false
+        default: latest
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.5'
+          cache: true
+
+      - name: 交叉编译 Linux amd64 二进制
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath \
+            -ldflags "-s -w \
+              -X yaofang/internal/version.Version=${{ inputs.version }} \
+              -X yaofang/internal/version.Commit=${GITHUB_SHA::7} \
+              -X yaofang/internal/version.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -o /tmp/yaofang-linux-amd64 ./cmd/server
+
+      - name: 上传二进制与迁移脚本
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || '22' }}
+          source: "/tmp/yaofang-linux-amd64,migrations/,deploy/yaofang.service"
+          target: /opt/yaofang
+
+      - name: 迁移数据库并重启服务
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || '22' }}
+          envs: DB_HOST,DB_PORT,DB_NAME,DB_USER,DB_PASSWORD,JWT_SECRET
+          script: |
+            set -e
+            cd /opt/yaofang
+            sudo mv -f /opt/yaofang/yaofang-linux-amd64 /opt/yaofang/bin/yaofang
+            sudo chmod +x /opt/yaofang/bin/yaofang
+            sudo cp -f deploy/yaofang.service /etc/systemd/system/yaofang.service
+
+            # 0) 写入生产环境变量文件（systemd EnvironmentFile，权限 600）
+            sudo mkdir -p /etc/yaofang
+            sudo tee /etc/yaofang/env >/dev/null <<EOF
+            YF_SERVER_MODE=release
+            YF_DATABASE_HOST=$DB_HOST
+            YF_DATABASE_PORT=${DB_PORT:-5432}
+            YF_DATABASE_USER=$DB_USER
+            YF_DATABASE_PASSWORD=$DB_PASSWORD
+            YF_DATABASE_NAME=$DB_NAME
+            YF_DATABASE_SSLMODE=disable
+            YF_AUTH_JWT_SECRET=$JWT_SECRET
+            YF_LOG_FORMAT=json
+            YF_LOG_LEVEL=info
+            EOF
+            sudo chmod 600 /etc/yaofang/env
+
+            # 1) 先执行迁移（幂等，可重复）
+            echo "== 执行数据库迁移"
+            for f in migrations/*.up.sql; do
+              echo "== $f"
+              PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "${DB_PORT:-5432}" \
+                -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$f"
+            done
+
+            # 2) 重启服务并探活
+            sudo systemctl daemon-reload
+            sudo systemctl restart yaofang
+            sleep 5
+            curl -fsS http://127.0.0.1:8080/readyz
+            echo "== 部署完成，/readyz 探活通过"

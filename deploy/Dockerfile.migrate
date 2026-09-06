@@ -1,0 +1,8 @@
+# 迁移镜像：内置全部 migrations，供 K8s Job / 任意环境执行数据库迁移。
+# 用法：容器启动即执行全部 *.up.sql（连接参数经 PGHOST/PGUSER/PGPASSWORD/PGDATABASE 环境变量注入）。
+FROM postgres:16-alpine
+
+COPY migrations /migrations
+COPY deploy/migrate.sh /usr/local/bin/migrate.sh
+
+ENTRYPOINT ["/usr/local/bin/migrate.sh"]

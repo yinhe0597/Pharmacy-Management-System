@@ -64,6 +64,8 @@ services:
 
   frontend:
     build: ./pharmacy-web
+    environment:
+      API_UPSTREAM: backend:8080  # 前端 Nginx 反代目标（模板 nginx.conf 的 ${API_UPSTREAM}）
     ports:
       - "${HTTP_PORT:-80}:80"
     depends_on:

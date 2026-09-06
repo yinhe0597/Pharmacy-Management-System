@@ -13,9 +13,12 @@ database:
   user: yaofang
   password: "CHANGE_ME"            # 数据库密码（生产用环境变量覆盖）
   name: yaofang
-  max_open_conns: 20
-  max_idle_conns: 10
-  conn_max_lifetime: 1h
+  sslmode: disable                 # disable / require（云数据库建议 require）
+  # ── 连接池（高并发调优见 docs/10 §9）──
+  max_open_conns: 20               # 最大打开连接数（≈ 数据库 max_connections 预留后的可分配份额）
+  max_idle_conns: 10               # 最大空闲连接数（≤ max_open_conns，0 = 不保留空闲）
+  conn_max_lifetime: 1h            # 连接最大存活时长（建议 < 数据库/网关的会话超时）
+  conn_max_idle_time: 30m          # 空闲连接回收时长
 
 auth:
   jwt_secret: "CHANGE_ME_32chars+"  # JWT 密钥，生产必须改为 ≥32 位随机串
@@ -29,3 +32,8 @@ scheduler:
 
 stock:
   default_expiry_warning_days: 90
+
+log:
+  level: info                    # debug / info / warn / error
+  format: json                   # text / json（生产建议 json，供日志聚合直接解析）
+  file: ""                       # 输出文件路径；空 = stdout（容器内务必保持空）

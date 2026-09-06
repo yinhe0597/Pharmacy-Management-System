@@ -1,0 +1,21 @@
+# 后端水平扩缩容（可选）：按 CPU 自动伸缩；数据库连接池需按副本数分摊调整
+#   kubectl apply -f api-hpa.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: yaofang-api
+  namespace: yaofang
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: yaofang-api
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

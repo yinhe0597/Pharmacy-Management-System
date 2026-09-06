@@ -26,8 +26,12 @@ func OpenDB(cfg *config.DatabaseConfig) (*gorm.DB, error) {
 	sqlDB.SetMaxOpenConns(cfg.MaxOpenConns)
 	sqlDB.SetMaxIdleConns(cfg.MaxIdleConns)
 	sqlDB.SetConnMaxLifetime(cfg.ConnMaxLifetime)
+	sqlDB.SetConnMaxIdleTime(cfg.ConnMaxIdleTime)
 	if cfg.ConnMaxLifetime == 0 {
 		sqlDB.SetConnMaxLifetime(time.Hour)
+	}
+	if cfg.ConnMaxIdleTime == 0 {
+		sqlDB.SetConnMaxIdleTime(30 * time.Minute)
 	}
 	if err := sqlDB.Ping(); err != nil {
 		return nil, fmt.Errorf("数据库不可达: %w", err)
