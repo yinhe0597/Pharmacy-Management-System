@@ -27,7 +27,11 @@
         </el-table-column>
         <el-table-column label="操作" width="90" fixed="right">
           <template #default="{ row }">
-            <el-button v-permission="'patient:write'" link type="primary" @click.stop="openEdit(row)"
+            <el-button
+              v-permission="'patient:write'"
+              link
+              type="primary"
+              @click.stop="openEdit(row)"
               >编辑</el-button
             >
           </template>

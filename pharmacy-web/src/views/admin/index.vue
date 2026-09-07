@@ -154,7 +154,11 @@
         <el-button type="primary" @click="saveUser">保存</el-button>
       </template>
     </el-dialog>
-    <el-dialog v-model="locationVisible" :title="locationForm.id ? '编辑库房' : '新建库房'" width="440px">
+    <el-dialog
+      v-model="locationVisible"
+      :title="locationForm.id ? '编辑库房' : '新建库房'"
+      width="440px"
+    >
       <el-form label-width="80px">
         <el-form-item label="编码" required
           ><el-input v-model="locationForm.code" :disabled="!!locationForm.id"
@@ -162,7 +166,12 @@
         <el-form-item label="名称" required><el-input v-model="locationForm.name" /></el-form-item>
         <el-form-item label="类型">
           <el-select v-model="locationForm.type">
-            <el-option v-for="(label, key) in LOCATION_TYPES" :key="key" :label="label" :value="Number(key)" />
+            <el-option
+              v-for="(label, key) in LOCATION_TYPES"
+              :key="key"
+              :label="label"
+              :value="Number(key)"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="启用"><el-switch v-model="locationForm.is_active" /></el-form-item>

@@ -68,7 +68,11 @@
     </el-card>
 
     <!-- 供货关系管理：某药品 ↔ 供应商 -->
-    <el-dialog v-model="supplierVisible" :title="`供货关系 — ${supplierDrug?.generic_name ?? ''}`" width="640px">
+    <el-dialog
+      v-model="supplierVisible"
+      :title="`供货关系 — ${supplierDrug?.generic_name ?? ''}`"
+      width="640px"
+    >
       <el-table :data="drugSuppliers" border size="small">
         <el-table-column prop="supplier_id" label="供应商ID" width="90" />
         <el-table-column prop="supplier_name" label="供应商" min-width="140" />
@@ -82,14 +86,23 @@
         </el-table-column>
         <el-table-column label="" width="70">
           <template #default="{ row }">
-            <el-button v-permission="'purchase:write'" link type="danger" @click="unbindSupplier(row)"
+            <el-button
+              v-permission="'purchase:write'"
+              link
+              type="danger"
+              @click="unbindSupplier(row)"
               >解绑</el-button
             >
           </template>
         </el-table-column>
       </el-table>
       <div class="toolbar" style="margin-top: 12px">
-        <el-select v-model="bindSupplierId" filterable placeholder="选择供应商" style="width: 220px">
+        <el-select
+          v-model="bindSupplierId"
+          filterable
+          placeholder="选择供应商"
+          style="width: 220px"
+        >
           <el-option v-for="s in supplierOptions" :key="s.id" :label="s.name" :value="s.id" />
         </el-select>
         <el-input-number v-model="bindPrice" :min="0" placeholder="进价(分)" />

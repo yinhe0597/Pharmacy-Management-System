@@ -2,7 +2,7 @@
   <el-row :gutter="16">
     <el-col :span="12">
       <el-card header="我的资料">
-        <el-descriptions :column="1" border v-loading="loading">
+        <el-descriptions v-loading="loading" :column="1" border>
           <el-descriptions-item label="用户名">{{ me?.username }}</el-descriptions-item>
           <el-descriptions-item label="姓名">{{ me?.name }}</el-descriptions-item>
           <el-descriptions-item label="角色">

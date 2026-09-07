@@ -9,12 +9,7 @@
     :placeholder="placeholder"
     @update:model-value="onSelect"
   >
-    <el-option
-      v-for="p in options"
-      :key="p.id"
-      :label="`${p.name}（${p.card_no}）`"
-      :value="p.id"
-    >
+    <el-option v-for="p in options" :key="p.id" :label="`${p.name}（${p.card_no}）`" :value="p.id">
       <span>{{ p.name }}</span>
       <span style="color: #909399; margin-left: 8px">{{ p.card_no }}</span>
       <span v-if="p.gender || p.age" style="color: #909399; margin-left: 8px">

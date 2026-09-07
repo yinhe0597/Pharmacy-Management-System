@@ -75,7 +75,9 @@
           <el-button v-permission="'inventory:write'" type="success" @click="openStocktake"
             >新建盘点单</el-button
           >
-          <span class="hint">流程：新建（冻结库存变动）→ 开始盘点 → 录实盘 → 差异调整入账 → 归档完成</span>
+          <span class="hint"
+            >流程：新建（冻结库存变动）→ 开始盘点 → 录实盘 → 差异调整入账 → 归档完成</span
+          >
         </div>
         <el-table v-loading="loading" :data="stocktakes" border>
           <el-table-column prop="stocktake_no" label="盘点单号" width="160" />
@@ -96,7 +98,9 @@
           <el-table-column prop="completed_at" label="完成时间" width="170" />
           <el-table-column label="操作" width="220" fixed="right">
             <template #default="{ row }">
-              <el-button link type="primary" @click="openStocktakeDetail(row)">详情/录实盘</el-button>
+              <el-button link type="primary" @click="openStocktakeDetail(row)"
+                >详情/录实盘</el-button
+              >
               <el-button
                 v-if="row.status === 'draft'"
                 v-permission="'inventory:write'"
@@ -141,10 +145,20 @@
 
       <el-tab-pane label="库存流水" name="transactions">
         <div class="toolbar">
-          <el-select v-model="txnQuery.txn_type" clearable placeholder="全部类型" style="width: 150px">
+          <el-select
+            v-model="txnQuery.txn_type"
+            clearable
+            placeholder="全部类型"
+            style="width: 150px"
+          >
             <el-option v-for="(label, key) in TXN_TYPES" :key="key" :label="label" :value="key" />
           </el-select>
-          <el-select v-model="txnQuery.location_id" clearable placeholder="全部库房" style="width: 150px">
+          <el-select
+            v-model="txnQuery.location_id"
+            clearable
+            placeholder="全部库房"
+            style="width: 150px"
+          >
             <el-option v-for="l in locations" :key="l.id" :label="l.name" :value="l.id" />
           </el-select>
           <el-button type="primary" @click="loadTransactions">查询</el-button>
@@ -158,7 +172,9 @@
           </el-table-column>
           <el-table-column prop="quantity" label="数量" width="80" />
           <el-table-column label="变前/变后" width="110">
-            <template #default="{ row }">{{ row.before_quantity }} / {{ row.after_quantity }}</template>
+            <template #default="{ row }"
+              >{{ row.before_quantity }} / {{ row.after_quantity }}</template
+            >
           </el-table-column>
           <el-table-column prop="remarks" label="备注" min-width="120" />
           <el-table-column prop="operator_name" label="操作人" width="100" />
@@ -258,7 +274,11 @@
           </el-select>
         </el-form-item>
         <el-form-item label="转入库房" required>
-          <el-select v-model="transferForm.to_location_id" placeholder="选择库房" style="width: 220px">
+          <el-select
+            v-model="transferForm.to_location_id"
+            placeholder="选择库房"
+            style="width: 220px"
+          >
             <el-option v-for="l in locations" :key="l.id" :label="l.name" :value="l.id" />
           </el-select>
         </el-form-item>
@@ -276,7 +296,10 @@
     <el-dialog v-model="adjustVisible" title="库存调整（报损/盘盈）" width="520px">
       <el-form label-width="90px">
         <el-form-item label="药品批次">
-          <span>{{ adjustForm.drug_name }}（{{ adjustForm.batch_no }}，当前 {{ adjustForm.current }}）</span>
+          <span
+            >{{ adjustForm.drug_name }}（{{ adjustForm.batch_no }}，当前
+            {{ adjustForm.current }}）</span
+          >
         </el-form-item>
         <el-form-item label="调整数量" required>
           <el-input-number v-model="adjustForm.quantity" />
@@ -293,8 +316,10 @@
     <el-dialog v-model="splitUnitsVisible" title="按片拆零（整盒→片）" width="560px">
       <el-form label-width="110px">
         <el-form-item label="药品批次">
-          <span>{{ splitUnitsForm.drug_name }}（{{ splitUnitsForm.batch_no }}，库存
-            {{ splitUnitsForm.quantity }}）</span>
+          <span
+            >{{ splitUnitsForm.drug_name }}（{{ splitUnitsForm.batch_no }}，库存
+            {{ splitUnitsForm.quantity }}）</span
+          >
         </el-form-item>
         <el-form-item label="拆出盒数" required>
           <el-input-number v-model="splitUnitsForm.boxes" :min="1" />
@@ -307,8 +332,17 @@
           <el-input-number v-model="splitUnitsForm.damaged" :min="0" />
         </el-form-item>
         <el-form-item label="复核人" required>
-          <el-select v-model="splitUnitsForm.reviewer_id" filterable placeholder="选择复核人（须 ≠ 操作人）">
-            <el-option v-for="u in users" :key="u.id" :label="`${u.name}（${u.username}）`" :value="u.id" />
+          <el-select
+            v-model="splitUnitsForm.reviewer_id"
+            filterable
+            placeholder="选择复核人（须 ≠ 操作人）"
+          >
+            <el-option
+              v-for="u in users"
+              :key="u.id"
+              :label="`${u.name}（${u.username}）`"
+              :value="u.id"
+            />
           </el-select>
         </el-form-item>
       </el-form>
@@ -328,13 +362,15 @@
             </el-select>
             <el-input v-model="it.batch_no" placeholder="批号" style="width: 110px" />
             <el-input v-model="it.expiry_date" placeholder="效期 YYYY-MM-DD" style="width: 140px" />
-            <el-input-number v-model="it.quantity" :min="1" placeholder="数量" style="width: 110px" />
+            <el-input-number
+              v-model="it.quantity"
+              :min="1"
+              placeholder="数量"
+              style="width: 110px"
+            />
             <el-button link type="danger" @click="stockInForm.entries.splice(idx, 1)">删</el-button>
           </div>
-          <el-button
-            link
-            type="primary"
-            @click="stockInForm.entries.push(newStockInEntry())"
+          <el-button link type="primary" @click="stockInForm.entries.push(newStockInEntry())"
             >+ 添加明细</el-button
           >
         </el-form-item>
@@ -365,7 +401,11 @@
       </template>
     </el-dialog>
 
-    <el-drawer v-model="stTakeDetailVisible" :title="`盘点单 ${stTakeDetail?.stocktake_no ?? ''}`" size="720px">
+    <el-drawer
+      v-model="stTakeDetailVisible"
+      :title="`盘点单 ${stTakeDetail?.stocktake_no ?? ''}`"
+      size="720px"
+    >
       <template v-if="stTakeDetail">
         <el-descriptions :column="3" border size="small" style="margin-bottom: 12px">
           <el-descriptions-item label="库房">{{
@@ -510,12 +550,19 @@ const loading = ref(false)
 const locations = ref<any[]>([])
 const users = ref<any[]>([])
 const userStore = useUserStore()
-const canWrite = computed(() => userStore.role !== '' && hasPermission(userStore.role as never, 'inventory:write'))
+const canWrite = computed(
+  () => userStore.role !== '' && hasPermission(userStore.role as never, 'inventory:write'),
+)
 const query = reactive({ keyword: '', page: 1, page_size: 20 })
 const txnQuery = reactive({ txn_type: '', location_id: undefined as number | undefined, page: 1 })
 
 const reqVisible = ref(false)
-const reqForm = reactive<{ location_id: number | undefined; purpose: string; reason: string; items: any[] }>({
+const reqForm = reactive<{
+  location_id: number | undefined
+  purpose: string
+  reason: string
+  items: any[]
+}>({
   location_id: undefined,
   purpose: 'supplement',
   reason: '',
@@ -531,7 +578,15 @@ const transferForm = reactive<{
   to_location_id: number | undefined
   quantity: number
   remarks: string
-}>({ inventory_id: 0, drug_name: '', batch_no: '', from_location_id: undefined, to_location_id: undefined, quantity: 1, remarks: '' })
+}>({
+  inventory_id: 0,
+  drug_name: '',
+  batch_no: '',
+  from_location_id: undefined,
+  to_location_id: undefined,
+  quantity: 1,
+  remarks: '',
+})
 
 const adjustVisible = ref(false)
 const adjustForm = reactive<{
@@ -553,7 +608,16 @@ const splitUnitsForm = reactive<{
   units: number
   damaged: number
   reviewer_id: number | undefined
-}>({ inventory_id: 0, drug_name: '', batch_no: '', quantity: 0, boxes: 1, units: 0, damaged: 0, reviewer_id: undefined })
+}>({
+  inventory_id: 0,
+  drug_name: '',
+  batch_no: '',
+  quantity: 0,
+  boxes: 1,
+  units: 0,
+  damaged: 0,
+  reviewer_id: undefined,
+})
 
 const stockInVisible = ref(false)
 const stockInForm = reactive<{ entries: any[] }>({ entries: [] })

@@ -166,7 +166,11 @@
       </el-table>
     </el-dialog>
 
-    <el-drawer v-model="receiptVisible" :title="`收货单 ${receiptDetail?.receipt_no ?? ''}`" size="720px">
+    <el-drawer
+      v-model="receiptVisible"
+      :title="`收货单 ${receiptDetail?.receipt_no ?? ''}`"
+      size="720px"
+    >
       <template v-if="receiptDetail">
         <el-descriptions :column="3" border size="small" style="margin-bottom: 12px">
           <el-descriptions-item label="状态">{{
@@ -192,7 +196,10 @@
           </el-table-column>
           <el-table-column label="质检" width="90">
             <template #default="{ row }">
-              <el-tag :type="row.qc_result === 1 ? 'success' : row.qc_result === 2 ? 'danger' : 'info'" size="small">
+              <el-tag
+                :type="row.qc_result === 1 ? 'success' : row.qc_result === 2 ? 'danger' : 'info'"
+                size="small"
+              >
                 {{ row.qc_result === 1 ? '合格' : row.qc_result === 2 ? '不合格' : '未质检' }}
               </el-tag>
             </template>

@@ -37,7 +37,9 @@
 
     <el-dialog v-model="dialogVisible" :title="form.id ? '编辑供应商' : '新增供应商'" width="480px">
       <el-form label-width="80px">
-        <el-form-item label="编码" required><el-input v-model="form.code" :disabled="!!form.id" /></el-form-item>
+        <el-form-item label="编码" required
+          ><el-input v-model="form.code" :disabled="!!form.id"
+        /></el-form-item>
         <el-form-item label="名称" required><el-input v-model="form.name" /></el-form-item>
         <el-form-item label="联系人"><el-input v-model="form.contact_person" /></el-form-item>
         <el-form-item label="电话"><el-input v-model="form.phone" /></el-form-item>

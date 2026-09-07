@@ -16,7 +16,7 @@
           <el-button v-permission="'inventory:write'" link type="primary" @click="open(row)"
             >编辑</el-button
           >
-          <el-button v-permission="'inventory:write'" link type="danger" @click="remove(row)"
+          <el-button v-permission="'inventory:write'" link type="danger" @click="handleRemove(row)"
             >删除</el-button
           >
         </template>
@@ -87,18 +87,17 @@ function open(row?: any) {
   visible.value = true
 }
 async function save() {
-  if (form.id && props.update) {
-    const { id, ...payload } = form
+  const { id, ...payload } = form
+  if (id && props.update) {
     await props.update(id, payload)
   } else {
-    const { id, ...payload } = form
     await props.create(payload)
   }
   ElMessage.success('已保存')
   visible.value = false
   load()
 }
-async function remove(row: any) {
+async function handleRemove(row: any) {
   if (!props.remove) return
   await ElMessageBox.confirm('确认删除该记录？', '提示', { type: 'warning' })
   await props.remove(row.id)

@@ -85,14 +85,22 @@
         <el-form-item label="药品" required>
           <DrugPicker v-model="registerForm.drug_id" />
         </el-form-item>
-        <el-form-item label="批号" required><el-input v-model="registerForm.batch_no" /></el-form-item>
+        <el-form-item label="批号" required
+          ><el-input v-model="registerForm.batch_no"
+        /></el-form-item>
         <el-form-item label="数量" required>
           <el-input-number v-model="registerForm.quantity" />
           <div class="hint">正数 = 发药出账，负数 = 退药冲正</div>
         </el-form-item>
-        <el-form-item label="患者姓名"><el-input v-model="registerForm.patient_name" /></el-form-item>
-        <el-form-item label="患者卡号"><el-input v-model="registerForm.patient_card_no" /></el-form-item>
-        <el-form-item label="经手人"><el-input v-model="registerForm.operator_name" /></el-form-item>
+        <el-form-item label="患者姓名"
+          ><el-input v-model="registerForm.patient_name"
+        /></el-form-item>
+        <el-form-item label="患者卡号"
+          ><el-input v-model="registerForm.patient_card_no"
+        /></el-form-item>
+        <el-form-item label="经手人"
+          ><el-input v-model="registerForm.operator_name"
+        /></el-form-item>
         <el-form-item label="备注"><el-input v-model="registerForm.notes" /></el-form-item>
       </el-form>
       <template #footer>
@@ -131,7 +139,13 @@ const prescriptions = ref<any[]>([])
 const ampoules = ref<any[]>([])
 const ledgers = ref<any[]>([])
 const ampouleVisible = ref(false)
-const ampouleForm = reactive<Record<string, any>>({ drug_id: null, batch_no: '', quantity: 1, returned_by: '', notes: '' })
+const ampouleForm = reactive<Record<string, any>>({
+  drug_id: null,
+  batch_no: '',
+  quantity: 1,
+  returned_by: '',
+  notes: '',
+})
 const registerVisible = ref(false)
 const registerForm = reactive<Record<string, any>>({
   drug_id: null,
@@ -149,7 +163,13 @@ onMounted(async () => {
   ledgers.value = (await listLedgers({ page: 1, page_size: 50 }))?.list ?? []
 })
 function openAmpoule() {
-  Object.assign(ampouleForm, { drug_id: null, batch_no: '', quantity: 1, returned_by: '', notes: '' })
+  Object.assign(ampouleForm, {
+    drug_id: null,
+    batch_no: '',
+    quantity: 1,
+    returned_by: '',
+    notes: '',
+  })
   ampouleVisible.value = true
 }
 async function saveAmpoule() {

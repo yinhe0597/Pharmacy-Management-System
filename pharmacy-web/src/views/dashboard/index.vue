@@ -4,7 +4,9 @@
       <div class="welcome-row">
         <div>
           <h3>👋 {{ greeting }}，{{ store.user?.name }}</h3>
-          <p class="tip">{{ todayText }} · 角色：<el-tag size="small">{{ store.roleLabel }}</el-tag></p>
+          <p class="tip">
+            {{ todayText }} · 角色：<el-tag size="small">{{ store.roleLabel }}</el-tag>
+          </p>
         </div>
       </div>
     </el-card>
@@ -19,12 +21,7 @@
     </el-row>
 
     <el-card header="快捷入口" class="shortcuts">
-      <el-button
-        v-for="s in quickActions"
-        :key="s.to"
-        size="large"
-        @click="$router.push(s.to)"
-      >
+      <el-button v-for="s in quickActions" :key="s.to" size="large" @click="$router.push(s.to)">
         {{ s.title }}
       </el-button>
     </el-card>
@@ -55,7 +52,12 @@ const greeting = computed(() => {
   return '晚上好'
 })
 const todayText = computed(() =>
-  new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }),
+  new Date().toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'long',
+  }),
 )
 
 const canSeePrescription = computed(
@@ -68,13 +70,28 @@ const canSeePatient = computed(
 const statCards = computed(() => {
   const cards: { title: string; value: number | null; color: string; to?: string }[] = []
   if (canSeePrescription.value) {
-    cards.push({ title: '待审核处方', value: pendingReview.value, color: '#e6a23c', to: '/prescriptions' })
-    cards.push({ title: '调配中处方', value: dispensing.value, color: '#409eff', to: '/prescriptions' })
+    cards.push({
+      title: '待审核处方',
+      value: pendingReview.value,
+      color: '#e6a23c',
+      to: '/prescriptions',
+    })
+    cards.push({
+      title: '调配中处方',
+      value: dispensing.value,
+      color: '#409eff',
+      to: '/prescriptions',
+    })
   }
   if (canSeePatient.value) {
     cards.push({ title: '就诊中患者', value: visiting.value, color: '#67c23a', to: '/visits' })
   }
-  cards.push({ title: '库存下限预警', value: stockAlerts.value, color: '#f56c6c', to: '/inventory' })
+  cards.push({
+    title: '库存下限预警',
+    value: stockAlerts.value,
+    color: '#f56c6c',
+    to: '/inventory',
+  })
   cards.push({ title: '近效期批次', value: expiryAlerts.value, color: '#e6a23c', to: '/inventory' })
   return cards.slice(0, 4)
 })

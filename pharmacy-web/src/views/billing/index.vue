@@ -132,7 +132,11 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="serviceVisible" :title="serviceForm.id ? '编辑诊疗项目' : '新增诊疗项目'" width="440px">
+    <el-dialog
+      v-model="serviceVisible"
+      :title="serviceForm.id ? '编辑诊疗项目' : '新增诊疗项目'"
+      width="440px"
+    >
       <el-form label-width="80px">
         <el-form-item label="编码" required
           ><el-input v-model="serviceForm.code" :disabled="!!serviceForm.id"
@@ -247,11 +251,10 @@ function openService(row?: any) {
   serviceVisible.value = true
 }
 async function saveService() {
-  if (serviceForm.id) {
-    const { id, ...payload } = serviceForm
+  const { id, ...payload } = serviceForm
+  if (id) {
     await updateClinicalService(id, payload)
   } else {
-    const { id, ...payload } = serviceForm
     await createClinicalService(payload)
   }
   ElMessage.success('已保存')

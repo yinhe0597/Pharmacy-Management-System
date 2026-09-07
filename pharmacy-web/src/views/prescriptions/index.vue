@@ -10,7 +10,12 @@
         clearable
         style="width: 130px"
       >
-        <el-option v-for="(label, v) in PRESCRIPTION_TYPES" :key="v" :label="label" :value="Number(v)" />
+        <el-option
+          v-for="(label, v) in PRESCRIPTION_TYPES"
+          :key="v"
+          :label="label"
+          :value="Number(v)"
+        />
       </el-select>
       <el-input
         v-model="query.patient_name"
@@ -37,7 +42,9 @@
       <el-table-column prop="patient_name" label="患者" width="100" />
       <el-table-column prop="diagnosis" label="诊断" min-width="140" show-overflow-tooltip />
       <el-table-column label="类型" width="90">
-        <template #default="{ row }">{{ PRESCRIPTION_TYPES[row.prescription_type] ?? '普通' }}</template>
+        <template #default="{ row }">{{
+          PRESCRIPTION_TYPES[row.prescription_type] ?? '普通'
+        }}</template>
       </el-table-column>
       <el-table-column label="状态" width="100">
         <template #default="{ row }"

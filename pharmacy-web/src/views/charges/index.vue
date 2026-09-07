@@ -129,7 +129,12 @@ const CHARGE_STATUS: Record<string, { label: string; tag: string }> = {
 const list = ref<any[]>([])
 const total = ref(0)
 const loading = ref(false)
-const query = reactive({ status: '', patient_id: undefined as number | undefined, page: 1, page_size: 20 })
+const query = reactive({
+  status: '',
+  patient_id: undefined as number | undefined,
+  page: 1,
+  page_size: 20,
+})
 const range = ref<[string, string] | null>(null)
 const detailVisible = ref(false)
 const detail = ref<any>(null)

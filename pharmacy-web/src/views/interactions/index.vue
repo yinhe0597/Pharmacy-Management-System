@@ -51,8 +51,16 @@
         >
       </div>
       <el-table v-loading="loading" :data="ruleRows" border>
-        <el-table-column :prop="tab === 'ingredient' ? 'ingredient_a' : tab === 'class' ? 'class_a' : 'tag_a'" :label="`${RULE_KEY[tab]}A`" min-width="120" />
-        <el-table-column :prop="tab === 'ingredient' ? 'ingredient_b' : tab === 'class' ? 'class_b' : 'tag_b'" :label="`${RULE_KEY[tab]}B`" min-width="120" />
+        <el-table-column
+          :prop="tab === 'ingredient' ? 'ingredient_a' : tab === 'class' ? 'class_a' : 'tag_a'"
+          :label="`${RULE_KEY[tab]}A`"
+          min-width="120"
+        />
+        <el-table-column
+          :prop="tab === 'ingredient' ? 'ingredient_b' : tab === 'class' ? 'class_b' : 'tag_b'"
+          :label="`${RULE_KEY[tab]}B`"
+          min-width="120"
+        />
         <el-table-column label="级别" width="90">
           <template #default="{ row }">
             <el-tag :type="LEVEL_TAG[row.level]" size="small">{{ LEVEL_LABEL[row.level] }}</el-tag>
@@ -81,7 +89,11 @@
     <!-- 药品成分 -->
     <template v-else>
       <div class="toolbar">
-        <DrugPicker v-model="ingredientDrugId" style="width: 320px" placeholder="选择药品查看/维护成分" />
+        <DrugPicker
+          v-model="ingredientDrugId"
+          style="width: 320px"
+          placeholder="选择药品查看/维护成分"
+        />
       </div>
       <el-table v-if="ingredientDrugId" v-loading="loading" :data="ingredients" border>
         <el-table-column prop="ingredient_name" label="成分名" min-width="160" />
@@ -94,15 +106,27 @@
       </el-table>
       <el-empty v-else description="请先选择药品" />
       <div v-if="ingredientDrugId && canWrite" class="toolbar" style="margin-top: 12px">
-        <el-input v-model="ingredientForm.ingredient_name" placeholder="成分名" style="width: 200px" />
-        <el-input v-model="ingredientForm.strength" placeholder="含量（可选）" style="width: 160px" />
+        <el-input
+          v-model="ingredientForm.ingredient_name"
+          placeholder="成分名"
+          style="width: 200px"
+        />
+        <el-input
+          v-model="ingredientForm.strength"
+          placeholder="含量（可选）"
+          style="width: 160px"
+        />
         <el-button type="success" @click="addIngredient">新增成分</el-button>
       </div>
     </template>
   </el-card>
 
   <!-- 配伍禁忌（药品对药品）弹窗 -->
-  <el-dialog v-model="drugRuleVisible" :title="drugRuleForm.id ? '编辑配伍禁忌' : '新增配伍禁忌'" width="560px">
+  <el-dialog
+    v-model="drugRuleVisible"
+    :title="drugRuleForm.id ? '编辑配伍禁忌' : '新增配伍禁忌'"
+    width="560px"
+  >
     <el-form label-width="100px">
       <el-form-item label="药品A" required>
         <DrugPicker v-model="drugRuleForm.drug_a_id" />
@@ -118,8 +142,12 @@
         </el-radio-group>
       </el-form-item>
       <el-form-item label="机制"><el-input v-model="drugRuleForm.mechanism" /></el-form-item>
-      <el-form-item label="说明"><el-input v-model="drugRuleForm.description" type="textarea" /></el-form-item>
-      <el-form-item label="证据等级"><el-input v-model="drugRuleForm.evidence_level" placeholder="A/B/C" /></el-form-item>
+      <el-form-item label="说明"
+        ><el-input v-model="drugRuleForm.description" type="textarea"
+      /></el-form-item>
+      <el-form-item label="证据等级"
+        ><el-input v-model="drugRuleForm.evidence_level" placeholder="A/B/C"
+      /></el-form-item>
     </el-form>
     <template #footer>
       <el-button @click="drugRuleVisible = false">取消</el-button>
@@ -128,7 +156,11 @@
   </el-dialog>
 
   <!-- 成分/分类/标签规则弹窗 -->
-  <el-dialog v-model="ruleVisible" :title="(ruleForm.id ? '编辑' : '新增') + RULE_TITLE[tab]" width="560px">
+  <el-dialog
+    v-model="ruleVisible"
+    :title="(ruleForm.id ? '编辑' : '新增') + RULE_TITLE[tab]"
+    width="560px"
+  >
     <el-form label-width="100px">
       <el-form-item :label="`${RULE_KEY[tab]}A`" required>
         <el-input v-model="ruleForm.a" />
@@ -144,8 +176,12 @@
         </el-radio-group>
       </el-form-item>
       <el-form-item label="机制"><el-input v-model="ruleForm.mechanism" /></el-form-item>
-      <el-form-item label="说明"><el-input v-model="ruleForm.description" type="textarea" /></el-form-item>
-      <el-form-item label="证据等级"><el-input v-model="ruleForm.evidence_level" placeholder="A/B/C" /></el-form-item>
+      <el-form-item label="说明"
+        ><el-input v-model="ruleForm.description" type="textarea"
+      /></el-form-item>
+      <el-form-item label="证据等级"
+        ><el-input v-model="ruleForm.evidence_level" placeholder="A/B/C"
+      /></el-form-item>
     </el-form>
     <template #footer>
       <el-button @click="ruleVisible = false">取消</el-button>
@@ -194,7 +230,9 @@ const RULE_KEY: Record<string, string> = { ingredient: '成分', class: '分类'
 const tab = ref('drug')
 const loading = ref(false)
 const userStore = useUserStore()
-const canWrite = computed(() => userStore.role !== '' && hasPermission(userStore.role as never, 'drug:write'))
+const canWrite = computed(
+  () => userStore.role !== '' && hasPermission(userStore.role as never, 'drug:write'),
+)
 
 const interactionApi = { update: updateInteraction, remove: deleteInteraction }
 async function removeDrugRule(row: any) {
@@ -272,11 +310,26 @@ async function saveDrugRule() {
 function apiFor(t: string) {
   switch (t) {
     case 'ingredient':
-      return { list: listIngredientInteractions, create: createIngredientInteraction, update: updateIngredientInteraction, remove: deleteIngredientInteraction }
+      return {
+        list: listIngredientInteractions,
+        create: createIngredientInteraction,
+        update: updateIngredientInteraction,
+        remove: deleteIngredientInteraction,
+      }
     case 'class':
-      return { list: listClassInteractions, create: createClassInteraction, update: updateClassInteraction, remove: deleteClassInteraction }
+      return {
+        list: listClassInteractions,
+        create: createClassInteraction,
+        update: updateClassInteraction,
+        remove: deleteClassInteraction,
+      }
     default:
-      return { list: listTagInteractions, create: createTagInteraction, update: updateTagInteraction, remove: deleteTagInteraction }
+      return {
+        list: listTagInteractions,
+        create: createTagInteraction,
+        update: updateTagInteraction,
+        remove: deleteTagInteraction,
+      }
   }
 }
 async function loadRules() {
@@ -290,8 +343,10 @@ async function loadRules() {
   }
 }
 function openRuleTab(row?: any) {
-  const a = tab.value === 'ingredient' ? 'ingredient_a' : tab.value === 'class' ? 'class_a' : 'tag_a'
-  const b = tab.value === 'ingredient' ? 'ingredient_b' : tab.value === 'class' ? 'class_b' : 'tag_b'
+  const a =
+    tab.value === 'ingredient' ? 'ingredient_a' : tab.value === 'class' ? 'class_a' : 'tag_a'
+  const b =
+    tab.value === 'ingredient' ? 'ingredient_b' : tab.value === 'class' ? 'class_b' : 'tag_b'
   Object.assign(ruleForm, {
     id: row?.id ?? 0,
     a: row?.[a] ?? '',
