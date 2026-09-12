@@ -33,5 +33,8 @@ jobs:
       - name: Prettier 格式校验
         run: npm run format:check
 
+      - name: 单元测试（vitest）
+        run: npm run test
+
       - name: 构建
         run: npm run build
