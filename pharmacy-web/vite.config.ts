@@ -10,6 +10,20 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  build: {
+    // 供应商分包：避免 vue/element-plus/echarts 全量进入主 chunk（路由已按页懒加载）
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vue: ['vue', 'vue-router', 'pinia'],
+          'element-plus': ['element-plus', '@element-plus/icons-vue'],
+          echarts: ['echarts'],
+          axios: ['axios'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1200,
+  },
   server: {
     port: 5173,
     proxy: {
