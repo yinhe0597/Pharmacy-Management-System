@@ -1,6 +1,6 @@
 # 药房管理系统开发文档
 
-> 版本：v1.4.0-dev（详见 CHANGELOG [Unreleased]）｜ 更新 2026-09-12
+> 版本：v1.4.0（详见 CHANGELOG）｜ 更新 2026-09-12
 > 技术栈：Go 1.26 + PostgreSQL + Gin + GORM ｜ 前端 Vue3 + TypeScript + Element Plus
 > 交付形态：全栈（后端 REST API + Swagger，前端 SPA，Docker 一键部署）
 
