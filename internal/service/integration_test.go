@@ -33,6 +33,10 @@ func getenv(k, def string) string {
 
 func setupTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
+	// 集成测试只需要数据库连接参数；config.Load() 会校验 JWT 密钥强度（弱/占位密钥拒绝加载），
+	// 而 CI 环境没有 configs/config.yaml（viper 默认值为占位密钥），故此处注入测试专用强密钥，
+	// 使集成测试不依赖本地配置文件与外部环境变量。
+	t.Setenv("YF_AUTH_JWT_SECRET", "integration-test-only-jwt-secret-0123456789abcdef")
 	cfg, err := config.Load()
 	if err != nil {
 		t.Fatalf("加载配置失败: %v", err)
@@ -48,9 +52,14 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		t.Fatalf("连接数据库失败: %v", err)
 	}
 	// 清空涉及表（CASCADE 处理外键）
+	// 注意：必须覆盖所有会跨用例残留状态的业务表——尤其 stocktakes（盘点中的库房会
+	// 禁止出入库，残留会使后续用例随机失败），以及拆零单/领用单/专账等。
 	tables := []string{
 		"prescription_audit_logs", "prescription_dispense_records", "prescription_items",
 		"prescriptions", "stock_reservations", "inventory_transactions", "inventory",
+		"stocktake_items", "stocktakes", "split_orders",
+		"requisition_order_items", "requisition_orders",
+		"special_drug_ledgers", "ampoule_returns",
 		"purchase_receipt_items", "purchase_receipts", "purchase_order_items", "purchase_orders",
 		"drug_suppliers", "drug_interactions", "interaction_results", "drug_ingredients", "suppliers", "drugs", "stock_alerts",
 	}
