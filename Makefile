@@ -1,5 +1,5 @@
 # 药房管理系统 Makefile（Linux / Git Bash）
-.PHONY: build run vet fmt fmt-check lint test test-integration swag ci db-migrate db-up db-down docker-build docker-up docker-down docker-logs
+.PHONY: build run vet fmt fmt-check lint test test-integration swag ci db-migrate db-backup db-up db-down docker-build docker-up docker-down docker-logs
 
 APP := bin/yaofang
 
@@ -51,6 +51,10 @@ db-up:
 
 db-down:
 	docker compose down
+
+# 数据库备份（pg_dump -Fc + 保留策略；支持本机 psql 或 docker compose 回退）
+db-backup:
+	bash scripts/backup_db.sh
 
 # ── 容器化部署 ──
 docker-build:
