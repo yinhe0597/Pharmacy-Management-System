@@ -3,6 +3,7 @@ package server
 
 import (
 	"context"
+	"log/slog"
 	"sync/atomic"
 	"time"
 
@@ -115,25 +116,42 @@ func (a *App) Engine() *gin.Engine {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	r := gin.New()
+	// 可信代理：默认不信任任何代理头（ClientIP 取直连地址），防止伪造 X-Forwarded-For 绕过登录限速；
+	// 部署在 Nginx/网关之后时经 server.trusted_proxies / YF_SERVER_TRUSTED_PROXIES 配置代理网段。
+	if err := r.SetTrustedProxies(a.cfg.Server.TrustedProxies); err != nil {
+		slog.Warn("设置可信代理失败，回退为不信任任何代理", "err", err)
+		_ = r.SetTrustedProxies(nil)
+	}
 	r.Use(middleware.Recover(), middleware.RequestID(), middleware.Logger(), middleware.CORS(a.cfg.Server.CORSAllowOrigins))
+	if a.cfg.Server.Mode == "release" {
+		for _, o := range a.cfg.Server.CORSAllowOrigins {
+			if o == "*" {
+				slog.Warn("release 模式下 CORS 放行任意来源（*），建议在 server.cors_allow_origins 限定具体域名")
+				break
+			}
+		}
+	}
 
 	// 健康检查（无鉴权，供负载均衡 / 容器编排 / K8s 探针使用）
 	r.GET("/healthz", a.healthz) // 存活：进程存活即 200，关闭中 503
 	r.GET("/readyz", a.readyz)   // 就绪：依赖（数据库）连通才 200，否则 503
 	r.GET("/version", a.versionInfo)
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	// Swagger 仅在非 release 模式开放（接口契约泄露面最小化）
+	if a.cfg.Server.Mode != "release" {
+		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 
-	// 用户状态复查：token 有效但账号已被停用/删除时立即拒绝（吊销能力）
+	// 用户状态复查：token 有效但账号已被停用/删除/降权时，按数据库当前状态与角色处理（吊销能力）
 	users := repository.NewUserRepo(a.db)
-	checkActive := middleware.UserStatusChecker(func(ctx context.Context, userID int64) error {
+	checkActive := middleware.UserStateChecker(func(ctx context.Context, userID int64) (string, error) {
 		u, err := users.GetByID(ctx, userID)
 		if err != nil {
-			return err
+			return "", err
 		}
 		if u.Status != 1 {
-			return errs.ErrUnauthorized
+			return "", errs.ErrUnauthorized
 		}
-		return nil
+		return u.Role, nil
 	})
 	authMW := func() gin.HandlerFunc { return middleware.Auth(a.jwt, checkActive) }
 	// 登录限速：同一「IP+用户名」每分钟最多 5 次尝试（防暴力破解）

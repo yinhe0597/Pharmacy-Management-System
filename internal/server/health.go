@@ -48,7 +48,6 @@ func (a *App) readyz(c *gin.Context) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
 			"status": "unavailable",
 			"reason": "database_unreachable",
-			"error":  err.Error(),
 		})
 		return
 	}

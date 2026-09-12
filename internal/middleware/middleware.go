@@ -86,13 +86,14 @@ func Recover() gin.HandlerFunc {
 	}
 }
 
-// UserStatusChecker 用户状态复查器（由 server 层注入仓储实现，中间件不直接依赖 DB）。
-// 返回非 nil 表示拒绝访问（账号停用/删除等）。
-type UserStatusChecker func(ctx context.Context, userID int64) error
+// UserStateChecker 用户状态复查器（由 server 层注入仓储实现，中间件不直接依赖 DB）。
+// 返回当前角色与错误；错误非 nil 表示拒绝访问（账号停用/删除等）。
+// 每请求复查角色，使 Token TTL 内的降权/改角色立即生效（权限不依赖签发时的旧角色）。
+type UserStateChecker func(ctx context.Context, userID int64) (role string, err error)
 
 // Auth JWT 鉴权中间件。
-// statusCheck 非 nil 时，对每个请求复查签发用户当前状态（token TTL 内停用/删除的账号立即失效）。
-func Auth(jwt *auth.Manager, statusCheck UserStatusChecker) gin.HandlerFunc {
+// stateCheck 非 nil 时，对每个请求复查签发用户当前状态与角色（token TTL 内停用/删除/降权立即生效）。
+func Auth(jwt *auth.Manager, stateCheck UserStateChecker) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenStr := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
 		if tokenStr == "" {
@@ -108,17 +109,20 @@ func Auth(jwt *auth.Manager, statusCheck UserStatusChecker) gin.HandlerFunc {
 			})
 			return
 		}
-		if statusCheck != nil {
-			if err := statusCheck(c.Request.Context(), claims.UserID); err != nil {
+		role := claims.Role
+		if stateCheck != nil {
+			curRole, cerr := stateCheck(c.Request.Context(), claims.UserID)
+			if cerr != nil {
 				c.AbortWithStatusJSON(errs.ErrUnauthorized.HTTP, gin.H{
 					"code": errs.ErrUnauthorized.Code, "message": errs.ErrUnauthorized.Message, "data": nil,
 				})
 				return
 			}
+			role = curRole
 		}
 		c.Set(ctxKeyUserID, claims.UserID)
 		c.Set(ctxKeyUserName, claims.Name)
-		c.Set(ctxKeyUserRole, claims.Role)
+		c.Set(ctxKeyUserRole, role)
 		c.Next()
 	}
 }

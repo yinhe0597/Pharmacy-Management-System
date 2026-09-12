@@ -18,6 +18,9 @@ func TestIsWeakJWTSecret(t *testing.T) {
 		{"样例占位", "CHANGE_ME_32chars+", true},
 		{"k8s 模板占位", "CHANGE_ME_32chars_minimum_random_string", true},
 		{"小写占位变体", "please_change_me_now", true},
+		{"连字符变体", "yaofang-compose-dev-secret-change-me", true},
+		{"项目默认 dev 密钥", "yaofang-dev-secret-change-in-prod", true},
+		{"占位词根 placeholder", "placeholder-secret-value-32-characters", true},
 		{"强密钥", "k8sJ3@9fNz!qL2mX7vR5tY8wB1cD6eG4", false},
 	}
 	for _, c := range cases {

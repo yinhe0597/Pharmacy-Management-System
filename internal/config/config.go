@@ -10,19 +10,37 @@ import (
 	"github.com/spf13/viper"
 )
 
-// weakJWTSecrets 已知的弱 JWT 密钥（默认值）。
-// 生产模式（release）下使用弱/占位密钥将拒绝启动，防止默认密钥静默上线。
+// weakJWTSecrets 已知的弱 JWT 密钥（默认值精确匹配）。
 var weakJWTSecrets = map[string]bool{
 	"":          true,
 	"change-me": true,
 }
 
-// isWeakJWTSecret 判断 JWT 密钥是否为弱/占位值（含 CHANGE_ME 系列占位符变体）。
+// weakJWTSubstrings 弱密钥词根（小写子串匹配）。覆盖连字符/下划线变体与项目默认值，
+// 例如 yaofang-compose-dev-secret-change-me、yaofang-dev-secret-change-in-prod、
+// CHANGE_ME/change.me/placeholder 等占位符。
+var weakJWTSubstrings = []string{
+	"change-me", "change_me", "change.me", "changeme",
+	"placeholder", "please-change", "please_change",
+	"yaofang-dev-secret", "yaofang-compose-dev-secret", "yaofang-secret",
+	"your-secret", "example-secret", "sample-secret", "test-secret",
+}
+
+// isWeakJWTSecret 判断 JWT 密钥是否为弱/占位值（精确默认值或词根子串）。
 func isWeakJWTSecret(s string) bool {
 	if weakJWTSecrets[s] {
 		return true
 	}
-	return strings.Contains(strings.ToUpper(s), "CHANGE_ME")
+	lower := strings.ToLower(strings.TrimSpace(s))
+	if lower == "" {
+		return true
+	}
+	for _, sub := range weakJWTSubstrings {
+		if strings.Contains(lower, sub) {
+			return true
+		}
+	}
+	return false
 }
 
 // Config 应用配置根。
@@ -40,6 +58,10 @@ type ServerConfig struct {
 	Port             int      `mapstructure:"port"`
 	Mode             string   `mapstructure:"mode"`
 	CORSAllowOrigins []string `mapstructure:"cors_allow_origins"` // 前端跨域白名单（空或 * 放行任意，生产限定域名）
+	// TrustedProxies 反向代理/负载均衡的 IP 或 CIDR 白名单，用于安全解析 X-Forwarded-For。
+	// 为空表示不信任任何代理头（ClientIP 取直连地址），避免伪造 XFF 绕过登录限速。
+	// 部署在 Nginx/网关之后时，须填写代理所在网段（如 172.16.0.0/12）。
+	TrustedProxies []string `mapstructure:"trusted_proxies"`
 }
 
 // DatabaseConfig PostgreSQL 连接配置。
@@ -139,11 +161,30 @@ func Load() (*Config, error) {
 	if cfg.Database.Password == "" {
 		cfg.Database.Password = os.Getenv("YF_DATABASE_PASSWORD")
 	}
+	// 切片类配置经环境变量注入时 Viper 不会按逗号拆分，这里显式解析（逗号/空白分隔）。
+	if raw := os.Getenv("YF_SERVER_TRUSTED_PROXIES"); raw != "" {
+		cfg.Server.TrustedProxies = splitList(raw)
+	}
+	if raw := os.Getenv("YF_SERVER_CORS_ALLOW_ORIGINS"); raw != "" {
+		cfg.Server.CORSAllowOrigins = splitList(raw)
+	}
 	cfg.normalize()
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
 	return &cfg, nil
+}
+
+// splitList 按逗号/空白切分环境变量注入的列表，去除空项。
+func splitList(raw string) []string {
+	parts := strings.FieldsFunc(raw, func(r rune) bool { return r == ',' || r == ' ' || r == '\t' || r == '\n' })
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // validate 校验安全关键配置。与主线 59c3c71 的启动校验合并、统一收敛到配置层：
