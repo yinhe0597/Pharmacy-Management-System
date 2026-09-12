@@ -3,6 +3,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync/atomic"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"yaofang/internal/domain/enum"
 	"yaofang/internal/handler"
 	"yaofang/internal/middleware"
+	"yaofang/internal/model"
 	"yaofang/internal/pkg/auth"
 	"yaofang/internal/pkg/errs"
 	"yaofang/internal/repository"
@@ -154,27 +156,29 @@ func (a *App) Engine() *gin.Engine {
 		return u.Role, nil
 	})
 	authMW := func() gin.HandlerFunc { return middleware.Auth(a.jwt, checkActive) }
+	// 统一写操作审计：所有已认证的非只读请求落 operation_logs（M7：此前仅登录/改密/建用户有审计）
+	auditMW := middleware.AuditWrites(operationLogAuditor{svc: a.logSvc})
 	// 登录限速：同一「IP+用户名」每分钟最多 5 次尝试（防暴力破解）
 	loginRate := middleware.LoginRateLimit(5, time.Minute)
 
 	v1 := r.Group("/api/v1")
-	authed := v1.Group("", authMW())
+	authed := v1.Group("", authMW(), auditMW)
 	// 计费查看 = 药房人员 ∪ 报表权限（docs/15 M3）
 	billingRoles := append(append([]string{}, enum.PharmacyStaff...), enum.ReportAccess...)
 	// 角色分组（docs/03 §2 角色矩阵）
 	groups := handler.Groups{
 		Public:      v1,
 		Authed:      authed,
-		DrugAdmin:   v1.Group("", authMW(), middleware.RequireRoles(enum.DrugAdmin...)),
-		Pharmacy:    v1.Group("", authMW(), middleware.RequireRoles(enum.PharmacyStaff...)),
-		Clinical:    v1.Group("", authMW(), middleware.RequireRoles(enum.ClinicalStaff...)),
-		Purchase:    v1.Group("", authMW(), middleware.RequireRoles(enum.PurchaseStaff...)),
-		Report:      v1.Group("", authMW(), middleware.RequireRoles(enum.ReportAccess...)),
-		Billing:     v1.Group("", authMW(), middleware.RequireRoles(billingRoles...)),
-		Patient:     v1.Group("", authMW(), middleware.RequireRoles(enum.PatientAdmin...)),
-		PatientRead: v1.Group("", authMW(), middleware.RequireRoles(enum.PatientRead...)),
-		Charge:      v1.Group("", authMW(), middleware.RequireRoles(enum.ChargeStaff...)),
-		UserAdmin:   v1.Group("", authMW(), middleware.RequireRoles(enum.UserAdmin...)),
+		DrugAdmin:   v1.Group("", authMW(), auditMW, middleware.RequireRoles(enum.DrugAdmin...)),
+		Pharmacy:    v1.Group("", authMW(), auditMW, middleware.RequireRoles(enum.PharmacyStaff...)),
+		Clinical:    v1.Group("", authMW(), auditMW, middleware.RequireRoles(enum.ClinicalStaff...)),
+		Purchase:    v1.Group("", authMW(), auditMW, middleware.RequireRoles(enum.PurchaseStaff...)),
+		Report:      v1.Group("", authMW(), auditMW, middleware.RequireRoles(enum.ReportAccess...)),
+		Billing:     v1.Group("", authMW(), auditMW, middleware.RequireRoles(billingRoles...)),
+		Patient:     v1.Group("", authMW(), auditMW, middleware.RequireRoles(enum.PatientAdmin...)),
+		PatientRead: v1.Group("", authMW(), auditMW, middleware.RequireRoles(enum.PatientRead...)),
+		Charge:      v1.Group("", authMW(), auditMW, middleware.RequireRoles(enum.ChargeStaff...)),
+		UserAdmin:   v1.Group("", authMW(), auditMW, middleware.RequireRoles(enum.UserAdmin...)),
 	}
 
 	handler.NewAuthHandler(a.auth, a.logSvc, loginRate).Register(groups)
@@ -198,4 +202,39 @@ func (a *App) Engine() *gin.Engine {
 	handler.NewSettingHandler(a.settings).Register(groups)
 
 	return r
+}
+
+// operationLogAuditor 把中间件的写操作审计条目适配为 operation_logs 记录。
+// 日志仅含方法/路由/状态码，不含请求体（避免口令、病历正文等敏感数据入库）。
+type operationLogAuditor struct {
+	svc *service.OperationLogService
+}
+
+// Audit 实现 middleware.WriteAuditor。
+func (o operationLogAuditor) Audit(ctx context.Context, e middleware.AuditEntry) {
+	if o.svc == nil {
+		return
+	}
+	userID := e.UserID
+	resource := e.Route
+	if resource == "" {
+		resource = e.Path
+	}
+	var resourceID *int64
+	if e.ResourceID > 0 {
+		id := e.ResourceID
+		resourceID = &id
+	}
+	o.svc.Log(ctx, &model.OperationLog{
+		UserID:     &userID,
+		Username:   e.Username,
+		UserRole:   e.UserRole,
+		Action:     middleware.AuditActionFor(e.Method, resource),
+		Resource:   resource,
+		ResourceID: resourceID,
+		Method:     e.Method,
+		Path:       e.Path,
+		IP:         e.IP,
+		Detail:     fmt.Sprintf("status=%d", e.Status),
+	})
 }

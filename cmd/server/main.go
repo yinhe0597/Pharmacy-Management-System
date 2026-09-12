@@ -48,6 +48,13 @@ func main() {
 	}
 
 	app := server.NewApp(cfg, db)
+
+	// 启动期口令安全检查：默认口令（admin123）不得静默上线（release 模式直接拒绝启动）
+	if err := app.GuardSeedDefaultPasswords(context.Background()); err != nil {
+		slog.Error("启动安全检查未通过", "err", err)
+		os.Exit(1)
+	}
+
 	router := app.Engine()
 
 	// 定时任务
