@@ -1,8 +1,10 @@
-# 迁移镜像：内置全部 migrations，供 K8s Job / 任意环境执行数据库迁移。
-# 用法：容器启动即执行全部 *.up.sql（连接参数经 PGHOST/PGUSER/PGPASSWORD/PGDATABASE 环境变量注入）。
+# 迁移镜像：内置全部 migrations 与统一迁移脚本（schema_migrations 版本表，增量执行），
+# 供 K8s Job / 任意环境执行数据库迁移；可安全重复执行。
+# 连接参数经环境变量注入：PGHOST / PGUSER / PGPASSWORD / PGDATABASE。
+# 历史库首次升级：设置 YF_MIGRATE_BASELINE_TO=<已部署到的版本，如 000032>。
 FROM postgres:16-alpine
 
 COPY migrations /migrations
-COPY deploy/migrate.sh /usr/local/bin/migrate.sh
+COPY scripts/migrate.sh /usr/local/bin/migrate.sh
 
-ENTRYPOINT ["/usr/local/bin/migrate.sh"]
+ENTRYPOINT ["sh", "/usr/local/bin/migrate.sh"]

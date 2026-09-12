@@ -26,7 +26,7 @@ services:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
 
-  # 迁移服务：按版本顺序执行 migrations/*.up.sql（幂等，可重复）
+  # 迁移服务：带版本表的增量迁移，可安全重复执行（仅应用未执行的迁移）
   migrate:
     image: postgres:16
     depends_on:
@@ -37,13 +37,11 @@ services:
       PGHOST: db
       PGUSER: yaofang
       PGDATABASE: yaofang
+      YF_MIGRATE_BASELINE_TO: ${YF_MIGRATE_BASELINE_TO:-}
     volumes:
       - ./migrations:/migrations:ro
-    command: >
-      bash -c "for f in /migrations/*.up.sql; do
-        echo \"== $$f\";
-        psql -v ON_ERROR_STOP=1 -f \"$$f\" || exit 1;
-      done"
+      - ./scripts/migrate.sh:/usr/local/bin/yf-migrate.sh:ro
+    command: ["sh", "/usr/local/bin/yf-migrate.sh"]
 
   api:
     build:

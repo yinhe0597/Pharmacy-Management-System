@@ -33,14 +33,14 @@ jobs:
       - name: 安装 PostgreSQL 客户端
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
-      - name: 执行数据库迁移
+      - name: 执行数据库迁移（增量 + 版本表）
         env:
           PGPASSWORD: yaofang123
-        run: |
-          for f in migrations/*.up.sql; do
-            echo "== $f"
-            psql -h localhost -U yaofang -d yaofang -v ON_ERROR_STOP=1 -f "$f"
-          done
+          PGHOST: localhost
+          PGUSER: yaofang
+          PGDATABASE: yaofang
+          MIGRATIONS_DIR: migrations
+        run: sh scripts/migrate.sh
 
       - name: 编译产物（含版本注入）
         run: |

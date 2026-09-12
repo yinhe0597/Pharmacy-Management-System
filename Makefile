@@ -1,5 +1,5 @@
 # 药房管理系统 Makefile（Linux / Git Bash）
-.PHONY: build run vet fmt fmt-check lint test test-integration swag ci db-migrate db-backup db-up db-down docker-build docker-up docker-down docker-logs
+.PHONY: build run vet fmt fmt-check lint test test-integration swag ci env-init db-migrate db-backup db-up db-down docker-build docker-up docker-down docker-logs
 
 APP := bin/yaofang
 
@@ -44,8 +44,28 @@ test:
 test-integration:
 	go test -tags=integration ./internal/service/
 
+# 本地开发环境变量：生成含随机密钥的 .env（已存在则跳过）。
+# compose 现已移除弱默认值（YF_DATABASE_PASSWORD / YF_AUTH_JWT_SECRET 必填），
+# 本地起库/起全栈前先执行本目标即可，无需手工设置环境变量。
+env-init:
+	@if [ -f .env ]; then \
+	  echo ".env 已存在，跳过生成（如需重置请先删除 .env）"; \
+	else \
+	  if command -v openssl >/dev/null 2>&1; then \
+	    jwt=$$(openssl rand -base64 48 | tr -d '\r\n'); \
+	    db=$$(openssl rand -hex 24 | tr -d '\r\n'); \
+	  else \
+	    jwt=$$(head -c 48 /dev/urandom | base64 | tr -d '\r\n'); \
+	    db=$$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \r\n'); \
+	  fi; \
+	  if [ $${#jwt} -lt 32 ]; then echo "错误：JWT 密钥生成失败（长度不足 32）" >&2; exit 1; fi; \
+	  umask 077; \
+	  printf '# 本地开发环境变量（由 make env-init 生成，含密钥，勿提交版本库）\nYF_AUTH_JWT_SECRET=%s\nYF_DATABASE_PASSWORD=%s\n' "$$jwt" "$$db" > .env; \
+	  echo "已生成 .env（随机 JWT 密钥 $${#jwt} 字符 + 随机数据库口令）"; \
+	fi
+
 # 本地集成测试环境：Docker 起 PG + 执行迁移（需 Docker Compose）
-db-up:
+db-up: env-init
 	docker compose up -d db
 	docker compose run --rm migrate
 
@@ -62,7 +82,7 @@ docker-build:
 	docker build -t yaofang-web:$(VERSION) pharmacy-web
 	docker build -f deploy/Dockerfile.migrate -t yaofang-migrate:$(VERSION) .
 
-docker-up:
+docker-up: env-init
 	docker compose up -d --build
 
 docker-down:
@@ -81,9 +101,11 @@ logging-down:
 swag:
 	swag init -g cmd/server/main.go -o docs --parseDependency --parseInternal
 
-# 执行全部迁移脚本（需 PGPASSWORD/psql 可用）
+# 执行数据库迁移（增量 + 版本表；需 psql 可用，连接参数经 YF_DB_* 覆盖）
+# 历史库首次升级：make db-migrate YF_MIGRATE_BASELINE_TO=000032
 db-migrate:
-	@for f in migrations/*.up.sql; do echo "== $$f"; psql -h $${YF_DB_HOST:-localhost} -U $${YF_DB_USER:-yaofang} -d $${YF_DB_NAME:-yaofang} -v ON_ERROR_STOP=1 -f "$$f" || exit 1; done
+	PGHOST=$${YF_DB_HOST:-localhost} PGUSER=$${YF_DB_USER:-yaofang} PGDATABASE=$${YF_DB_NAME:-yaofang} \
+	  MIGRATIONS_DIR=migrations sh scripts/migrate.sh
 
 # CI 门槛：静态检查 + 格式 + 单元 + 集成
 ci: vet fmt-check test

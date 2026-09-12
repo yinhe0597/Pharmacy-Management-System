@@ -14,6 +14,15 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# 自动读取部署目录下的 .env（一键部署由 start.sh/start.bat 生成，含 YF_DATABASE_PASSWORD），
+# 使 `./scripts/backup_db.sh` 在无需手工导出环境变量的情况下即可工作。
+if [ -f .env ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . ./.env
+  set +a
+fi
+
 DB_HOST="${YF_DB_HOST:-${YF_DATABASE_HOST:-localhost}}"
 DB_PORT="${YF_DB_PORT:-${YF_DATABASE_PORT:-5432}}"
 DB_USER="${YF_DB_USER:-${YF_DATABASE_USER:-yaofang}}"
@@ -28,18 +37,40 @@ umask 077
 STAMP="$(date +%Y%m%d_%H%M%S)"
 OUT="$BACKUP_DIR/yaofang_${STAMP}.dump"
 
+backup_ok=0
+
+# 路径一：本机 pg_dump（-w 禁止交互式口令提示：口令缺失/库不可达时立即失败并回退，
+# 避免脚本在无人值守的 crontab 中永久挂起）
 if command -v pg_dump >/dev/null 2>&1; then
-  echo "[backup] pg_dump → $OUT（$DB_USER@$DB_HOST:$DB_PORT/$DB_NAME）"
-  PGPASSWORD="$DB_PASSWORD" pg_dump \
+  echo "[backup] 尝试 pg_dump → $OUT（$DB_USER@$DB_HOST:$DB_PORT/$DB_NAME）"
+  if PGPASSWORD="$DB_PASSWORD" pg_dump -w \
     -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
-    -Fc --no-owner -f "$OUT"
-elif command -v docker >/dev/null 2>&1 && docker compose -f "$COMPOSE_FILE" ps db >/dev/null 2>&1; then
-  echo "[backup] docker compose exec db pg_dump → $OUT"
-  docker compose -f "$COMPOSE_FILE" exec -T db \
-    pg_dump -U "$DB_USER" -d "$DB_NAME" -Fc --no-owner > "$OUT"
-else
-  echo "[backup] 错误：未找到 pg_dump，且 $COMPOSE_FILE 的 db 服务不可用。" >&2
-  echo "[backup] 请安装 postgresql-client，或在部署目录执行（需 docker compose）。" >&2
+    -Fc --no-owner -f "$OUT"; then
+    backup_ok=1
+  else
+    echo "[backup] pg_dump 失败（口令缺失/库不可达），尝试回退容器内备份..."
+    rm -f "$OUT"
+  fi
+fi
+
+# 路径二：容器内 pg_dump（一键部署形态：db 服务在 compose 中运行，容器内为本地信任认证）
+if [ "$backup_ok" -eq 0 ] && command -v docker >/dev/null 2>&1; then
+  db_cid="$(docker compose -f "$COMPOSE_FILE" ps -q db 2>/dev/null || true)"
+  if [ -n "$db_cid" ]; then
+    echo "[backup] docker compose exec db pg_dump → $OUT"
+    if docker compose -f "$COMPOSE_FILE" exec -T db \
+      pg_dump -U "$DB_USER" -d "$DB_NAME" -Fc --no-owner > "$OUT"; then
+      backup_ok=1
+    else
+      rm -f "$OUT"
+    fi
+  fi
+fi
+
+if [ "$backup_ok" -eq 0 ]; then
+  echo "[backup] 错误：未能完成备份。" >&2
+  echo "[backup] 请安装 postgresql-client 并提供口令（YF_DATABASE_PASSWORD），" >&2
+  echo "[backup] 或在部署目录内确保 $COMPOSE_FILE 的 db 服务正在运行。" >&2
   exit 1
 fi
 
