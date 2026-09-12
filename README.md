@@ -79,15 +79,17 @@
 
 | 依赖 | 版本 |
 |------|------|
-| Go | ≥ 1.26.5 |
+| Go | ≥ 1.26.6 |
 | PostgreSQL | ≥ 14 |
 | Docker Compose（可选） | 一键起库 / 全栈部署 |
 
 ### 🐳 容器化一键部署（可选，需 Docker）
 
 ```bash
-docker compose up -d --build    # db → migrate → api → web 全栈
+# 需显式提供强口令与随机密钥（dev/prod 编排均已移除默认弱口令）
+YF_DATABASE_PASSWORD='<强口令>' YF_AUTH_JWT_SECRET='<≥32 位随机串>' docker compose up -d --build
 # 前端 http://localhost:8088 ，API 健康检查 http://localhost:8080/readyz
+# 或直接使用生产一键包：Windows 双击 start.bat / Linux ./start.sh（自动生成 .env 随机密钥与口令）
 ```
 
 无 Docker 的服务器可走 **裸机 systemd 部署**（`deploy/yaofang.service`），K8s 部署见 `deploy/k8s/`，完整说明见 [docs/10-部署运维.md](docs/10-部署运维.md)。
@@ -128,6 +130,7 @@ go build -o bin/yaofang.exe ./cmd/server && ./bin/yaofang.exe
 ```
 
 > 👤 默认管理员：`admin / admin123`；其他种子用户：`doctor`、`clinic_nurse`（跟诊护士）、`pharmacy_nurse`（药房护士）、`pharmacy_chief`、`pharmacist`、`buyer`、`finance`（密码均 `admin123`，生产环境务必修改 ⚠️）
+> 启动校验：JWT 密钥为空/占位值/<32 位将拒绝启动；`release` 模式下 CORS 为 `*` 会告警；Swagger 仅非 release 开放。
 
 ### 🚀 服务器一键部署（Docker 生产包）
 
@@ -147,8 +150,8 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 ### 🌐 前端联调
 
-- 后端已支持 **CORS 跨域**（`server.cors_allow_origins` 白名单，开发默认放行 `*`，生产限定域名）。
-- 接口文档：`http://localhost:8080/swagger/index.html`（含全部端点与 TS 类型生成来源 `docs/swagger.json`）。
+- 后端已支持 **CORS 跨域**（`server.cors_allow_origins` 白名单，开发默认放行 `*`，生产限定域名；`release` 下使用 `*` 会告警）。
+- 接口文档：`http://localhost:8080/swagger/index.html`（**仅非 release 模式开放**；含全部端点与 TS 类型生成来源 `docs/swagger.json`）。
 - 对接约定与前端须知见 [docs/16-前端开发就绪评估与对接指南.md](docs/16-前端开发就绪评估与对接指南.md)。
 - 前端技术选型、工程结构、页面规划与进度计划见 [docs/17-前端开发指南与进度规划.md](docs/17-前端开发指南与进度规划.md)。
 - 前端工程 `pharmacy-web/`：P0-P6 全部完成（登录/RBAC/主数据/采购库存/患者处方核心流程含给药途径与分批配伍分组/计费/药学服务/特殊药品/报表/系统管理/CI），报表页已接入 **ECharts**（进销存汇总柱状图、效期分析饼图），详见 [pharmacy-web/README.md](pharmacy-web/README.md)。
@@ -157,11 +160,15 @@ docker compose -f docker-compose.prod.yml up -d --build
 ### ✅ 4️⃣ 测试
 
 ```bash
-go test ./...                          # 单元测试（domain/service/middleware）
+go test ./...                          # 单元测试（domain/service/middleware/config/pkg）
 go test -tags=integration ./internal/service/   # 集成测试（需 PostgreSQL；先 make db-up）
 golangci-lint run ./...                # 静态检查（CI 门槛）
+go run golang.org/x/vuln/cmd/govulncheck@latest ./...   # 供应链漏洞扫描（当前 0 可达）
 bash scripts/check_domain_coverage.sh  # domain 覆盖率门槛（≥85%）
 python scripts/smoke_test.py           # HTTP 冒烟测试（需服务已启动）
+
+# 前端（pharmacy-web/）
+npm run type-check && npm run lint && npm run format:check && npm run test && npm run build
 ```
 
 ---
@@ -186,7 +193,7 @@ yaofang/
 ├── migrations/            # 📦 golang-migrate SQL 迁移（32 个版本）
 ├── configs/               # ⚙️ 配置样例
 ├── deploy/                # 🚢 部署资产：systemd 单元、K8s manifests、日志聚合配置
-├── docs/                  # 📚 开发文档（20 篇）
+├── docs/                  # 📚 开发文档（21 篇）
 ├── scripts/               # 🔧 运维/构建/覆盖率脚本
 ├── Dockerfile             # 🐳 后端镜像（多阶段构建）
 └── docker-compose.yml     # 🐳 全栈编排（db + migrate + api + web）
@@ -226,7 +233,7 @@ yaofang/
 |--------|------|
 | 一期核心闭环（主数据/采购/库存/处方/拆零） | ✅ 已交付 |
 | 药物相互作用引擎（4 策略 + 患者级检查） | ✅ 已交付 |
-| 参考数据（ICD-10/集采/医保/耗材/非医保，6,794 条） | ✅ 已交付并接线 |
+| 参考数据（ICD-10/集采/医保/耗材/非医保，5,794 条） | ✅ 已交付并接线 |
 | RBAC 角色矩阵强制 / 麻精双人核对 | ✅ 已落地 |
 | 患者档案 + 计费闭环 + 拆零操作单/统计 | ✅ 已交付 |
 | 诊疗模块复审修复（docs/15） | ✅ 已交付 |
@@ -242,9 +249,10 @@ yaofang/
 | Docker 一键部署包（Nginx+后端+PG 全容器化，内网浏览器直访，自动迁移/随机密钥） | ✅ 已实测（镜像构建/迁移/登录/内网访问全通） |
 | 部署运维完善（容器化 + 健康检查 + 日志聚合 + 连接池 + CI/CD） | ✅ 已交付 |
 | 健康检查冲刺（安全加固 + 测试补齐 + 依赖升级 + 文档修正） | ✅ 已交付 |
+| 第二轮审计修复（部署阻断/采购超收/并发入库/限速绕过/供应链漏洞 + 文档补全） | ✅ 已修复并回归 |
 | 二期就诊模块规划（docs/20） | 📋 S7 报表待实施 |
 
-> 迁移至 `000032`，共 **32 个版本**；质量门禁：`go build` / `go vet` / `go test` / `gofmt` / `golangci-lint` 全绿 ✅
+> 迁移至 `000032`，共 **32 个版本**；质量门禁：后端 `go build` / `go vet` / `go test` / `gofmt` / `golangci-lint` / `govulncheck` + 前端 `vue-tsc` / `eslint` / `prettier` / `vitest` / `build` 全绿 ✅
 
 ### 🗺️ 路线图
 
@@ -259,6 +267,10 @@ yaofang/
   健康检查（/healthz /readyz /version）+ 结构化日志 + Loki 日志聚合栈 + 连接池配置说明 + CI/CD 流水线
 - ✅ **健康检查冲刺**：生产禁弱 JWT 密钥启动 + 登录失败审计日志 + RequireRoles 安全断言 +
   x/crypto 升级 + config/sanitize/middleware 单测补齐 + 文档计数修正
+- ✅ **第二轮审计修复**：Linux 一键部署密钥生成阻断修复；采购收货并发超收（原子条件更新 + 在途扣减）；
+  入库并发唯一键冲突改 `ON CONFLICT` upsert；盘点差异口径修正；鉴权每请求复查角色；
+  可信代理白名单（防 XFF 伪造绕过限速）；Swagger 生产关闭；prod 探针改 `/readyz`；
+  Go 1.26.6 + quic-go v0.59.1（govulncheck 0 可达）；前端 vitest 单测接入 CI
 - 🔭 **二期**：S7 合并结算报表
 
 ---
@@ -283,7 +295,7 @@ yaofang/
 | 文档 | 说明 |
 |------|------|
 | 📋 [CHANGELOG.md](CHANGELOG.md) | 版本与变更记录 |
-| 📚 [docs/README.md](docs/README.md) | 开发文档总览（20 篇） |
+| 📚 [docs/README.md](docs/README.md) | 开发文档总览（21 篇） |
 | 🔍 [docs/14-现状分析与下一步建议.md](docs/14-现状分析与下一步建议.md) | 全量审阅发现与修复进度 |
 | 🩺 [docs/15-诊疗模块复审报告.md](docs/15-诊疗模块复审报告.md) | 诊疗模块业务逻辑/漏洞复审与前端搭建参考 |
 | 🌐 [docs/16-前端开发就绪评估与对接指南.md](docs/16-前端开发就绪评估与对接指南.md) | 前端就绪评估、页面-接口对照与对接须知 |
@@ -293,6 +305,7 @@ yaofang/
 | 🚢 [docs/10-部署运维.md](docs/10-部署运维.md) | 部署与运维指南 |
 | 🛠️ [docs/19-前端工程化提升方案.md](docs/19-前端工程化提升方案.md) | 前端 5 项提升建议评估与融合 |
 | 🏥 [docs/20-二期就诊模块规划.md](docs/20-二期就诊模块规划.md) | 二期就诊/病历/收费模块详细规划（S1 表结构 → S7 前端） |
+| 🧾 [docs/24-健康检查冲刺实施总结.md](docs/24-健康检查冲刺实施总结.md) | 健康检查冲刺六阶段实施总结与验证结果 |
 
 ---
 

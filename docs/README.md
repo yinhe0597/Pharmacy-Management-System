@@ -1,8 +1,8 @@
 # 药房管理系统开发文档
 
-> 版本：v1.4.0-dev（详见 CHANGELOG [Unreleased]）｜ 更新 2026-08-14
-> 技术栈：Go + PostgreSQL + Gin + GORM
-> 交付形态：纯后端 REST API + Swagger（一期）
+> 版本：v1.4.0-dev（详见 CHANGELOG [Unreleased]）｜ 更新 2026-09-12
+> 技术栈：Go 1.26 + PostgreSQL + Gin + GORM ｜ 前端 Vue3 + TypeScript + Element Plus
+> 交付形态：全栈（后端 REST API + Swagger，前端 SPA，Docker 一键部署）
 
 ---
 
@@ -39,7 +39,7 @@
 构建一套**以药品进销存 + 处方调配为核心**的专业药房管理系统（一期独立运行），
 通过**接口抽象**预留诊疗扩展能力，二期无缝扩展为「药房 + 诊疗」一体化诊所管理系统。
 
-- 一期不做医保规则、不做 Web 前端，交付完整的后端业务能力与 API 契约。
+- 一期聚焦后端业务能力与 API 契约，前端 Web（Vue3 SPA）已交付并接入。
 - 药房业务做深做透：批号效期全流程追踪、先进先出（FEFO）发药、库存预占/释放、
   拆零管理、特殊药品「五专」、处方全状态机。
 - 二期通过 `IPatientService` / `IStockService` / `IPricingService` 等接口实现可插拔接入。
@@ -51,7 +51,7 @@
 | 决策项 | 选择 | 理由 |
 |--------|------|------|
 | 数据库 | **PostgreSQL 14+** | 支持行级锁（`SELECT ... FOR UPDATE`）、高并发、复杂报表聚合；契合库存事务正确性要求 |
-| 交付形态 | **纯后端 REST API + Swagger** | 一期聚焦业务正确性；前端二期独立开发 |
+| 交付形态 | **全栈：REST API + Vue3 SPA + Docker 一键部署** | 一期聚焦业务正确性，前后端同仓交付 |
 | Web 框架 | Gin | 生态成熟、中间件丰富、性能好 |
 | ORM | GORM | 事务、软删除、自动迁移能力；配合 `clause.Locking` 实现行锁 |
 | 数据库迁移 | golang-migrate（SQL 文件） | 生产级可控；SQL 为唯一事实来源 |
@@ -107,11 +107,12 @@ yaofang/
 ### 3.3 一期交付物
 
 - 可运行的药房后端服务（Gin API + Swagger 文档）
+- Vue3 + TypeScript 前端 SPA（登录/RBAC 菜单、进销存、处方调配、特殊药品、报表、二期就诊工作台）
 - PostgreSQL 迁移脚本（golang-migrate）
 - 一期全部业务模块：药品、供应商、采购入库、库存、处方调配、特殊药品、药学服务、报表
 - 二期预留接口文档与本接口文档（供二期开发直接使用）
 - 单元/集成/契约测试 + 测试报告
-- 部署运维文档
+- 容器化部署（Dockerfile / docker-compose / K8s manifests）与部署运维文档
 
 ---
 

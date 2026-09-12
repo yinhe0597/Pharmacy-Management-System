@@ -4,6 +4,39 @@
 
 ## [Unreleased]
 
+### 修复（第二轮审计：安全 / 并发 / 部署 / 文档）
+
+> 依据第三方工具审计报告（1×CRITICAL、4×HIGH、12×MEDIUM），逐项复核并修复；关键项已自测。
+
+- **部署阻断（C1）**：`start.sh` 原用 `head -c 48 /dev/urandom | tr -dc` 过滤随机字节，
+  过滤后平均仅约 11 字符、必然 <32，导致后端因弱密钥校验 crash-loop——Linux 一键部署整条链路不可用。
+  改为 `openssl rand -base64 48`（无 openssl 时 `head -c 48 /dev/urandom | base64`）并剥离 CR；
+  `start.bat` 改用 `RandomNumberGenerator`（CSPRNG）；两脚本统一生成 ≥32 位 JWT 密钥。
+- **采购并发超收（H1）**：完成收货原为「无锁读校验 + 盲累加」，多张收货单并发完成会超订购量入库。
+  新增 `UpdateReceivedWithinLimit` 条件更新（`WHERE received_quantity + ? <= quantity` 原子判定），
+  收货创建时按 `SumPendingByOrderItem` 扣除在途（待质检）量，杜绝超收与重复占用。
+- **弱 JWT 密钥黑名单（H2）**：扩展 `isWeakJWTSecret` 覆盖连字符/下划线变体与项目默认值
+  （`change-me`/`change_me`/`changeme`/`placeholder`/`yaofang-*-secret` 等），
+  `docker-compose.yml` 的 `YF_AUTH_JWT_SECRET` 改必填（去掉 `yaofang-compose-dev-secret-change-me` 默认）。
+- **默认口令（H3）**：`docker-compose.yml`/`docker-compose.prod.yml` 的数据库口令与 JWT 均改 `:?` 必填，
+  `start.sh`/`start.bat` 随机生成数据库口令写入 `.env`；`compose.logging.yml` 的 Grafana 口令改必填。
+- **供应链漏洞（H4）**：Go 工具链 `1.26.5 → 1.26.6`、`quic-go v0.59.0 → v0.59.1`，修复 govulncheck 可达漏洞。
+- **并发入库回退失效（M1）**：改用 `ON CONFLICT` 原子 upsert（依赖 `uq_inventory`），
+  避免 PostgreSQL 唯一键冲突后事务 aborted（25P02）导致并发入库整单失败。
+- **盘点差异写错（M2）**：`difference` 由误写实盘数改为 `counted_quantity - book_quantity`。
+- **降权不即时（M3）**：鉴权中间件每请求复查数据库当前角色（`UserStateChecker` 返回 role），
+  Token TTL 内降权/改角色立即生效。
+- **限速可被绕过（M4）**：新增 `server.trusted_proxies`（`YF_SERVER_TRUSTED_PROXIES`）并调用
+  `SetTrustedProxies`，默认不信任任何代理头，杜绝伪造 `X-Forwarded-For` 绕过登录限速。
+- **CORS/Swagger/健康检查**：release 模式对 `*` 放行告警并支持 `YF_SERVER_CORS_ALLOW_ORIGINS`；
+  Swagger 仅非 release 开放；prod 后端健康检查由 `/healthz` 改 `/readyz`（DB 就绪）；
+  `readyz` 不再回显数据库底层错误。
+- **日志栈（M10）**：Grafana 密码必填、Loki/Grafana 端口仅绑定 `127.0.0.1`、新增数据卷持久化。
+- **文档修正（M11）**：README 参考数据 6,794→5,794；CHANGELOG 迁移 33→32；
+  docs/01 Go 1.22→1.26；docs/README 更新为全栈交付；docs/02 表清单补全至实际 52 张。
+- **前端质量**：`.env.*` 忽略并新增 `.env.example`；`axios` 升级；接入 `vitest` + 14 项单测并入 CI；
+  `internal/pkg/auth` 补 JWT 单测。
+
 ### 新增（Docker 一键部署包）
 
 - **全容器化交付**：`Dockerfile`（后端多阶段构建，GOPROXY 国内加速）+ `pharmacy-web/Dockerfile`
@@ -11,7 +44,7 @@
   （db 独立卷 `pgdata_prod` 且端口不外发 → 自动迁移 → 后端 release 模式（配置全走 `YF_` 环境变量）→ 前端对外 80）。
 - **start.bat / start.sh 一键脚本**：首次运行自动生成 `.env`（随机 48 位 JWT 密钥，`.gitignore` 已排除），
   健康检查等待就绪后输出访问地址；内网其它设备直接浏览器访问 `http://<服务器IP>`。
-- **实测**：镜像构建、33 版迁移与种子自动执行（8 账号/ICD-10 1586 条/系统设置）、
+- **实测**：镜像构建、32 版迁移与种子自动执行（8 账号/ICD-10 1586 条/系统设置）、
   经 nginx 登录与内网 IP 访问全通。
 
 ### 新增（前端生产级补全）
