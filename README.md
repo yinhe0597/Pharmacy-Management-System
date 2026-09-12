@@ -102,25 +102,29 @@ YF_DATABASE_PASSWORD='<强口令>' YF_AUTH_JWT_SECRET='<≥32 位随机串>' doc
 # 或直接使用生产一键包：Windows 双击 start.bat / Linux ./start.sh（自动生成 .env 随机密钥与口令）
 ```
 
+> `docker compose` 现已**移除弱默认值**，要求显式提供 `YF_DATABASE_PASSWORD` 与 `YF_AUTH_JWT_SECRET`（缺失时编排直接报错拒绝启动）。
+> 本地开发不必每次内联口令：`cp .env.example .env` 后填两项变量即可（`.env` 已被 gitignore）；若使用 make，可用 `make env-init` 生成 `.env`（自动填入随机强口令与 ≥32 位 JWT 密钥）。
+
 无 Docker 的服务器可走 **裸机 systemd 部署**（`deploy/yaofang.service`），K8s 部署见 `deploy/k8s/`，完整说明见 [docs/10-部署运维.md](docs/10-部署运维.md)。
 
 ### 🗄️ 1️⃣ 初始化数据库
 
 ```bash
-# 方式一：Docker 一键起库并执行全部迁移（推荐 🐳）
-make db-up                                   # 需 Docker Compose
+# 方式一：Docker 一键起库并执行迁移（推荐 🐳；首次会自动生成含随机密钥的 .env）
+make db-up                                   # = make env-init + docker compose up -d db + 增量迁移
 
 # 方式二：本机 PostgreSQL（postgres 超级用户；口令仅本地开发示例，生产用随机强口令）
 psql -U postgres -h localhost -c "CREATE ROLE yaofang LOGIN PASSWORD 'yaofang123';"
 psql -U postgres -h localhost -c "CREATE DATABASE yaofang OWNER yaofang;"
 
-# 依次执行全部迁移与种子（migrations/NNNNNN_*.up.sql，共 32 个版本）
-for f in migrations/*.up.sql; do
-  echo "== $f"
-  psql -U postgres -h localhost -d yaofang -v ON_ERROR_STOP=1 -f "$f"
-done
-# 等价：make db-migrate（Linux/Git Bash，可配置 YF_DB_HOST/USER/NAME）
+# 执行迁移（共 33 个版本）：增量 + 版本表，可安全重复执行
+make db-migrate                              # = scripts/migrate.sh（PGHOST/PGUSER/PGDATABASE/YF_DB_* 可覆盖）
+# 历史库（旧版「全量重放」方式初始化）首次升级需一次性指定基线：
+#   YF_MIGRATE_BASELINE_TO=000032 make db-migrate
 ```
+
+> ⚠️ 不要再手工 `for f in migrations/*.up.sql; psql -f "$f"` 全量重放：该方式只在全新库上成立，
+> 对已初始化的库会因 `CREATE TABLE already exists` 失败并阻断后端启动。
 
 ### ⚙️ 2️⃣ 配置
 
@@ -171,6 +175,8 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 ```bash
 go test ./...                          # 单元测试（domain/service/middleware/config/pkg）
+# 提示：frontend 依赖树内含示例 Go 包，`go test ./...` 会顺带扫描（无害）；
+#      只想跑后端可执行 `go test ./cmd/... ./internal/...`
 go test -tags=integration ./internal/service/   # 集成测试（需 PostgreSQL；先 make db-up）
 golangci-lint run ./...                # 静态检查（CI 门槛）
 go run golang.org/x/vuln/cmd/govulncheck@latest ./...   # 供应链漏洞扫描（当前 0 可达）
@@ -200,10 +206,10 @@ yaofang/
 │   ├── middleware/        # 🛡️ JWT、日志、恢复、请求ID
 │   ├── scheduler/         # ⏰ 定时任务
 │   └── pkg/               # 🧰 通用组件（errs/money/pagination/auth）
-├── migrations/            # 📦 golang-migrate SQL 迁移（32 个版本）
+├── migrations/            # 📦 golang-migrate SQL 迁移（33 个版本，scripts/migrate.sh 增量执行）
 ├── configs/               # ⚙️ 配置样例
 ├── deploy/                # 🚢 部署资产：systemd 单元、K8s manifests、日志聚合配置
-├── docs/                  # 📚 开发文档（21 篇）
+├── docs/                  # 📚 开发文档（25 篇编号文档，00–25）
 ├── scripts/               # 🔧 运维/构建/覆盖率脚本
 ├── Dockerfile             # 🐳 后端镜像（多阶段构建）
 └── docker-compose.yml     # 🐳 全栈编排（db + migrate + api + web）
@@ -249,7 +255,7 @@ yaofang/
 | 诊疗模块复审修复（docs/15） | ✅ 已交付 |
 | 前端就绪（CORS + 对接指南 docs/16 + 开发指南/进度 docs/17） | ✅ 已就绪 |
 | CI 门槛（golangci-lint + 覆盖率 ≥85%） | ✅ 已落地 |
-| 本地全链路联调实测（PG16 迁移 + HTTP 冒烟 + 集成测试） | ✅ 全绿（PG14-16 兼容） |
+| 本地全链路联调实测（PG16 迁移 + HTTP 冒烟 + 集成测试） | ✅ 全绿（**实测 PG16**；PG14/15 未实测） |
 | 前端 ECharts 报表增强（进销存汇总/效期分析） | ✅ 已交付 |
 | 二期就诊模块 S1-S5（就诊/病历/合并结算后端 + 处方联动） | ✅ 已交付（联调全通） |
 | 二期就诊模块 S6（前端就诊工作台 + 收费台） | ✅ 已交付 |
@@ -260,20 +266,24 @@ yaofang/
 | 部署运维完善（容器化 + 健康检查 + 日志聚合 + 连接池 + CI/CD） | ✅ 已交付 |
 | 健康检查冲刺（安全加固 + 测试补齐 + 依赖升级 + 文档修正） | ✅ 已交付 |
 | 第二轮审计修复（部署阻断/采购超收/并发入库/限速绕过/供应链漏洞 + 文档补全） | ✅ 已修复并回归 |
+| 第三轮审计收尾（增量迁移/默认口令门禁/写操作审计覆盖/预警去重/测试隔离） | ✅ 已修复并实测 |
 | 二期就诊模块规划（docs/20） | 📋 S7 报表待实施 |
 
-> 迁移至 `000032`，共 **32 个版本**；质量门禁：后端 `go build` / `go vet` / `go test` / `gofmt` / `golangci-lint` / `govulncheck` + 前端 `vue-tsc` / `eslint` / `prettier` / `vitest` / `build` 全绿 ✅
+> 迁移至 `000033`，共 **33 个版本**（`schema_migrations` 版本表驱动，增量执行、可重复运行）；
+> 质量门禁：后端 `go build` / `go vet` / `go test` / `gofmt` / `golangci-lint` / `govulncheck` +
+> 前端 `vue-tsc` / `eslint` / `prettier` / `vitest` / `build` 全绿 ✅
 
 ### 🧭 生产就绪检查清单
 
 | 项 | 状态 | 说明 |
 |----|------|------|
 | 核心业务端到端（就诊→开方→发药→结算） | ✅ | HTTP 冒烟 43 项 + 集成场景 8 类（真实 PG） |
-| 安全基线（注入/越权/弱口令/密钥） | ✅ | SQL 全参数化、RBAC 矩阵、弱密钥拒启、登录限速（IP+用户名）、可信代理白名单 |
-| 审计与脱敏 | ✅ | 操作日志（用户/动作/时间）+ 处方/库存领域审计 + 证件/手机号脱敏 |
-| 供应链漏洞扫描 | ✅ | govulncheck 0 可达（Go 1.26.6） |
+| 安全基线（注入/越权/弱口令/密钥） | ✅ | SQL 全参数化、RBAC 矩阵、弱密钥拒启、默认口令 release 拒启、登录限速（IP+用户名）、可信代理白名单、CORS fail-closed |
+| 审计与脱敏 | ✅ | 全量写操作审计（`operation_logs`）+ 处方/库存领域审计 + 证件/手机号脱敏 |
+| 供应链漏洞扫描 | ✅ | govulncheck 0 可达（Go 1.26.6）；`npm audit` 0 漏洞 |
 | 结构化日志 + 聚合 | ✅ | slog text/json + Loki/Promtail/Grafana（`compose.logging.yml`） |
-| 数据库备份 | ✅ | `make db-backup`（pg_dump -Fc + 保留策略 + crontab，见 docs/10 §12） |
+| 数据库备份 | ✅ | `make db-backup`（pg_dump -Fc + 保留策略 + 容器回退 + crontab，见 docs/10 §12） |
+| 数据库迁移 | ✅ | `scripts/migrate.sh`：`schema_migrations` 版本表 + 增量执行 + 单文件单事务（可重复运行） |
 | 前端构建优化 | ✅ | Nginx gzip + 强缓存、路由懒加载、vendor 分包（vue/element-plus/echarts/axios） |
 | 压力测试（50+ 并发 <500ms） | 📋 | 待专项执行（见 docs/12 容量公式） |
 | 备份恢复演练 | 📋 | 建议每季一次（恢复至临时库校验） |
@@ -320,7 +330,7 @@ yaofang/
 | 文档 | 说明 |
 |------|------|
 | 📋 [CHANGELOG.md](CHANGELOG.md) | 版本与变更记录 |
-| 📚 [docs/README.md](docs/README.md) | 开发文档总览（21 篇） |
+| 📚 [docs/README.md](docs/README.md) | 开发文档总览（25 篇编号文档） |
 | 🔍 [docs/14-现状分析与下一步建议.md](docs/14-现状分析与下一步建议.md) | 全量审阅发现与修复进度 |
 | 🩺 [docs/15-诊疗模块复审报告.md](docs/15-诊疗模块复审报告.md) | 诊疗模块业务逻辑/漏洞复审与前端搭建参考 |
 | 🌐 [docs/16-前端开发就绪评估与对接指南.md](docs/16-前端开发就绪评估与对接指南.md) | 前端就绪评估、页面-接口对照与对接须知 |
@@ -331,6 +341,7 @@ yaofang/
 | 🛠️ [docs/19-前端工程化提升方案.md](docs/19-前端工程化提升方案.md) | 前端 5 项提升建议评估与融合 |
 | 🏥 [docs/20-二期就诊模块规划.md](docs/20-二期就诊模块规划.md) | 二期就诊/病历/收费模块详细规划（S1 表结构 → S7 前端） |
 | 🧾 [docs/24-健康检查冲刺实施总结.md](docs/24-健康检查冲刺实施总结.md) | 健康检查冲刺六阶段实施总结与验证结果 |
+| 🛡️ [docs/25-第三轮审计修复报告.md](docs/25-第三轮审计修复报告.md) | 第三轮审计复核：回归修复、迁移增量执行、遗留项收尾与全量实测证据 |
 
 ---
 

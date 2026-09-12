@@ -4,7 +4,43 @@
 
 ## [Unreleased]
 
-（下一版本开发中）
+### 修复（第三轮：审计收尾与运维加固）
+
+> 复核 v1.4.0 修复质量后补齐的遗留项；全部经 `go build/vet/test`、`golangci-lint`、
+> `go test -tags=integration`（真实 PostgreSQL 16）与 HTTP 冒烟（18 项）实测。
+> 完整报告见 [docs/25-第三轮审计修复报告.md](docs/25-第三轮审计修复报告.md)。
+
+- **迁移可重复执行**：新增 `scripts/migrate.sh`（`schema_migrations` 版本表 + 增量执行 + 单文件单事务），
+  替换 compose / `deploy/Dockerfile.migrate` / Makefile / CI 中「全量重放 `*.up.sql`」的旧实现——
+  旧实现在已初始化的库上二次执行必然失败（`CREATE TABLE` 已存在），生产二次部署与升级会被阻断。
+  历史库首次升级用 `YF_MIGRATE_BASELINE_TO=000032` 一次性建立基线（未指定时明确报错而非猜测）。
+- **默认口令启动门禁**：release 模式若仍有启用账号使用默认口令 `admin123`，服务拒绝启动
+  （`internal/server/startup.go`，可用 `YF_AUTH_ALLOW_DEFAULT_PASSWORDS=true` 临时豁免，仅限演示）；
+  debug 模式打印告警并列出账号。
+- **写操作审计全覆盖**：新增 `middleware.AuditWrites`，所有已认证的非只读请求落 `operation_logs`
+  （动作名细化为 `dispense`/`confirm-dispense`/`return`/`void`/`complete` 等子资源动作，
+  记录路由模板、`resource_id`、IP 与状态码；不含请求体，避免口令入库）。此前仅登录/改密/建用户有审计。
+- **预警去重（L6）**：新增迁移 `000033` 的 open 状态部分唯一索引 + 仓储 `CreateIfAbsent`
+  （`ON CONFLICT DO NOTHING`）；同时修复「低于下限」预警查询键 `'ALL'` 与写入键空串错配导致的
+  每次调度重复新增预警。
+- **患者档案 mass-assignment（L2）**：写接口改为 `patientWriteRequest` 白名单 DTO，
+  仓储更新改为显式列 + map 形式（仍支持布尔/文本清零），客户端无法改写 `id`/`created_at`。
+- **空安瓿核对人落库**：`AmpouleReturnRepo.Verify` 一并写入 `verified_by` 并保证 pending→verified 幂等；
+  此前仅改状态、核对人不落库（五专审计字段丢失）。
+- **事务内一致读**：`InteractionService.CheckPrescription` 与 `availablePacksTx` 支持传入 `tx`，
+  Review 持处方行锁期间不再于另一连接查询（缩短锁持有、读一致）。
+- **死锁与退药顺序**：调拨按 `inventory_id` 升序加锁（反向并发调拨不再交叉等待）；
+  退药记录查询改为「拆零优先」（散片退药不再因先命中整盒记录而报 3013）。
+- **金额工具**：`ItemAmount` 对 `packSize<=0/==1` 显式处理（除零防护）；
+  `FromYuan(float64)` 改为 `ParseYuan(string)` 精确十进制解析；拆零取整残差（24×42=1008 分）单测固化。
+- **CORS 语义澄清**：注释与实现对齐为 fail-closed（白名单为空 = 不下发任何 CORS 头），并补单测锁定。
+- **测试补齐与隔离**：新增并发入库（同批次 upsert）、采购超收双护栏、盘点差异口径三项集成测试；
+  `setupTestDB` 清理表补 `stocktakes/stocktake_items/split_orders/requisition_*` 等，
+  修复盘点残留导致后续用例随机失败（测试顺序相关）；新增 DryRun SQL 断言测试（无需数据库即可守护
+  upsert/条件更新/差异口径不被回退）。
+- **其他**：`make env-init` 生成含随机密钥的 `.env`（修复 compose 去除弱默认值后 `make db-up` 失败）、
+  根 `.env.example`；前端 Nginx 不再反代 `/swagger/`（Swagger 仅非 release 注册）；
+  CI 集成测试自带测试密钥（不依赖本地配置）；本地 `configs/config.yaml` 与 `.env` 口令对齐。
 
 ## [v1.4.0] - 2026-09-12
 
