@@ -97,11 +97,32 @@ func (r *POItemRepo) ListByOrder(ctx context.Context, orderID int64) ([]model.Pu
 	return list, err
 }
 
-// UpdateReceived 累加已收数量。
+// UpdateReceived 累加已收数量（无条件）。
+//
+// Deprecated: 无并发保护，仅用于确有行锁或单写者场景；入库累加请用
+// UpdateReceivedWithinLimit（条件更新双保险），否则并发完成多张收货单会超收。
 func (r *POItemRepo) UpdateReceived(ctx context.Context, id, qty int64) error {
 	return r.db.WithContext(ctx).Model(&model.PurchaseOrderItem{}).
 		Where("id = ?", id).
 		UpdateColumn("received_quantity", gorm.Expr("received_quantity + ?", qty)).Error
+}
+
+// UpdateReceivedWithinLimit 条件累加已收数量：仅当「已收 + 本次 <= 订购量」时才累加，
+// 返回是否累加成功（false = 会超收，调用方应返回 ErrReceiveExceeded）。
+//
+// 该判断与累加在同一条 UPDATE 内完成（原子），避免「无锁读校验 + 盲累加」导致的
+// 并发超收（两张收货单同时完成时都读到旧值、都通过校验）。
+func (r *POItemRepo) UpdateReceivedWithinLimit(ctx context.Context, id, qty int64) (bool, error) {
+	if qty <= 0 {
+		return false, nil
+	}
+	res := r.db.WithContext(ctx).Model(&model.PurchaseOrderItem{}).
+		Where("id = ? AND received_quantity + ? <= quantity", id, qty).
+		UpdateColumn("received_quantity", gorm.Expr("received_quantity + ?", qty))
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected > 0, nil
 }
 
 // PurchaseReceiptRepo 收货单仓储。
@@ -180,6 +201,19 @@ func (r *ReceiptItemRepo) ListByReceipt(ctx context.Context, receiptID int64) ([
 	var list []model.PurchaseReceiptItem
 	err := r.db.WithContext(ctx).Where("receipt_id = ?", receiptID).Order("id ASC").Find(&list).Error
 	return list, err
+}
+
+// SumPendingByOrderItem 统计该采购单明细上「待质检收货单」已申报的数量合计。
+// 收货单创建时 received_quantity 尚未累加（完成入库时才累加），因此创建收货单的
+// 余额校验必须扣除在途（pending_quality）数量，否则可开出多张合计超订购量的收货单。
+func (r *ReceiptItemRepo) SumPendingByOrderItem(ctx context.Context, orderItemID int64) (int64, error) {
+	var sum int64
+	err := r.db.WithContext(ctx).Model(&model.PurchaseReceiptItem{}).
+		Joins("JOIN purchase_receipts pr ON pr.id = purchase_receipt_items.receipt_id").
+		Where("purchase_receipt_items.order_item_id = ? AND pr.status = ?", orderItemID, "pending_quality").
+		Select("COALESCE(SUM(purchase_receipt_items.received_quantity), 0)").
+		Scan(&sum).Error
+	return sum, err
 }
 
 // HasQCFailed 判断是否存在质检不合格项。

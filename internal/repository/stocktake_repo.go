@@ -100,11 +100,14 @@ func (r *StocktakeItemRepo) ListByStocktake(ctx context.Context, stocktakeID int
 	return list, err
 }
 
-// UpdateCounted 录入实盘数与差异。
+// UpdateCounted 录入实盘数与差异（difference = 实盘 - 账面）。
 func (r *StocktakeItemRepo) UpdateCounted(ctx context.Context, id, counted int64) error {
 	return r.db.WithContext(ctx).Model(&model.StocktakeItem{}).
 		Where("id = ?", id).
-		Updates(map[string]any{"counted_quantity": counted, "difference": counted}).Error
+		Updates(map[string]any{
+			"counted_quantity": counted,
+			"difference":       gorm.Expr("? - book_quantity", counted),
+		}).Error
 }
 
 // MarkAdjusted 将盘点明细标记为已调整。

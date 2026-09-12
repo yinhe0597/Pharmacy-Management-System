@@ -129,6 +129,31 @@ func (r *InventoryRepo) Add(ctx context.Context, id, qty int64) error {
 		UpdateColumn("quantity", gorm.Expr("quantity + ?", qty)).Error
 }
 
+// UpsertAddQuantity 原子 upsert：不存在则按 inv 新建，存在则 quantity += inv.Quantity。
+// 依赖唯一约束 uq_inventory (drug_id, location_id, batch_no, expiry_date, is_split) 与
+// ON CONFLICT，避免「先查后插」在并发下唯一键冲突——PostgreSQL 下冲突会使事务进入 aborted
+// 状态（25P02），此时任何回退查询都会失败，导致并发入库整单失败而非累加。
+// 返回落库后的最终数量（供流水 before/after 计算）。
+func (r *InventoryRepo) UpsertAddQuantity(ctx context.Context, inv *model.Inventory) (int64, error) {
+	res := r.db.WithContext(ctx).Clauses(
+		clause.OnConflict{
+			Columns: []clause.Column{
+				{Name: "drug_id"}, {Name: "location_id"},
+				{Name: "batch_no"}, {Name: "expiry_date"}, {Name: "is_split"},
+			},
+			DoUpdates: clause.Assignments(map[string]any{
+				"quantity":   gorm.Expr("inventory.quantity + ?", inv.Quantity),
+				"updated_at": gorm.Expr("NOW()"),
+			}),
+		},
+		clause.Returning{},
+	).Create(inv)
+	if res.Error != nil {
+		return 0, res.Error
+	}
+	return inv.Quantity, nil
+}
+
 // AddExpiredFromReceipt 收货时若该批次已过期，允许入库但状态直接锁定（收货侧校验在服务层完成）。
 func (r *InventoryRepo) SetStatus(ctx context.Context, id int64, status int) error {
 	return r.db.WithContext(ctx).Model(&model.Inventory{}).Where("id = ?", id).Update("status", status).Error

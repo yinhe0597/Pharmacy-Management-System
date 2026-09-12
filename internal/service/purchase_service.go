@@ -171,7 +171,12 @@ func (s *PurchaseService) Receive(ctx context.Context, orderID int64, items []Re
 			if !ok {
 				return errs.ErrBadRequest
 			}
-			if it.ReceivedQuantity <= 0 || it.ReceivedQuantity > poIt.Quantity-poIt.ReceivedQuantity {
+			// 未收余额 = 订购量 - 已收（已入库）- 在途（待质检收货单已申报量）
+			pending, err := repository.NewReceiptItemRepo(tx).SumPendingByOrderItem(ctx, poIt.ID)
+			if err != nil {
+				return err
+			}
+			if it.ReceivedQuantity <= 0 || it.ReceivedQuantity > poIt.Quantity-poIt.ReceivedQuantity-pending {
 				return errs.ErrReceiveExceeded
 			}
 			if it.BatchNo == "" || it.ExpiryDate.IsZero() {
@@ -271,20 +276,20 @@ func (s *PurchaseService) CompleteReceipt(ctx context.Context, receiptID int64, 
 			if rule.IsExpired(it.ExpiryDate, todayNow()) {
 				return errs.ErrExpiredLot
 			}
-			// 按采购单明细精确归集，并校验未收余额（防止超收/重复入账）
+			// 按采购单明细精确归集，并校验未收余额（防止超收/重复入账）。
+			// 校验与累加由 UpdateReceivedWithinLimit 在单条 UPDATE 内原子完成：
+			// 两张收货单并发完成时不会因「都读到旧值」而双双通过校验造成超收。
 			if it.OrderItemID > 0 {
-				poIt, err := poItemRepo.GetByID(ctx, it.OrderItemID)
+				ok, err := poItemRepo.UpdateReceivedWithinLimit(ctx, it.OrderItemID, it.ReceivedQuantity)
 				if err != nil {
-					if errors.Is(err, gorm.ErrRecordNotFound) {
+					return err
+				}
+				if !ok {
+					// 区分「明细不存在」与「超收」：明细不存在属于请求错误
+					if _, gerr := poItemRepo.GetByID(ctx, it.OrderItemID); errors.Is(gerr, gorm.ErrRecordNotFound) {
 						return errs.ErrBadRequest
 					}
-					return err
-				}
-				if poIt.ReceivedQuantity+it.ReceivedQuantity > poIt.Quantity {
 					return errs.ErrReceiveExceeded
-				}
-				if err := poItemRepo.UpdateReceived(ctx, poIt.ID, it.ReceivedQuantity); err != nil {
-					return err
 				}
 			}
 			entries = append(entries, StockEntry{

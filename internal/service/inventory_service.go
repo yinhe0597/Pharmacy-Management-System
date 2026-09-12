@@ -186,17 +186,12 @@ func (s *InventoryService) addStockTx(ctx context.Context, tx *gorm.DB, entries 
 			if rule.IsExpired(e.ExpiryDate, todayNow()) {
 				newInv.Status = 2
 			}
-			if err := invRepo.Create(ctx, newInv); err != nil {
-				// 并发下其他事务已创建同键行 → 回退为累加
-				existing, ferr := invRepo.FindByKey(ctx, e.DrugID, e.LocationID, e.BatchNo, e.ExpiryDate, e.IsSplit)
-				if ferr != nil {
-					return err
-				}
-				before = existing.Quantity
-				if aerr := invRepo.Add(ctx, existing.ID, e.Quantity); aerr != nil {
-					return aerr
-				}
+			// 原子 upsert：并发下同键行已存在则累加，避免唯一键冲突导致事务 aborted。
+			after, uerr := invRepo.UpsertAddQuantity(ctx, newInv)
+			if uerr != nil {
+				return uerr
 			}
+			before = after - e.Quantity
 		} else {
 			return err
 		}
