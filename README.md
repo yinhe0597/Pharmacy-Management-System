@@ -75,6 +75,16 @@
 
 ## 🚀 快速开始
 
+### ⚡ 3 分钟跑起来（Docker 一键，推荐）
+
+```bash
+# Windows：双击 start.bat  ｜  Linux/macOS：./start.sh
+# 首次运行自动生成 .env（CSPRNG 随机 JWT 密钥 ≥32 位 + 随机数据库口令），构建并等待就绪
+# 访问 http://localhost 或 http://<服务器内网IP>，默认账号 admin / admin123（登录后请立即改密）
+```
+
+> 本地开发（无 Docker）：起 PostgreSQL → 执行迁移 → `go run ./cmd/server`，见下文分步说明。
+
 ### ⚙️ 环境要求
 
 | 依赖 | 版本 |
@@ -100,7 +110,7 @@ YF_DATABASE_PASSWORD='<强口令>' YF_AUTH_JWT_SECRET='<≥32 位随机串>' doc
 # 方式一：Docker 一键起库并执行全部迁移（推荐 🐳）
 make db-up                                   # 需 Docker Compose
 
-# 方式二：本机 PostgreSQL（postgres 超级用户）
+# 方式二：本机 PostgreSQL（postgres 超级用户；口令仅本地开发示例，生产用随机强口令）
 psql -U postgres -h localhost -c "CREATE ROLE yaofang LOGIN PASSWORD 'yaofang123';"
 psql -U postgres -h localhost -c "CREATE DATABASE yaofang OWNER yaofang;"
 
@@ -253,6 +263,21 @@ yaofang/
 | 二期就诊模块规划（docs/20） | 📋 S7 报表待实施 |
 
 > 迁移至 `000032`，共 **32 个版本**；质量门禁：后端 `go build` / `go vet` / `go test` / `gofmt` / `golangci-lint` / `govulncheck` + 前端 `vue-tsc` / `eslint` / `prettier` / `vitest` / `build` 全绿 ✅
+
+### 🧭 生产就绪检查清单
+
+| 项 | 状态 | 说明 |
+|----|------|------|
+| 核心业务端到端（就诊→开方→发药→结算） | ✅ | HTTP 冒烟 43 项 + 集成场景 8 类（真实 PG） |
+| 安全基线（注入/越权/弱口令/密钥） | ✅ | SQL 全参数化、RBAC 矩阵、弱密钥拒启、登录限速（IP+用户名）、可信代理白名单 |
+| 审计与脱敏 | ✅ | 操作日志（用户/动作/时间）+ 处方/库存领域审计 + 证件/手机号脱敏 |
+| 供应链漏洞扫描 | ✅ | govulncheck 0 可达（Go 1.26.6） |
+| 结构化日志 + 聚合 | ✅ | slog text/json + Loki/Promtail/Grafana（`compose.logging.yml`） |
+| 数据库备份 | ✅ | `make db-backup`（pg_dump -Fc + 保留策略 + crontab，见 docs/10 §12） |
+| 前端构建优化 | ✅ | Nginx gzip + 强缓存、路由懒加载、vendor 分包（vue/element-plus/echarts/axios） |
+| 压力测试（50+ 并发 <500ms） | 📋 | 待专项执行（见 docs/12 容量公式） |
+| 备份恢复演练 | 📋 | 建议每季一次（恢复至临时库校验） |
+| 合规性专业评估（等保/医疗数据） | 📋 | 建议引入第三方评估，系统侧控制已就位 |
 
 ### 🗺️ 路线图
 
