@@ -76,12 +76,18 @@ func (s *InteractionService) warmCache(ctx context.Context) error {
 
 // CheckPrescription 执行处方交互检测。
 // prescription 用于从处方记录中提取患者年龄/性别/妊娠状态来构建患者画像。
+// db 为可选的数据库句柄：在事务内调用时应传入 tx，使检测读到的库存/药品数据与事务一致
+// 并避免持锁期间在另一连接上查询（缩短行锁持有时间）；传 nil 时回退到服务自身连接。
 func (s *InteractionService) CheckPrescription(
 	ctx context.Context,
+	db *gorm.DB,
 	items []model.PrescriptionItem,
 	prescription *model.Prescription,
 	patientService port.IPatientService,
 ) (*interaction.AuditResult, error) {
+	if db == nil {
+		db = s.db
+	}
 	// 1. 提取药品 ID
 	drugIDs := make([]int64, 0, len(items))
 	for _, it := range items {
@@ -89,13 +95,13 @@ func (s *InteractionService) CheckPrescription(
 	}
 
 	// 2. 批量加载药品画像
-	drugs, err := repository.NewDrugRepo(s.db).BatchGetDrugProfiles(ctx, drugIDs)
+	drugs, err := repository.NewDrugRepo(db).BatchGetDrugProfiles(ctx, drugIDs)
 	if err != nil {
 		return nil, err
 	}
 
 	// 3. 加载成分映射
-	ingredients, err := repository.NewDrugIngredientRepo(s.db).ListByDrugIDs(ctx, drugIDs)
+	ingredients, err := repository.NewDrugIngredientRepo(db).ListByDrugIDs(ctx, drugIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +150,7 @@ func (s *InteractionService) CheckPrescription(
 	}
 
 	// 6. 加载显式药品对交互
-	explicitInteractions, err := repository.NewInteractionRepo(s.db).ListByDrugIDs(ctx, drugIDs)
+	explicitInteractions, err := repository.NewInteractionRepo(db).ListByDrugIDs(ctx, drugIDs)
 	if err != nil {
 		return nil, err
 	}

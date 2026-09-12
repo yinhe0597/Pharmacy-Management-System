@@ -41,11 +41,21 @@ func (r *PatientRepo) GetByCardNo(ctx context.Context, cardNo string) (*model.Pa
 	return &p, nil
 }
 
-// Update 更新患者（Select("*") 全量更新，含零值，修复布尔/文本字段无法清除问题，docs/15 M5）。
+// Update 更新患者档案：显式列白名单 + map 形式更新。
+// 显式列避免 mass-assignment（客户端无法改写 id/created_at 等字段）；
+// map 形式保证布尔/文本字段可被显式清零（docs/15 M5）。
 func (r *PatientRepo) Update(ctx context.Context, p *model.Patient) error {
-	return r.db.WithContext(ctx).Model(p).
-		Omit("id", "created_at").
-		Select("*").Updates(p).Error
+	return r.db.WithContext(ctx).Model(&model.Patient{}).
+		Where("id = ?", p.ID).
+		Updates(map[string]any{
+			"card_no":      p.CardNo,
+			"name":         p.Name,
+			"gender":       p.Gender,
+			"age":          p.Age,
+			"phone":        p.Phone,
+			"is_lactating": p.IsLactating,
+			"updated_at":   time.Now(),
+		}).Error
 }
 
 // List 分页查询（按姓名/卡号/电话模糊搜索）。

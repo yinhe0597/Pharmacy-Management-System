@@ -497,7 +497,7 @@ func (s *PrescriptionService) Submit(ctx context.Context, id int64, operatorID i
 		for _, r := range results {
 			if r.Shortage > 0 {
 				hint := fmt.Sprintf("药品%d缺%d;", r.DrugID, r.Shortage)
-				if packs, err := s.inventory.AvailablePacks(ctx, r.DrugID, PrescriptionLocationID); err == nil && packs > 0 {
+				if packs, err := s.inventory.availablePacksTx(ctx, tx, r.DrugID, PrescriptionLocationID); err == nil && packs > 0 {
 					hint += fmt.Sprintf("整盒可用%d盒，可拆零后重新提交;", packs)
 				}
 				shortages += hint
@@ -593,7 +593,8 @@ func (s *PrescriptionService) checkAuditRules(ctx context.Context, db *gorm.DB, 
 	}
 	// 优先使用新引擎（多层匹配），从处方直接提取患者上下文
 	if s.interSvc != nil {
-		return s.interSvc.CheckPrescription(ctx, items, p, s.patientSvc)
+		// 传入事务句柄：Review 持处方行锁期间不再于另一连接查询（缩短锁持有、读一致）
+		return s.interSvc.CheckPrescription(ctx, db, items, p, s.patientSvc)
 	}
 	// 回退：兼容旧逻辑（仅在未注入交互服务时使用）
 	drugIDs := make([]int64, 0, len(items))

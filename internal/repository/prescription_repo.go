@@ -192,9 +192,13 @@ func (r *DispenseRecordRepo) ListByPrescription(ctx context.Context, prescriptio
 }
 
 // ListByItem 查询某明细发药记录。
+// 排序：拆零记录优先（is_split DESC），再按 id 升序。
+// 退药时整盒记录只能按整盒倍数退回，若先取到整盒记录，会出现「拆零余量足够却报
+// 3013 整盒退药须为整盒倍数」的顺序敏感失败；拆零优先可让散片退回优先命中拆零记录。
 func (r *DispenseRecordRepo) ListByItem(ctx context.Context, itemID int64) ([]model.PrescriptionDispenseRecord, error) {
 	var list []model.PrescriptionDispenseRecord
-	err := r.db.WithContext(ctx).Where("item_id = ?", itemID).Order("id ASC").Find(&list).Error
+	err := r.db.WithContext(ctx).Where("item_id = ?", itemID).
+		Order("is_split DESC").Order("id ASC").Find(&list).Error
 	return list, err
 }
 

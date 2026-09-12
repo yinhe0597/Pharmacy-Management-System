@@ -392,13 +392,35 @@ func (r *StockAlertRepo) Create(ctx context.Context, a *model.StockAlert) error 
 	return r.db.WithContext(ctx).Create(a).Error
 }
 
-// HasOpenByKey 判断是否存在未处理的同类预警（去重）。
+// HasOpenByKey 判断是否存在未处理的同类预警（去重）。仅作快速跳过用；
+// 真正的一致性保证由 CreateIfAbsent 的「部分唯一索引 + ON CONFLICT」承担（并发/重入安全）。
 func (r *StockAlertRepo) HasOpenByKey(ctx context.Context, alertType string, drugID int64, batchNo string) (bool, error) {
 	var n int64
 	err := r.db.WithContext(ctx).Model(&model.StockAlert{}).
 		Where("alert_type = ? AND drug_id = ? AND batch_no = ? AND status = 'open'", alertType, drugID, batchNo).
 		Count(&n).Error
 	return n > 0, err
+}
+
+// CreateIfAbsent 幂等写入预警：依赖迁移 000033 的部分唯一索引 uq_stock_alerts_open
+// （alert_type + drug_id + location_id + batch_no 在 status='open' 下唯一）。
+// 冲突时不报错也不新增，返回是否真正创建；调度器并发/重入下不会产生重复预警。
+func (r *StockAlertRepo) CreateIfAbsent(ctx context.Context, a *model.StockAlert) (bool, error) {
+	res := r.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns: []clause.Column{
+			{Name: "alert_type"}, {Name: "drug_id"},
+			{Name: "location_id"}, {Name: "batch_no"},
+		},
+		// 部分唯一索引带谓词，冲突推断必须显式给出同一谓词
+		TargetWhere: clause.Where{Exprs: []clause.Expression{
+			clause.Eq{Column: clause.Column{Name: "status"}, Value: "open"},
+		}},
+		DoNothing: true,
+	}).Create(a)
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected > 0, nil
 }
 
 // List 分页查询预警。

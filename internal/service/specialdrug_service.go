@@ -93,19 +93,22 @@ func (s *SpecialDrugService) CreateAmpouleReturn(ctx context.Context, a *model.A
 }
 
 // VerifyAmpouleReturn 核对空安瓿回收（与发药数联动由药房线下执行，系统登记核对人）。
+// 核对人落库（verified_by），并保证幂等：仅 pending → verified 一次，重复核对返回状态冲突。
 func (s *SpecialDrugService) VerifyAmpouleReturn(ctx context.Context, id int64, verifiedBy string) error {
-	a, err := repository.NewAmpouleReturnRepo(s.db).GetByID(ctx, id)
-	if err != nil {
+	repo := repository.NewAmpouleReturnRepo(s.db)
+	if _, err := repo.GetByID(ctx, id); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errs.ErrNotFound
 		}
 		return err
 	}
-	a.VerifiedBy = verifiedBy
-	if err := repository.NewAmpouleReturnRepo(s.db).UpdateStatus(ctx, id, "verified"); err != nil {
+	ok, err := repo.Verify(ctx, id, verifiedBy)
+	if err != nil {
 		return err
 	}
-	_ = a
+	if !ok {
+		return errs.ErrStateConflict
+	}
 	return nil
 }
 

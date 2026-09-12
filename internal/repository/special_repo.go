@@ -80,7 +80,19 @@ func (r *AmpouleReturnRepo) GetByID(ctx context.Context, id int64) (*model.Ampou
 	return &a, nil
 }
 
-// UpdateStatus 更新状态（pending→verified）。
+// Verify 核对空安瓿回收：状态置 verified 并落库核对人（审计字段，五专可追溯）。
+// 仅允许 pending → verified，重复核对返回 false（幂等，不覆盖首次核对人）。
+func (r *AmpouleReturnRepo) Verify(ctx context.Context, id int64, verifiedBy string) (bool, error) {
+	res := r.db.WithContext(ctx).Model(&model.AmpouleReturn{}).
+		Where("id = ? AND status = ?", id, "pending").
+		Updates(map[string]any{"status": "verified", "verified_by": verifiedBy})
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected > 0, nil
+}
+
+// UpdateStatus 更新状态（pending→verified，不记录核对人；仅供内部/兼容路径使用）。
 func (r *AmpouleReturnRepo) UpdateStatus(ctx context.Context, id int64, status string) error {
 	return r.db.WithContext(ctx).Model(&model.AmpouleReturn{}).Where("id = ?", id).Update("status", status).Error
 }

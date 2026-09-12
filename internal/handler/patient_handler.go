@@ -33,6 +33,25 @@ func (h *PatientHandler) Register(g Groups) {
 	g.PatientRead.GET("/patients/:id/medication-history", h.MedicationHistory)
 }
 
+// patientWriteRequest 患者档案写请求（显式白名单字段，避免直接绑定 model 造成
+// mass-assignment：客户端不得指定 id/created_at 等非业务字段）。
+type patientWriteRequest struct {
+	CardNo      string `json:"card_no"`
+	Name        string `json:"name"`
+	Gender      string `json:"gender"`
+	Age         string `json:"age"`
+	Phone       string `json:"phone"`
+	IsLactating bool   `json:"is_lactating"`
+}
+
+// toModel 转换为模型（id 由调用方填充）。
+func (r patientWriteRequest) toModel(id int64) *model.Patient {
+	return &model.Patient{
+		ID: id, CardNo: r.CardNo, Name: r.Name,
+		Gender: r.Gender, Age: r.Age, Phone: r.Phone, IsLactating: r.IsLactating,
+	}
+}
+
 // List godoc
 // @Summary 患者档案列表
 // @Tags patients
@@ -62,20 +81,21 @@ func (h *PatientHandler) List(c *gin.Context) {
 // @Tags patients
 // @Accept json
 // @Security BearerAuth
-// @Param body body model.Patient true "患者档案"
+// @Param body body patientWriteRequest true "患者档案"
 // @Success 200 {object} Body
 // @Router /patients [post]
 func (h *PatientHandler) Create(c *gin.Context) {
-	var p model.Patient
-	if err := c.ShouldBindJSON(&p); err != nil {
+	var req patientWriteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, errs.ErrBadRequest)
 		return
 	}
-	if p.CardNo == "" || p.Name == "" {
+	if req.CardNo == "" || req.Name == "" {
 		Error(c, errs.ErrBadRequest)
 		return
 	}
-	if err := h.svc.Create(c.Request.Context(), &p); err != nil {
+	p := req.toModel(0)
+	if err := h.svc.Create(c.Request.Context(), p); err != nil {
 		Error(c, err)
 		return
 	}
@@ -109,7 +129,7 @@ func (h *PatientHandler) Get(c *gin.Context) {
 // @Accept json
 // @Security BearerAuth
 // @Param id path int true "患者ID"
-// @Param body body model.Patient true "患者档案"
+// @Param body body patientWriteRequest true "患者档案"
 // @Success 200 {object} Body
 // @Router /patients/{id} [put]
 func (h *PatientHandler) Update(c *gin.Context) {
@@ -118,12 +138,16 @@ func (h *PatientHandler) Update(c *gin.Context) {
 		Error(c, errs.ErrBadRequest)
 		return
 	}
-	var p model.Patient
-	if err := c.ShouldBindJSON(&p); err != nil {
+	var req patientWriteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, errs.ErrBadRequest)
 		return
 	}
-	if err := h.svc.Update(c.Request.Context(), id, &p); err != nil {
+	if req.CardNo == "" || req.Name == "" {
+		Error(c, errs.ErrBadRequest)
+		return
+	}
+	if err := h.svc.Update(c.Request.Context(), id, req.toModel(id)); err != nil {
 		Error(c, err)
 		return
 	}

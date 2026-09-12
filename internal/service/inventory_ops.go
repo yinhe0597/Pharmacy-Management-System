@@ -281,7 +281,8 @@ func (s *InventoryService) GenerateExpiryWarnings(ctx context.Context, today tim
 			continue
 		}
 		expiry := r.ExpiryDate
-		if err := alertRepo.Create(ctx, &model.StockAlert{
+		// CreateIfAbsent：并发/重入下由部分唯一索引兜底，不会写入重复预警
+		if _, err := alertRepo.CreateIfAbsent(ctx, &model.StockAlert{
 			AlertType: alertType, DrugID: r.DrugID, LocationID: r.LocationID,
 			BatchNo: r.BatchNo, ExpiryDate: &expiry, Quantity: r.Quantity,
 			Message: msg, Status: "open",
@@ -315,7 +316,9 @@ func (s *InventoryService) GenerateStockWarnings(ctx context.Context, today time
 			availLDU += rule.ToLDU(r.IsSplit, r.Available(), drug.PackSize)
 		}
 		if st.MinQuantity > 0 && availLDU <= st.MinQuantity {
-			exists, err := alertRepo.HasOpenByKey(ctx, enum.AlertBelowMin, st.DrugID, "ALL")
+			// 去重键与写入键必须一致：低于下限预警无批次概念，统一用空批次（原实现查询 'ALL'、
+			// 写入空串导致去重失效，每次调度都会新增重复预警）
+			exists, err := alertRepo.HasOpenByKey(ctx, enum.AlertBelowMin, st.DrugID, "")
 			if err != nil {
 				return err
 			}
@@ -323,9 +326,9 @@ func (s *InventoryService) GenerateStockWarnings(ctx context.Context, today time
 				continue
 			}
 			msg := "低于库存下限，当前可用(拆零单位):" + fmt.Sprintf("%d", availLDU)
-			if err := alertRepo.Create(ctx, &model.StockAlert{
+			if _, err := alertRepo.CreateIfAbsent(ctx, &model.StockAlert{
 				AlertType: enum.AlertBelowMin, DrugID: st.DrugID, LocationID: st.LocationID,
-				Quantity: availLDU, Message: msg, Status: "open",
+				BatchNo: "", Quantity: availLDU, Message: msg, Status: "open",
 			}); err != nil {
 				return err
 			}

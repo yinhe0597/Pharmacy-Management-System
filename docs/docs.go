@@ -3268,7 +3268,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/yaofang_internal_model.Patient"
+                            "$ref": "#/definitions/internal_handler.patientWriteRequest"
                         }
                     }
                 ],
@@ -3338,7 +3338,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/yaofang_internal_model.Patient"
+                            "$ref": "#/definitions/internal_handler.patientWriteRequest"
                         }
                     }
                 ],
@@ -6008,6 +6008,29 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_handler.patientWriteRequest": {
+            "type": "object",
+            "properties": {
+                "age": {
+                    "type": "string"
+                },
+                "card_no": {
+                    "type": "string"
+                },
+                "gender": {
+                    "type": "string"
+                },
+                "is_lactating": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                }
+            }
+        },
         "internal_handler.receiveRequest": {
             "type": "object",
             "required": [
@@ -6745,38 +6768,6 @@ const docTemplate = `{
                 },
                 "prescription_id": {
                     "type": "integer"
-                }
-            }
-        },
-        "yaofang_internal_model.Patient": {
-            "type": "object",
-            "properties": {
-                "age": {
-                    "type": "string"
-                },
-                "card_no": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "gender": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "is_lactating": {
-                    "type": "boolean"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "phone": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
                 }
             }
         },

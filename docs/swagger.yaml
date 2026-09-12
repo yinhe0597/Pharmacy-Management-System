@@ -120,6 +120,21 @@ definitions:
     - password
     - username
     type: object
+  internal_handler.patientWriteRequest:
+    properties:
+      age:
+        type: string
+      card_no:
+        type: string
+      gender:
+        type: string
+      is_lactating:
+        type: boolean
+      name:
+        type: string
+      phone:
+        type: string
+    type: object
   internal_handler.receiveRequest:
     properties:
       items:
@@ -612,27 +627,6 @@ definitions:
         type: string
       prescription_id:
         type: integer
-    type: object
-  yaofang_internal_model.Patient:
-    properties:
-      age:
-        type: string
-      card_no:
-        type: string
-      created_at:
-        type: string
-      gender:
-        type: string
-      id:
-        type: integer
-      is_lactating:
-        type: boolean
-      name:
-        type: string
-      phone:
-        type: string
-      updated_at:
-        type: string
     type: object
   yaofang_internal_model.PatientAllergy:
     properties:
@@ -2963,7 +2957,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/yaofang_internal_model.Patient'
+          $ref: '#/definitions/internal_handler.patientWriteRequest'
       responses:
         "200":
           description: OK
@@ -3006,7 +3000,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/yaofang_internal_model.Patient'
+          $ref: '#/definitions/internal_handler.patientWriteRequest'
       responses:
         "200":
           description: OK

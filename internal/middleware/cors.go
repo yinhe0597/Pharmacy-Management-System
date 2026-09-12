@@ -7,7 +7,11 @@ import (
 )
 
 // CORS 跨域中间件（docs/16：前后端分离开发的前置条件）。
-// allowOrigins 为空或含 "*" 时放行任意来源（开发默认）；生产环境应在配置中限定具体域名。
+// 语义（fail-closed）：
+//   - allowOrigins 为空 → 不下发任何 CORS 响应头（生产同源 Nginx 反代场景的正解）；
+//   - 含 "*" → 放行任意来源（仅开发/显式选择时使用）；
+//   - 配置具体域名 → 仅白名单来源放行（Origin 精确匹配）。
+//
 // 鉴权走 Authorization 头（非 Cookie），因此无需 Access-Control-Allow-Credentials。
 func CORS(allowOrigins []string) gin.HandlerFunc {
 	origins := make(map[string]bool, len(allowOrigins))

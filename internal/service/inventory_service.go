@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"gorm.io/gorm"
@@ -226,7 +227,12 @@ func (s *InventoryService) Transfer(ctx context.Context, fromLoc, toLoc int64, i
 		}
 		invRepo := repository.NewInventoryRepo(tx)
 		txnRepo := repository.NewInventoryTransactionRepo(tx)
-		for _, it := range items {
+		// 按 InventoryID 升序加锁：反向并发调拨（A→B 与 B→A）也遵循同一全局加锁顺序，
+		// 避免交叉等待形成死锁（PostgreSQL 会中止其中一方）。
+		sorted := make([]TransferItem, len(items))
+		copy(sorted, items)
+		sort.Slice(sorted, func(i, j int) bool { return sorted[i].InventoryID < sorted[j].InventoryID })
+		for _, it := range sorted {
 			inv, err := invRepo.LockForUpdate(ctx, it.InventoryID)
 			if err != nil {
 				if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -964,7 +970,12 @@ func (s *InventoryService) GetSplitOrder(ctx context.Context, id int64) (*model.
 
 // AvailablePacks 某药品某库房的可用整盒数（未预占），用于拆零缺货提示。
 func (s *InventoryService) AvailablePacks(ctx context.Context, drugID, locationID int64) (int64, error) {
-	rows, err := repository.NewInventoryRepo(s.db).
+	return s.availablePacksTx(ctx, s.db, drugID, locationID)
+}
+
+// availablePacksTx 事务内版本：供已开启事务的调用方复用同一连接（读一致，避免事务外快照）。
+func (s *InventoryService) availablePacksTx(ctx context.Context, db *gorm.DB, drugID, locationID int64) (int64, error) {
+	rows, err := repository.NewInventoryRepo(db).
 		FindAvailableForDispenseUnit(ctx, drugID, locationID, false, todayNow())
 	if err != nil {
 		return 0, err
