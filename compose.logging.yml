@@ -1,11 +1,11 @@
 # 日志聚合栈（可选）：Loki + Promtail + Grafana
 # 用法（与主编排同目录）：
-#   docker compose -f compose.logging.yml up -d
+#   GRAFANA_ADMIN_PASSWORD='<强口令>' docker compose -f compose.logging.yml up -d
 #   docker compose -f compose.logging.yml down
 #
 # 采集对象：同一 Docker 引擎上全部容器（promtail 按 label 过滤，见 deploy/logging/promtail-config.yml）
-# 访问：
-#   Grafana  http://localhost:3000  admin / admin123（首次登录请修改）
+# 访问（默认仅绑定本机回环，避免对宿主/内网直接暴露）：
+#   Grafana  http://localhost:3000  账号 admin，口令取环境变量 GRAFANA_ADMIN_PASSWORD
 #   Loki     http://localhost:3100/ready
 # 在 Grafana 中：Connections → Data sources → 添加 Loki（URL http://loki:3100）→ 保存并测试，
 # 然后 Explore 选择 Loki，查询 {container_name=~"yaofang.*"} 即可检索全部服务日志。
@@ -13,8 +13,10 @@ services:
   loki:
     image: grafana/loki:3.2.1
     ports:
-      - "3100:3100"
+      - "127.0.0.1:3100:3100"
     command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki-data:/loki
     restart: unless-stopped
 
   promtail:
@@ -28,9 +30,16 @@ services:
   grafana:
     image: grafana/grafana:11.2.0
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin123   # 生产必改
+      # 必须显式提供强口令，避免 admin/admin123 默认弱口令上线
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?请设置 GRAFANA_ADMIN_PASSWORD（强随机口令）}
       - GF_AUTH_ANONYMOUS_ENABLED=false
+    volumes:
+      - grafana-data:/var/lib/grafana
     restart: unless-stopped
+
+volumes:
+  loki-data:
+  grafana-data:

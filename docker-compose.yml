@@ -13,7 +13,7 @@ services:
     image: postgres:16
     environment:
       POSTGRES_USER: yaofang
-      POSTGRES_PASSWORD: ${YF_DATABASE_PASSWORD:-yaofang123}
+      POSTGRES_PASSWORD: ${YF_DATABASE_PASSWORD:?请设置数据库口令 YF_DATABASE_PASSWORD（强随机，勿用默认值）}
       POSTGRES_DB: yaofang
     ports:
       - "5432:5432"
@@ -33,7 +33,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      PGPASSWORD: ${YF_DATABASE_PASSWORD:-yaofang123}
+      PGPASSWORD: ${YF_DATABASE_PASSWORD:?请设置数据库口令 YF_DATABASE_PASSWORD}
       PGHOST: db
       PGUSER: yaofang
       PGDATABASE: yaofang
@@ -63,10 +63,11 @@ services:
       YF_DATABASE_HOST: db
       YF_DATABASE_PORT: "5432"
       YF_DATABASE_USER: yaofang
-      YF_DATABASE_PASSWORD: ${YF_DATABASE_PASSWORD:-yaofang123}
+      YF_DATABASE_PASSWORD: ${YF_DATABASE_PASSWORD:?请设置数据库口令 YF_DATABASE_PASSWORD}
       YF_DATABASE_NAME: yaofang
       YF_DATABASE_SSLMODE: disable
-      YF_AUTH_JWT_SECRET: ${YF_AUTH_JWT_SECRET:-yaofang-compose-dev-secret-change-me}
+      YF_AUTH_JWT_SECRET: ${YF_AUTH_JWT_SECRET:?请设置强随机 JWT 密钥（≥32 位，openssl rand -base64 48）}
+      YF_SERVER_TRUSTED_PROXIES: ${YF_SERVER_TRUSTED_PROXIES:-172.16.0.0/12}  # 信任容器网段以正确解析客户端 IP（登录限速）
       YF_LOG_FORMAT: json        # 结构化日志 → 容器 stdout，供 Promtail/日志平台采集
       YF_LOG_LEVEL: info
     ports:
