@@ -27,7 +27,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26.5'   # 与 go.mod 保持一致
+          go-version: '1.26.6'   # 与 go.mod 保持一致
           cache: true
 
       - name: 安装 PostgreSQL 客户端
@@ -64,11 +64,16 @@ jobs:
       - name: 单元测试
         run: go test ./...
 
-      - name: 覆盖率门槛（domain ≥ 85%）
-        run: bash scripts/check_domain_coverage.sh
+      - name: 集成测试（真实 PostgreSQL：service + HTTP 层）
+        run: go test -tags=integration -count=1 ./internal/service/ ./internal/handler/
+        env:
+          YF_TEST_DB_HOST: localhost
+          YF_TEST_DB_USER: yaofang
+          YF_TEST_DB_PASSWORD: yaofang123
+          YF_TEST_DB_NAME: yaofang
 
-      - name: 集成测试（真实 PostgreSQL）
-        run: go test -tags=integration -count=1 ./internal/service/
+      - name: 覆盖率门槛（domain≥85% / service≥35% / repository≥20% / handler≥10%）
+        run: bash scripts/check_coverage.sh
         env:
           YF_TEST_DB_HOST: localhost
           YF_TEST_DB_USER: yaofang

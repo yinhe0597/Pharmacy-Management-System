@@ -1,5 +1,5 @@
 # 药房管理系统 Makefile（Linux / Git Bash）
-.PHONY: build run vet fmt fmt-check lint test test-integration swag ci env-init db-migrate db-backup db-up db-down docker-build docker-up docker-down docker-logs
+.PHONY: build run vet fmt fmt-check lint test test-integration cover swag ci env-init db-migrate db-backup db-up db-down docker-build docker-up docker-down docker-logs
 
 APP := bin/yaofang
 
@@ -42,7 +42,11 @@ test:
 
 # 集成测试（需 PostgreSQL；本地可先 make db-up 用 Docker 起库并迁移）
 test-integration:
-	go test -tags=integration ./internal/service/
+	go test -tags=integration -count=1 ./internal/service/ ./internal/handler/
+
+# 覆盖率门槛（domain≥85% / service≥35% / repository≥20% / handler≥10%；集成口径需数据库）
+cover:
+	bash scripts/check_coverage.sh
 
 # 本地开发环境变量：生成含随机密钥的 .env（已存在则跳过）。
 # compose 现已移除弱默认值（YF_DATABASE_PASSWORD / YF_AUTH_JWT_SECRET 必填），

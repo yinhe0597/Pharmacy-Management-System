@@ -176,7 +176,7 @@ func (s *PrescriptionService) Create(ctx context.Context, input PrescriptionInpu
 	}
 	p := &model.Prescription{
 		PrescriptionNo:     seq.Next("RX"),
-		PatientID:          input.PatientID,
+		PatientID:          idOrNil(input.PatientID),
 		PatientName:        input.PatientName,
 		PatientGender:      input.PatientGender,
 		PatientAge:         input.PatientAge,
@@ -190,7 +190,7 @@ func (s *PrescriptionService) Create(ctx context.Context, input PrescriptionInpu
 		PrescriptionType:   prescType,
 		SpecialControlType: specialControlOf(drugs),
 		Source:             source,
-		VisitID:            visitIDOrNil(input.VisitID),
+		VisitID:            idOrNil(input.VisitID),
 		Status:             prescription.StatusPendingReview.String(),
 		Remarks:            input.Remarks,
 	}
@@ -357,7 +357,7 @@ func (s *PrescriptionService) Update(ctx context.Context, id int64, input Prescr
 				return err
 			}
 		}
-		p.PatientID = input.PatientID
+		p.PatientID = idOrNil(input.PatientID)
 		p.PatientName = input.PatientName
 		p.PatientGender = input.PatientGender
 		p.PatientAge = input.PatientAge
@@ -371,7 +371,7 @@ func (s *PrescriptionService) Update(ctx context.Context, id int64, input Prescr
 		p.PrescriptionType = prescType
 		p.SpecialControlType = specialControlOf(drugs)
 		p.Source = sourceOf(input.Source)
-		p.VisitID = visitIDOrNil(input.VisitID)
+		p.VisitID = idOrNil(input.VisitID)
 		p.TotalAmount = total
 		p.Remarks = input.Remarks
 		return repository.NewPrescriptionRepo(tx).UpdateBase(ctx, p)
@@ -434,12 +434,20 @@ func sourceOf(src string) string {
 	}
 }
 
-// visitIDOrNil 0 → nil（未关联就诊，满足可空外键）。
-func visitIDOrNil(v int64) *int64 {
+// idOrNil 将 <=0 转为 nil，满足可空外键（未关联患者/就诊）。
+func idOrNil(v int64) *int64 {
 	if v <= 0 {
 		return nil
 	}
 	return &v
+}
+
+// idOrZero 将空指针转为 0（计费等仍以 int64 存患者 ID 的表）。
+func idOrZero(v *int64) int64 {
+	if v == nil {
+		return 0
+	}
+	return *v
 }
 
 // Submit 提交审核：执行库存预占（开单即锁）。
@@ -1117,11 +1125,12 @@ func (s *PrescriptionService) Get(ctx context.Context, id int64) (*PrescriptionD
 	}
 	detail := &PrescriptionDetail{Prescription: *p, Items: items, DispenseRecords: records, AuditLogs: logs}
 	// 聚合患者档案与过敏史（docs/15 M6，供前端开方/详情页直接使用）
-	if p.PatientID > 0 {
-		if pt, err := repository.NewPatientRepo(db).GetByID(ctx, p.PatientID); err == nil {
+	if p.PatientID != nil && *p.PatientID > 0 {
+		patientID := *p.PatientID
+		if pt, err := repository.NewPatientRepo(db).GetByID(ctx, patientID); err == nil {
 			detail.Patient = pt
 		}
-		if al, err := repository.NewPatientRepo(db).ListAllergies(ctx, p.PatientID); err == nil {
+		if al, err := repository.NewPatientRepo(db).ListAllergies(ctx, patientID); err == nil {
 			detail.Allergies = al
 		}
 	}

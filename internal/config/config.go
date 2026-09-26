@@ -57,7 +57,7 @@ type Config struct {
 type ServerConfig struct {
 	Port             int      `mapstructure:"port"`
 	Mode             string   `mapstructure:"mode"`
-	CORSAllowOrigins []string `mapstructure:"cors_allow_origins"` // 前端跨域白名单（空或 * 放行任意，生产限定域名）
+	CORSAllowOrigins []string `mapstructure:"cors_allow_origins"` // 前端跨域白名单（空=fail-closed 不下发 CORS 头；含 * 放行任意来源，生产应限定域名）
 	// TrustedProxies 反向代理/负载均衡的 IP 或 CIDR 白名单，用于安全解析 X-Forwarded-For。
 	// 为空表示不信任任何代理头（ClientIP 取直连地址），避免伪造 XFF 绕过登录限速。
 	// 部署在 Nginx/网关之后时，须填写代理所在网段（如 172.16.0.0/12）。

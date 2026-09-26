@@ -20,7 +20,8 @@ import (
 const (
 	ctxKeyRequestID = "request_id"
 	ctxKeyUserID    = "user_id"
-	ctxKeyUserName  = "user_name"
+	ctxKeyUserName  = "user_name" // 姓名（展示用）
+	ctxKeyUsername  = "username"  // 登录名（唯一标识，审计用）
 	ctxKeyUserRole  = "user_role"
 )
 
@@ -122,6 +123,7 @@ func Auth(jwt *auth.Manager, stateCheck UserStateChecker) gin.HandlerFunc {
 		}
 		c.Set(ctxKeyUserID, claims.UserID)
 		c.Set(ctxKeyUserName, claims.Name)
+		c.Set(ctxKeyUsername, claims.Username)
 		c.Set(ctxKeyUserRole, role)
 		c.Next()
 	}
@@ -166,9 +168,19 @@ func UserIDFromCtx(c *gin.Context) int64 {
 	return 0
 }
 
-// UserNameFromCtx 读取当前用户姓名。
+// UserNameFromCtx 读取当前用户姓名（展示用）。
 func UserNameFromCtx(c *gin.Context) string {
 	if v, ok := c.Get(ctxKeyUserName); ok {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return ""
+}
+
+// UsernameFromCtx 读取当前用户登录名（唯一标识，审计日志用）。
+func UsernameFromCtx(c *gin.Context) string {
+	if v, ok := c.Get(ctxKeyUsername); ok {
 		if s, ok := v.(string); ok {
 			return s
 		}

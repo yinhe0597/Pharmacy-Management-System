@@ -17,7 +17,7 @@ export default defineConfig({
         manualChunks: {
           vue: ['vue', 'vue-router', 'pinia'],
           'element-plus': ['element-plus', '@element-plus/icons-vue'],
-          echarts: ['echarts'],
+          echarts: ['echarts/core', 'echarts/charts', 'echarts/components', 'echarts/renderers'],
           axios: ['axios'],
         },
       },

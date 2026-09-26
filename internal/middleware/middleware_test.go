@@ -144,3 +144,59 @@ func TestRequireRolesWithoutAuth(t *testing.T) {
 		t.Fatalf("无 Auth 上下文应 403，got %d", w.Code)
 	}
 }
+
+// TestAuthInjectsUsername 鉴权中间件同时注入登录名（审计）与姓名（展示）。
+func TestAuthInjectsUsername(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mgr := auth.NewManager("test-secret-for-rbac", time.Hour)
+	r := gin.New()
+	r.GET("/me", Auth(mgr, nil), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"username": UsernameFromCtx(c),
+			"name":     UserNameFromCtx(c),
+		})
+	})
+	tok, err := mgr.Generate(1, "alice", "爱丽丝", "admin")
+	if err != nil {
+		t.Fatalf("生成 token 失败: %v", err)
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/me", nil)
+	req.Header.Set("Authorization", "Bearer "+tok)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("解析响应失败: %v", err)
+	}
+	if body["username"] != "alice" {
+		t.Fatalf("username = %v, want alice", body["username"])
+	}
+	if body["name"] != "爱丽丝" {
+		t.Fatalf("name = %v, want 爱丽丝", body["name"])
+	}
+}
+
+// TestSecureHeaders API 响应必须带 nosniff / DENY / no-referrer。
+func TestSecureHeaders(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(SecureHeaders())
+	r.GET("/x", func(c *gin.Context) { c.Status(http.StatusOK) })
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/x", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	if got := w.Header().Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Fatalf("X-Content-Type-Options = %q", got)
+	}
+	if got := w.Header().Get("X-Frame-Options"); got != "DENY" {
+		t.Fatalf("X-Frame-Options = %q", got)
+	}
+	if got := w.Header().Get("Referrer-Policy"); got != "no-referrer" {
+		t.Fatalf("Referrer-Policy = %q", got)
+	}
+}

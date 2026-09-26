@@ -124,7 +124,7 @@ func (a *App) Engine() *gin.Engine {
 		slog.Warn("设置可信代理失败，回退为不信任任何代理", "err", err)
 		_ = r.SetTrustedProxies(nil)
 	}
-	r.Use(middleware.Recover(), middleware.RequestID(), middleware.Logger(), middleware.CORS(a.cfg.Server.CORSAllowOrigins))
+	r.Use(middleware.Recover(), middleware.RequestID(), middleware.Logger(), middleware.SecureHeaders(), middleware.CORS(a.cfg.Server.CORSAllowOrigins))
 	if a.cfg.Server.Mode == "release" {
 		for _, o := range a.cfg.Server.CORSAllowOrigins {
 			if o == "*" {

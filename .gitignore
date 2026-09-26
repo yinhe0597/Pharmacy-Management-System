@@ -30,6 +30,7 @@ Thumbs.db
 
 # test
 coverage.out
+coverage_all
 
 # 论文相关（不纳入版本控制/不推送云端）
 academic-research-skills/

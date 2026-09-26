@@ -247,8 +247,8 @@ func (s *InteractionService) buildPatientProfileFromPrescription(
 		}
 	}
 	// 若有患者 ID，尝试从 IPatientService 加载过敏史（二期）
-	if ps != nil && p.PatientID > 0 {
-		allergies, err := ps.GetAllergies(ctx, p.PatientID)
+	if pid := idOrZero(p.PatientID); ps != nil && pid > 0 {
+		allergies, err := ps.GetAllergies(ctx, pid)
 		if err == nil {
 			for _, a := range allergies {
 				profile.Allergies = append(profile.Allergies, interaction.AllergyInfo{

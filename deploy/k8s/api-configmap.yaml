@@ -13,6 +13,8 @@ data:
   YF_DATABASE_SSLMODE: "require"          # 云数据库建议 require
   YF_LOG_FORMAT: "json"                   # 结构化日志 → stdout → 日志采集
   YF_LOG_LEVEL: "info"
+  # 信任 Ingress/CNI 网段才能解析真实客户端 IP（登录限速/审计）；按实际集群网段调整
+  YF_SERVER_TRUSTED_PROXIES: "10.0.0.0/8,172.16.0.0/12"
   # 连接池按实例数分摊：2 副本 × 30 = 60 连接
   YF_DATABASE_MAX_OPEN_CONNS: "30"
   YF_DATABASE_MAX_IDLE_CONNS: "15"

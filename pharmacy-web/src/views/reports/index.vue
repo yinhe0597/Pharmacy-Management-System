@@ -102,7 +102,7 @@ import {
 import MoneyText from '@/components/MoneyText.vue'
 import ChartPanel from '@/components/ChartPanel.vue'
 import { CHARGE_ITEM_TYPES } from '@/types/business'
-import type { EChartsOption } from 'echarts'
+import type { EChartsOption } from '@/utils/echarts'
 
 const tab = ref('summary')
 const range = ref<[string, string] | null>(null)

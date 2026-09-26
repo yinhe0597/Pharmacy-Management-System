@@ -144,7 +144,7 @@ export interface RequisitionOrderItem {
 export interface Prescription {
   id: number
   prescription_no: string
-  patient_id: number
+  patient_id: number | null
   patient_name: string
   patient_gender?: string
   patient_age?: string

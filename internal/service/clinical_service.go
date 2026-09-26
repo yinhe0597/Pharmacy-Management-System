@@ -228,7 +228,7 @@ func (s *ClinicalService) buildChargesFromRecordsTx(ctx context.Context, tx *gor
 			name = rec.BatchNo
 		}
 		charges = append(charges, model.ChargeRecord{
-			PatientID: p.PatientID, PatientName: p.PatientName, PatientCardNo: p.PatientCardNo,
+			PatientID: idOrZero(p.PatientID), PatientName: p.PatientName, PatientCardNo: p.PatientCardNo,
 			ItemType: enum.ItemTypeDrug, ItemID: &itemID, ItemName: name,
 			Quantity: int(rec.Quantity), UnitPrice: rec.UnitPrice, Amount: rec.Amount,
 			RefType: "prescription", RefID: p.ID,
@@ -278,7 +278,7 @@ func (s *ClinicalService) refundPrescriptionTx(ctx context.Context, tx *gorm.DB,
 		amt := itemAmount(&it, in.ReturnQuantity)
 		itemID := it.DrugID
 		charges = append(charges, model.ChargeRecord{
-			PatientID: p.PatientID, PatientName: p.PatientName, PatientCardNo: p.PatientCardNo,
+			PatientID: idOrZero(p.PatientID), PatientName: p.PatientName, PatientCardNo: p.PatientCardNo,
 			ItemType: enum.ItemTypeDrug, ItemID: &itemID, ItemName: it.DrugName,
 			Quantity: int(in.ReturnQuantity), UnitPrice: 0, Amount: -amt,
 			RefType: "prescription", RefID: prescriptionID,

@@ -4,18 +4,18 @@
 
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
-import * as echarts from 'echarts'
+import { init, type EChartsOption, type EChartsType } from '@/utils/echarts'
 
-const props = withDefaults(defineProps<{ option: echarts.EChartsOption; height?: string }>(), {
+const props = withDefaults(defineProps<{ option: EChartsOption; height?: string }>(), {
   height: '300px',
 })
 
 const el = ref<HTMLElement>()
-let chart: echarts.ECharts | null = null
+let chart: EChartsType | null = null
 
 function render() {
   if (!el.value) return
-  if (!chart) chart = echarts.init(el.value)
+  if (!chart) chart = init(el.value)
   chart.setOption(props.option, true)
 }
 

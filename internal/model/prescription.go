@@ -11,7 +11,7 @@ import (
 type Prescription struct {
 	ID                       int64      `gorm:"primaryKey" json:"id"`
 	PrescriptionNo           string     `gorm:"size:30;uniqueIndex;not null" json:"prescription_no"`
-	PatientID                int64      `gorm:"index" json:"patient_id"` // 二期关联 patients
+	PatientID                *int64     `gorm:"index" json:"patient_id"` // 关联 patients（可空，NULL=未关联）；FK → patients(id) ON DELETE SET NULL（迁移 000034）
 	PatientName              string     `gorm:"size:50;not null" json:"patient_name"`
 	PatientGender            string     `gorm:"size:10" json:"patient_gender"`
 	PatientAge               string     `gorm:"size:10" json:"patient_age"`

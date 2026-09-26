@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -31,6 +32,16 @@ func getenv(k, def string) string {
 	return def
 }
 
+// getenvPort 读取端口类环境变量（供 PG 多版本兼容性测试指定不同端口）。
+func getenvPort(k string, def int) int {
+	if v := os.Getenv(k); v != "" {
+		if p, err := strconv.Atoi(v); err == nil && p > 0 {
+			return p
+		}
+	}
+	return def
+}
+
 func setupTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	// 集成测试只需要数据库连接参数；config.Load() 会校验 JWT 密钥强度（弱/占位密钥拒绝加载），
@@ -41,9 +52,9 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("加载配置失败: %v", err)
 	}
-	// 显式指定测试库连接，不依赖工作目录下的配置文件
+	// 显式指定测试库连接，不依赖工作目录下的配置文件（端口可用 YF_TEST_DB_PORT 覆盖，便于 PG 多版本矩阵测试）
 	cfg.Database.Host = getenv("YF_TEST_DB_HOST", "127.0.0.1")
-	cfg.Database.Port = 5432
+	cfg.Database.Port = getenvPort("YF_TEST_DB_PORT", 5432)
 	cfg.Database.User = getenv("YF_TEST_DB_USER", "yaofang")
 	cfg.Database.Password = getenv("YF_TEST_DB_PASSWORD", "yaofang123")
 	cfg.Database.Name = "yaofang"

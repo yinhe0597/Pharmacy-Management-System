@@ -53,8 +53,9 @@ func AuditWrites(auditor WriteAuditor) gin.HandlerFunc {
 			}
 		}
 		entry := AuditEntry{
-			UserID:   userID,
-			Username: UserNameFromCtx(c),
+			UserID: userID,
+			// 记录唯一登录名（姓名可能重复，不利于审计定位到具体账号）
+			Username: UsernameFromCtx(c),
 			UserRole: UserRoleFromCtx(c),
 			Method:   c.Request.Method,
 			Path:     path,

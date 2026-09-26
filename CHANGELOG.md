@@ -42,6 +42,23 @@
   根 `.env.example`；前端 Nginx 不再反代 `/swagger/`（Swagger 仅非 release 注册）；
   CI 集成测试自带测试密钥（不依赖本地配置）；本地 `configs/config.yaml` 与 `.env` 口令对齐。
 
+### 修复（第四轮：生产差异收口）
+
+> 承接第三轮「遗留与建议」与本轮生产审查；完整报告见
+> [docs/26-第四轮审计修复报告.md](docs/26-第四轮审计修复报告.md)。
+
+- **处方 patient_id 外键**：`Prescription.PatientID` 改为 `*int64`，迁移 `000034` 将 0/失效引用规范为 NULL，
+  并加 `fk_prescriptions_patient`（ON DELETE SET NULL，处方不随患者档案级联删除）。
+- **审计记录登录名**：写操作审计、改密、新建用户改记唯一登录名（不再用可能重名的姓名）；
+  登录失败审计不再把非业务错误的底层信息写入 `operation_logs`。
+- **网关登录限速 + 安全头**：前端 Nginx 对 `/api/v1/auth/login` 按客户端 IP 限速（10 次/分钟 + burst 5）；
+  下发 nosniff/DENY/CSP 等安全头并关闭 `server_tokens`；后端补 `SecureHeaders` 覆盖直连 API。
+- **ECharts 按需引入**：统一入口只注册柱状/饼图与实际用到的组件，减小报表 vendor chunk。
+- **覆盖率分层门槛 + HTTP 层测试**：`scripts/check_coverage.sh` 卡 domain/service/repository/handler/middleware/pkg；
+  新增 handler 集成测试（鉴权/RBAC/审计/分页/Swagger+CORS/安全头）；CI Go 版本对齐 1.26.6。
+- **其它**：CORS 配置注释与 fail-closed 实现对齐；K8s ConfigMap 默认信任代理网段；
+  集成测试库端口可用 `YF_TEST_DB_PORT` 覆盖。
+
 ## [v1.4.0] - 2026-09-12
 
 > 首个正式发布基线：全栈交付（Go 后端 + Vue3 前端 + Docker 一键部署），累积两轮安全审计修复与并线合并。

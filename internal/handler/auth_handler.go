@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"strconv"
 	"time"
 
@@ -65,10 +66,15 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	if err != nil {
 		// 登录失败同样记审计日志（爆破攻击追溯依据，docs/14 安全项）
 		if h.logSvc != nil {
+			detail := "authentication failed"
+			var berr *errs.Error
+			if errors.As(err, &berr) {
+				detail = berr.Message
+			}
 			h.logSvc.Log(c.Request.Context(), &model.OperationLog{
 				Username: req.Username, Action: "login_failed", Resource: "auth",
 				Method: "POST", Path: "/auth/login", IP: c.ClientIP(),
-				Detail: err.Error(),
+				Detail: detail,
 			})
 		}
 		Error(c, err)
@@ -140,7 +146,7 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 		uid := middleware.UserIDFromCtx(c)
 		h.logSvc.Log(c.Request.Context(), &model.OperationLog{
 			UserID:   &uid,
-			Username: middleware.UserNameFromCtx(c),
+			Username: middleware.UsernameFromCtx(c),
 			UserRole: middleware.UserRoleFromCtx(c),
 			Action:   "change_password", Resource: "auth",
 			Method: "PUT", Path: "/auth/password", IP: c.ClientIP(),
@@ -219,7 +225,7 @@ func (h *AuthHandler) CreateUser(c *gin.Context) {
 	if h.logSvc != nil {
 		logUID := middleware.UserIDFromCtx(c)
 		h.logSvc.Log(c.Request.Context(), &model.OperationLog{
-			UserID: &logUID, Username: middleware.UserNameFromCtx(c),
+			UserID: &logUID, Username: middleware.UsernameFromCtx(c),
 			UserRole: middleware.UserRoleFromCtx(c),
 			Action:   "create", Resource: "users",
 			ResourceID: &u.ID, Method: "POST", Path: "/users", IP: c.ClientIP(),
