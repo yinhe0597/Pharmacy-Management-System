@@ -16,6 +16,9 @@ func (SystemSetting) TableName() string { return "system_settings" }
 
 // 设置键常量。
 const (
-	SettingDefaultRegistrationFee = "default_registration_fee" // 默认挂号费（分）
-	SettingDefaultConsultationFee = "default_consultation_fee" // 默认诊查费（分）
+	SettingDefaultRegistrationFee  = "default_registration_fee"  // 默认挂号费（分）
+	SettingDefaultConsultationFee  = "default_consultation_fee"  // 默认诊查费（分）
+	SettingDefaultReceiveLocation  = "default_receive_location"  // 默认收货库房（inventory_locations.id）
+	SettingDefaultDispenseLocation = "default_dispense_location" // 默认发药库房（inventory_locations.id）
+	SettingLogRetentionDays        = "log_retention_days"        // 操作日志保留天数（0=不归档）
 )

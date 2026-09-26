@@ -30,6 +30,7 @@ scheduler:
   expiry_warning_cron: "0 7 * * *"   # 每日 07:00 效期预警
   expired_lock_cron: "0 0 * * *"     # 每日 00:00 过期锁定
   stock_warning_cron: "0 7 * * *"    # 每日 07:00 上下限预警
+  log_archive_cron: "0 3 * * *"      # 每日 03:00 操作日志归档（保留期见系统设置 log_retention_days）
 
 stock:
   default_expiry_warning_days: 90

@@ -21,7 +21,14 @@ import (
 )
 
 // PrescriptionLocationID 一期处方发药默认库房（门诊药房，种子数据 ID=2）。
+// 运行时优先读系统设置 default_dispense_location（000035），本常量仅作回退。
 const PrescriptionLocationID int64 = 2
+
+// dispenseLocation 发药库房：系统设置优先，缺失/非法时回退编译默认值。
+// 在事务外解析一次，事务内复用（读一致，避免事务内额外查询）。
+func (s *PrescriptionService) dispenseLocation(ctx context.Context) int64 {
+	return NewSettingService(s.db).LocationID(ctx, model.SettingDefaultDispenseLocation, PrescriptionLocationID)
+}
 
 // PrescriptionItemInput 处方明细输入。
 // Quantity 统一按拆零单位（LDU，如片）计；不可拆零药品按基本单位（盒，pack_size=1 等价）。
@@ -452,6 +459,7 @@ func idOrZero(v *int64) int64 {
 
 // Submit 提交审核：执行库存预占（开单即锁）。
 func (s *PrescriptionService) Submit(ctx context.Context, id int64, operatorID int64, operatorName string) error {
+	locID := s.dispenseLocation(ctx)
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		p, err := repository.NewPrescriptionRepo(tx).LockForUpdate(ctx, id)
 		if err != nil {
@@ -490,7 +498,7 @@ func (s *PrescriptionService) Submit(ctx context.Context, id int64, operatorID i
 		reserveItems := make([]port.ReserveItem, 0, len(items))
 		for _, it := range items {
 			reserveItems = append(reserveItems, port.ReserveItem{
-				DrugID: it.DrugID, LocationID: PrescriptionLocationID,
+				DrugID: it.DrugID, LocationID: locID,
 				// 混合发药：非强制拆零且药品可拆零 → 按 LDU 跨整盒+拆零分配
 				IsSplit: it.IsSplit, Mixed: !it.IsSplit && it.IsSplitAllowed,
 				Quantity: it.Quantity, ItemID: it.ID,
@@ -505,7 +513,7 @@ func (s *PrescriptionService) Submit(ctx context.Context, id int64, operatorID i
 		for _, r := range results {
 			if r.Shortage > 0 {
 				hint := fmt.Sprintf("药品%d缺%d;", r.DrugID, r.Shortage)
-				if packs, err := s.inventory.availablePacksTx(ctx, tx, r.DrugID, PrescriptionLocationID); err == nil && packs > 0 {
+				if packs, err := s.inventory.availablePacksTx(ctx, tx, r.DrugID, locID); err == nil && packs > 0 {
 					hint += fmt.Sprintf("整盒可用%d盒，可拆零后重新提交;", packs)
 				}
 				shortages += hint
@@ -848,6 +856,7 @@ func buildDispenseRecords(p *model.Prescription, items []model.PrescriptionItem,
 //
 //nolint:gocyclo // 退药事务须整体原子完成（状态流转+批次回补+流水），拆分会削弱状态机不变量
 func (s *PrescriptionService) Return(ctx context.Context, id int64, inputs []ReturnItemInput, operatorID int64, operatorName string) error {
+	locID := s.dispenseLocation(ctx)
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		p, err := repository.NewPrescriptionRepo(tx).LockForUpdate(ctx, id)
 		if err != nil {
@@ -869,7 +878,7 @@ func (s *PrescriptionService) Return(ctx context.Context, id int64, inputs []Ret
 			itemMap[items[i].ID] = &items[i]
 		}
 		dispRepo := repository.NewDispenseRecordRepo(tx)
-		if err := s.inventory.checkLocationNotCounting(ctx, tx, PrescriptionLocationID); err != nil {
+		if err := s.inventory.checkLocationNotCounting(ctx, tx, locID); err != nil {
 			return err
 		}
 		fullyReturned := make(map[int64]bool, len(items))
@@ -922,9 +931,19 @@ func (s *PrescriptionService) Return(ctx context.Context, id int64, inputs []Ret
 					}
 					takeRows = takeLDU / rowLDU
 				}
-				// 回补库存（同批号同口径，行口径数量）
+				// 回补库存：优先回到原发药库存行（发药库房可配置后可能已变更，
+				// 按记录溯源才账实一致）；源行已删除时回退同键查找/重建。
 				invRepo := repository.NewInventoryRepo(tx)
-				inv, err := invRepo.FindByKey(ctx, rec.DrugID, PrescriptionLocationID, rec.BatchNo, rec.ExpiryDate, rec.IsSplit)
+				inv, err := invRepo.GetByID(ctx, rec.InventoryID)
+				rowLoc := locID
+				if err == nil {
+					rowLoc = inv.LocationID
+				} else {
+					if !errors.Is(err, gorm.ErrRecordNotFound) {
+						return err
+					}
+					inv, err = invRepo.FindByKey(ctx, rec.DrugID, locID, rec.BatchNo, rec.ExpiryDate, rec.IsSplit)
+				}
 				var before int64
 				if err == nil {
 					before = inv.Quantity
@@ -953,7 +972,7 @@ func (s *PrescriptionService) Return(ctx context.Context, id int64, inputs []Ret
 						}
 					}
 					if err := invRepo.Create(ctx, &model.Inventory{
-						DrugID: rec.DrugID, LocationID: PrescriptionLocationID,
+						DrugID: rec.DrugID, LocationID: rowLoc,
 						BatchNo: rec.BatchNo, ExpiryDate: rec.ExpiryDate,
 						Quantity: takeRows, IsSplit: rec.IsSplit, UnitPrice: cost, Status: status,
 					}); err != nil {
@@ -965,7 +984,7 @@ func (s *PrescriptionService) Return(ctx context.Context, id int64, inputs []Ret
 				expiry := rec.ExpiryDate
 				txn := &model.InventoryTransaction{
 					TransactionNo: seq.Next("ITN"),
-					DrugID:        rec.DrugID, LocationID: PrescriptionLocationID,
+					DrugID:        rec.DrugID, LocationID: rowLoc,
 					BatchNo: rec.BatchNo, ExpiryDate: &expiry,
 					Quantity: takeRows, IsSplit: rec.IsSplit,
 					BeforeQuantity: before, AfterQuantity: before + takeRows,

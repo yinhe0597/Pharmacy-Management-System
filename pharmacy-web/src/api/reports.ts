@@ -1,4 +1,4 @@
-import http from './http'
+import http, { downloadFile, saveBlob } from './http'
 
 // 报表
 export function inventorySummary(params?: Record<string, unknown>) {
@@ -18,6 +18,21 @@ export function splitStatistics(params?: Record<string, unknown>) {
 }
 export function patientCharges(params?: Record<string, unknown>) {
   return http.get('/reports/patient-charges', { params })
+}
+// 二期 S7：就诊量/收入构成/诊断分布
+export function visitVolume(params?: Record<string, unknown>) {
+  return http.get('/reports/visit-volume', { params })
+}
+export function revenueBreakdown(params?: Record<string, unknown>) {
+  return http.get('/reports/revenue-breakdown', { params })
+}
+export function diagnosisDistribution(params?: Record<string, unknown>) {
+  return http.get('/reports/diagnosis-distribution', { params })
+}
+// 报表导出 CSV（name 取值见后端 Export* 常量）
+export async function exportReport(params: Record<string, unknown>) {
+  const { blob, filename } = await downloadFile('/reports/export', params)
+  saveBlob(blob, filename)
 }
 
 // 系统管理

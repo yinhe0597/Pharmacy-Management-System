@@ -2860,6 +2860,73 @@ paths:
       summary: 更新用药指导
       tags:
       - medication-guidances
+  /notifications:
+    get:
+      parameters:
+      - description: 仅未读
+        in: query
+        name: unread
+        type: boolean
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: page_size
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 我的通知（全员广播 + 定向）
+      tags:
+      - notifications
+  /notifications/{id}/read:
+    put:
+      parameters:
+      - description: 通知ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 标记单条通知已读
+      tags:
+      - notifications
+  /notifications/read-all:
+    put:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 全部通知标已读
+      tags:
+      - notifications
+  /notifications/unread-count:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 我的未读通知数
+      tags:
+      - notifications
   /operation-logs:
     get:
       parameters:
@@ -3715,6 +3782,29 @@ paths:
       summary: 国家集采药品目录搜索
       tags:
       - reference
+  /reports/diagnosis-distribution:
+    get:
+      parameters:
+      - description: 开始时间
+        in: query
+        name: start
+        required: true
+        type: string
+      - description: 结束时间
+        in: query
+        name: end
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 诊断分布 Top20（docs/20 S7）
+      tags:
+      - reports
   /reports/dispensing-workload:
     get:
       parameters:
@@ -3748,6 +3838,36 @@ paths:
       security:
       - BearerAuth: []
       summary: 效期分析
+      tags:
+      - reports
+  /reports/export:
+    get:
+      parameters:
+      - description: 报表名：inventory-summary/expiry-analysis/special-drug-usage/dispensing-workload/split-statistics/patient-charges/visit-volume/revenue-breakdown/diagnosis-distribution
+        in: query
+        name: name
+        required: true
+        type: string
+      - description: 开始时间（效期分析不需要）
+        in: query
+        name: start
+        type: string
+      - description: 结束时间（效期分析不需要）
+        in: query
+        name: end
+        type: string
+      - description: 患者ID（仅 patient-charges）
+        in: query
+        name: patient_id
+        type: integer
+      responses:
+        "200":
+          description: CSV 文件
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: 报表导出 CSV（含 BOM，Excel 直接打开不乱码）
       tags:
       - reports
   /reports/inventory-summary:
@@ -3798,6 +3918,29 @@ paths:
       summary: 按患者聚合计费（docs/15 G6）
       tags:
       - reports
+  /reports/revenue-breakdown:
+    get:
+      parameters:
+      - description: 开始时间
+        in: query
+        name: start
+        required: true
+        type: string
+      - description: 结束时间
+        in: query
+        name: end
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 收入构成（docs/20 S7）
+      tags:
+      - reports
   /reports/special-drug-usage:
     get:
       parameters:
@@ -3842,6 +3985,29 @@ paths:
       security:
       - BearerAuth: []
       summary: 拆零统计（拆零量/损耗）
+      tags:
+      - reports
+  /reports/visit-volume:
+    get:
+      parameters:
+      - description: 开始时间
+        in: query
+        name: start
+        required: true
+        type: string
+      - description: 结束时间
+        in: query
+        name: end
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler.Body'
+      security:
+      - BearerAuth: []
+      summary: 按日就诊量（docs/20 S7）
       tags:
       - reports
   /special-drugs/ampoule-returns:

@@ -9,6 +9,7 @@
         end-placeholder="结束"
       />
       <el-button type="primary" @click="load">查询</el-button>
+      <el-button @click="exportCsv">导出CSV</el-button>
     </div>
     <el-tabs v-model="tab" @tab-change="load">
       <el-tab-pane label="进销存汇总" name="summary">
@@ -85,6 +86,38 @@
           ></el-table-column>
         </el-table>
       </el-tab-pane>
+      <el-tab-pane label="就诊量" name="volume">
+        <ChartPanel v-if="volumeOption" :option="volumeOption" height="300px" />
+        <el-table :data="rows" border>
+          <el-table-column prop="date" label="日期" width="120" />
+          <el-table-column prop="visit_count" label="挂号数" width="100" />
+          <el-table-column prop="finished_count" label="已结束" width="100" />
+          <el-table-column prop="cancelled_count" label="退号" width="100" />
+        </el-table>
+      </el-tab-pane>
+      <el-tab-pane label="收入构成" name="revenue">
+        <ChartPanel v-if="revenueOption" :option="revenueOption" height="300px" />
+        <el-table :data="rows" border>
+          <el-table-column label="费用类型" min-width="140">
+            <template #default="{ row }">{{
+              CHARGE_ITEM_TYPES[row.item_type] ?? row.item_type
+            }}</template>
+          </el-table-column>
+          <el-table-column prop="charge_count" label="结算单数" width="110" />
+          <el-table-column prop="quantity" label="数量" width="100" />
+          <el-table-column label="金额" width="120"
+            ><template #default="{ row }"><MoneyText :amount="row.amount" /></template
+          ></el-table-column>
+        </el-table>
+      </el-tab-pane>
+      <el-tab-pane label="诊断分布" name="diagnosis">
+        <ChartPanel v-if="diagnosisOption" :option="diagnosisOption" height="300px" />
+        <el-table :data="rows" border>
+          <el-table-column prop="diagnosis_code" label="诊断编码" width="130" />
+          <el-table-column prop="diagnosis_name" label="诊断名称" min-width="180" />
+          <el-table-column prop="use_count" label="使用次数" width="110" />
+        </el-table>
+      </el-tab-pane>
     </el-tabs>
   </el-card>
 </template>
@@ -98,6 +131,10 @@ import {
   dispensingWorkload,
   splitStatistics,
   patientCharges,
+  visitVolume,
+  revenueBreakdown,
+  diagnosisDistribution,
+  exportReport,
 } from '@/api/reports'
 import MoneyText from '@/components/MoneyText.vue'
 import ChartPanel from '@/components/ChartPanel.vue'
@@ -231,6 +268,52 @@ const patientOption = computed<EChartsOption | null>(() => {
   }
 })
 
+// 就诊量：挂号/结束/退号对比柱状图
+const volumeOption = computed<EChartsOption | null>(() => {
+  if (!rows.value.length) return null
+  return {
+    tooltip: { trigger: 'axis' },
+    legend: { data: ['挂号数', '已结束', '退号'] },
+    grid: { left: 40, right: 16, top: 36, bottom: 24 },
+    xAxis: { type: 'category', data: rows.value.map((r) => r.date) },
+    yAxis: { type: 'value' },
+    series: [
+      { name: '挂号数', type: 'bar', data: rows.value.map((r) => Number(r.visit_count ?? 0)) },
+      { name: '已结束', type: 'bar', data: rows.value.map((r) => Number(r.finished_count ?? 0)) },
+      { name: '退号', type: 'bar', data: rows.value.map((r) => Number(r.cancelled_count ?? 0)) },
+    ],
+  }
+})
+
+// 收入构成：费用类型金额饼图
+const revenueOption = computed<EChartsOption | null>(() => {
+  const data = rows.value
+    .map((r) => ({
+      name: CHARGE_ITEM_TYPES[r.item_type] ?? String(r.item_type ?? '其他'),
+      value: Number(r.amount ?? 0),
+    }))
+    .filter((d) => d.value !== 0)
+  if (!data.length) return null
+  return {
+    tooltip: { trigger: 'item', valueFormatter: (v) => `¥${(Number(v) / 100).toFixed(2)}` },
+    legend: { orient: 'vertical', left: 'left' },
+    series: [{ type: 'pie', radius: '60%', data }],
+  }
+})
+
+// 诊断分布：Top 诊断使用次数柱状图
+const diagnosisOption = computed<EChartsOption | null>(() => {
+  const top = rows.value.slice(0, 10)
+  if (!top.length) return null
+  return {
+    tooltip: { trigger: 'axis' },
+    grid: { left: 40, right: 16, top: 36, bottom: 24 },
+    xAxis: { type: 'category', data: top.map((r) => r.diagnosis_name || r.diagnosis_code) },
+    yAxis: { type: 'value' },
+    series: [{ name: '使用次数', type: 'bar', data: top.map((r) => Number(r.use_count ?? 0)) }],
+  }
+})
+
 async function load() {
   const params = range.value
     ? { start: `${range.value[0]}T00:00:00+08:00`, end: `${range.value[1]}T23:59:59+08:00` }
@@ -254,9 +337,39 @@ async function load() {
     case 'patient':
       rows.value = (await patientCharges(params)) ?? []
       break
+    case 'volume':
+      rows.value = (await visitVolume(params)) ?? []
+      break
+    case 'revenue':
+      rows.value = (await revenueBreakdown(params)) ?? []
+      break
+    case 'diagnosis':
+      rows.value = (await diagnosisDistribution(params)) ?? []
+      break
   }
 }
 load()
+
+// 导出当前 Tab 为 CSV（后端 /reports/export，含 BOM）
+const exportNames: Record<string, string> = {
+  summary: 'inventory-summary',
+  expiry: 'expiry-analysis',
+  special: 'special-drug-usage',
+  workload: 'dispensing-workload',
+  split: 'split-statistics',
+  patient: 'patient-charges',
+  volume: 'visit-volume',
+  revenue: 'revenue-breakdown',
+  diagnosis: 'diagnosis-distribution',
+}
+async function exportCsv() {
+  const params: Record<string, unknown> = { name: exportNames[tab.value] }
+  if (range.value) {
+    params.start = `${range.value[0]}T00:00:00+08:00`
+    params.end = `${range.value[1]}T23:59:59+08:00`
+  }
+  await exportReport(params)
+}
 </script>
 
 <style scoped>

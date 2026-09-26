@@ -32,6 +32,25 @@ func getenv(k, def string) string {
 	return def
 }
 
+// testCleanupTables 集成测试前清空的业务表（TRUNCATE ... CASCADE）。
+// 原则：种子/引用表（users/system_settings/库房/分类/参考目录/规则种子）不清，
+// 其余业务表必须全覆盖；新增表同步加入（由 TestCleanupCoversAllTables 强制）。
+var testCleanupTables = []string{
+	"prescription_audit_logs", "prescription_dispense_records", "prescription_items",
+	"prescriptions", "stock_reservations", "inventory_transactions", "inventory",
+	"drug_stock_settings",
+	"stocktake_items", "stocktakes", "split_orders",
+	"requisition_order_items", "requisition_orders",
+	"special_drug_ledgers", "ampoule_returns",
+	"purchase_receipt_items", "purchase_receipts", "purchase_order_items", "purchase_orders",
+	"drug_suppliers", "drug_interactions", "interaction_results", "drug_ingredients", "suppliers", "drugs", "stock_alerts",
+	"patients", "patient_allergies",
+	"visits", "medical_records", "medical_record_diagnoses",
+	"charges", "charge_items", "charge_records", "clinical_services",
+	"consultations", "adverse_reactions", "medication_guidances",
+	"notifications", "notification_reads", "operation_logs",
+}
+
 // getenvPort 读取端口类环境变量（供 PG 多版本兼容性测试指定不同端口）。
 func getenvPort(k string, def int) int {
 	if v := os.Getenv(k); v != "" {
@@ -65,16 +84,9 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	// 清空涉及表（CASCADE 处理外键）
 	// 注意：必须覆盖所有会跨用例残留状态的业务表——尤其 stocktakes（盘点中的库房会
 	// 禁止出入库，残留会使后续用例随机失败），以及拆零单/领用单/专账等。
-	tables := []string{
-		"prescription_audit_logs", "prescription_dispense_records", "prescription_items",
-		"prescriptions", "stock_reservations", "inventory_transactions", "inventory",
-		"stocktake_items", "stocktakes", "split_orders",
-		"requisition_order_items", "requisition_orders",
-		"special_drug_ledgers", "ampoule_returns",
-		"purchase_receipt_items", "purchase_receipts", "purchase_order_items", "purchase_orders",
-		"drug_suppliers", "drug_interactions", "interaction_results", "drug_ingredients", "suppliers", "drugs", "stock_alerts",
-	}
-	for _, tb := range tables {
+	// testCleanupTables 提取为包变量，供 TestCleanupCoversAllTables 守护：
+	// 新增业务表时必须同步加入，否则守护测试失败（docs/07 §7）。
+	for _, tb := range testCleanupTables {
 		if err := db.Exec("TRUNCATE TABLE " + tb + " RESTART IDENTITY CASCADE").Error; err != nil {
 			t.Fatalf("清空表 %s 失败: %v", tb, err)
 		}

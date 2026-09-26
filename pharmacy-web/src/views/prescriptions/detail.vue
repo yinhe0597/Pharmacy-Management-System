@@ -82,6 +82,7 @@
           @click="cancel"
           >作废</el-button
         >
+        <el-button @click="printRx">打印处方签</el-button>
       </div>
     </div>
 
@@ -191,6 +192,7 @@ import {
 import { chargePrescription } from '@/api/billing'
 import StatusTag from '@/components/StatusTag.vue'
 import MoneyText from '@/components/MoneyText.vue'
+import { printDocument, yuanText, escapeHtml } from '@/utils/print'
 import { PRESCRIPTION_STATUS, PRESCRIPTION_TYPES } from '@/types/business'
 import type { PrescriptionDetail } from '@/types/entities'
 
@@ -280,6 +282,31 @@ async function charge() {
 async function cancel() {
   await cancelPrescription(detail.value!.id)
   load()
+}
+function printRx() {
+  const d = detail.value
+  if (!d) return
+  const rows = (d.items ?? [])
+    .map(
+      (it: any, i: number) =>
+        `<tr><td>${i + 1}</td><td>${escapeHtml(it.drug_name)}</td>` +
+        `<td>${escapeHtml(it.specification)}</td><td>${escapeHtml(it.usage_text ?? '')} ${escapeHtml(it.frequency ?? '')}</td>` +
+        `<td>${escapeHtml(it.quantity)}</td><td>${yuanText(it.amount)}</td></tr>`,
+    )
+    .join('')
+  printDocument(
+    `处方签 ${d.prescription_no ?? ''}`,
+    `<h2>处方签</h2>
+<div class="meta"><span>处方号：${escapeHtml(d.prescription_no)}</span>` +
+      `<span>患者：${escapeHtml(d.patient_name)}</span>` +
+      `<span>性别/年龄：${escapeHtml(d.patient_gender)} / ${escapeHtml(d.patient_age)}</span>` +
+      `<span>诊断：${escapeHtml(d.diagnosis_code ? `[${d.diagnosis_code}] ` : '')}${escapeHtml(d.diagnosis)}</span>` +
+      `<span>科室：${escapeHtml(d.department)}</span><span>医生：${escapeHtml(d.doctor_name)}</span></div>
+<table><thead><tr><th>#</th><th>药品</th><th>规格</th><th>用法频次</th><th>数量</th><th>金额</th></tr></thead>
+<tbody>${rows}</tbody>
+<tfoot><tr><td colspan="5">合计</td><td>${yuanText(d.total_amount)}</td></tr></tfoot></table>
+<div class="footer"><span>打印时间：${new Date().toLocaleString('zh-CN')}</span><span>药师签字：________</span></div>`,
+  )
 }
 </script>
 

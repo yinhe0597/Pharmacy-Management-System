@@ -72,6 +72,9 @@
 
     <el-drawer v-model="detailVisible" title="结算单详情" size="560px">
       <template v-if="detail">
+        <div class="toolbar">
+          <el-button size="small" @click="printCharge">打印结算单</el-button>
+        </div>
         <el-descriptions :column="1" border>
           <el-descriptions-item label="结算单号">{{ detail.charge_no }}</el-descriptions-item>
           <el-descriptions-item label="患者"
@@ -118,6 +121,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { listCharges, getCharge, payCharge, refundCharge } from '@/api/clinical2'
 import MoneyText from '@/components/MoneyText.vue'
 import PatientPicker from '@/components/PatientPicker.vue'
+import { printDocument, yuanText, escapeHtml } from '@/utils/print'
 import { CHARGE_ITEM_TYPES } from '@/types/business'
 
 const CHARGE_STATUS: Record<string, { label: string; tag: string }> = {
@@ -178,6 +182,31 @@ async function refund(row: any) {
   await refundCharge(row.id)
   ElMessage.success('已退费')
   load()
+}
+
+function printCharge() {
+  const d = detail.value
+  if (!d) return
+  const rows = (d.items ?? [])
+    .map(
+      (it: any, i: number) =>
+        `<tr><td>${i + 1}</td><td>${escapeHtml(CHARGE_ITEM_TYPES[it.item_type] ?? it.item_type)}</td>` +
+        `<td>${escapeHtml(it.item_name)}</td><td>${escapeHtml(it.quantity)}</td>` +
+        `<td>${yuanText(it.unit_price)}</td><td>${yuanText(it.amount)}</td></tr>`,
+    )
+    .join('')
+  printDocument(
+    `结算单 ${d.charge_no ?? ''}`,
+    `<h2>收费结算单</h2>
+<div class="meta"><span>结算单号：${escapeHtml(d.charge_no)}</span>` +
+      `<span>患者：${escapeHtml(d.patient_name)}</span>` +
+      `<span>状态：${escapeHtml(CHARGE_STATUS[d.status]?.label ?? d.status)}</span></div>
+<table><thead><tr><th>#</th><th>类型</th><th>项目</th><th>数量</th><th>单价</th><th>金额</th></tr></thead>
+<tbody>${rows}</tbody>
+<tfoot><tr><td colspan="5">合计</td><td>${yuanText(d.total_amount)}</td></tr>` +
+      `<tr><td colspan="5">应收</td><td>${yuanText(d.payable_amount)}</td></tr></tfoot></table>
+<div class="footer"><span>打印时间：${new Date().toLocaleString('zh-CN')}</span><span>收费员签字：________</span></div>`,
+  )
 }
 
 onMounted(load)

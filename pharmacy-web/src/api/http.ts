@@ -125,4 +125,39 @@ const request = {
   },
 }
 
+// 文件下载专用通道：CSV/报表导出等非 JSON 响应不走统一信封拦截器。
+const rawClient: AxiosInstance = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
+  timeout: 30000,
+})
+rawClient.interceptors.request.use((config) => {
+  const token = getToken()
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+export async function downloadFile(
+  url: string,
+  params?: Record<string, unknown>,
+): Promise<{ blob: Blob; filename: string }> {
+  const resp = await rawClient.get(url, { params, responseType: 'blob' })
+  const disposition = String(resp.headers?.['content-disposition'] ?? '')
+  const m = /filename=([^;]+)/.exec(disposition)
+  const filename = (m?.[1] ?? 'export.csv').trim().replace(/^"|"$/g, '')
+  return { blob: resp.data as Blob, filename }
+}
+
+export function saveBlob(blob: Blob, filename: string): void {
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  window.URL.revokeObjectURL(url)
+}
+
 export default request

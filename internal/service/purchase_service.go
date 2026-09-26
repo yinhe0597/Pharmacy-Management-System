@@ -253,6 +253,8 @@ func (s *PurchaseService) CompleteReceipt(ctx context.Context, receiptID int64, 
 	}
 
 	// 阶段二：正式入库（再次锁定收货单，防并发）。
+	// 入库库房取系统设置 default_receive_location（000035），事务外解析一次。
+	receiveLoc := NewSettingService(s.db).LocationID(ctx, model.SettingDefaultReceiveLocation, DefaultReceiveLocationFallback)
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		receiptRepo := repository.NewPurchaseReceiptRepo(tx)
 		receipt, err := receiptRepo.LockForUpdate(ctx, receiptID)
@@ -293,7 +295,7 @@ func (s *PurchaseService) CompleteReceipt(ctx context.Context, receiptID int64, 
 				}
 			}
 			entries = append(entries, StockEntry{
-				DrugID: it.DrugID, LocationID: defaultReceiveLocation(receipt.SupplierID),
+				DrugID: it.DrugID, LocationID: receiveLoc,
 				BatchNo: it.BatchNo, ExpiryDate: it.ExpiryDate,
 				IsSplit: false, Quantity: it.ReceivedQuantity, UnitPrice: it.UnitPrice,
 			})
@@ -383,6 +385,6 @@ func (s *PurchaseService) ListReceipts(ctx context.Context, supplierID int64, st
 	return repository.NewPurchaseReceiptRepo(s.db).List(ctx, supplierID, status, (page-1)*pageSize, pageSize)
 }
 
-// defaultReceiveLocation 一期收货默认入「中心药库」（ID 由种子数据固定）。
-// TODO: 二期扩展为可配置收货库房。
-func defaultReceiveLocation(_ int64) int64 { return 1 }
+// DefaultReceiveLocationFallback 收货库房编译默认值（中心药库，种子数据 ID=1）。
+// 运行时优先读系统设置 default_receive_location（000035）。
+const DefaultReceiveLocationFallback int64 = 1

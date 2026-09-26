@@ -58,7 +58,7 @@ func main() {
 	router := app.Engine()
 
 	// 定时任务
-	cron := scheduler.New(cfg, app.Inventory()).Start()
+	cron := scheduler.New(cfg, app.Inventory(), app.OperationLogs(), app.Notifications()).Start()
 	defer cron.Stop()
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)

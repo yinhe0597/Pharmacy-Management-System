@@ -426,6 +426,7 @@
             @click="saveCounted"
             >保存实盘录入</el-button
           >
+          <el-button size="small" @click="printStocktake">打印盘点单</el-button>
           <el-button
             v-if="stTakeDetail.status === 'counting' && canWrite"
             type="warning"
@@ -473,6 +474,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { printDocument, escapeHtml } from '@/utils/print'
 import {
   listInventory,
   listLocations,
@@ -900,6 +902,32 @@ async function doCompleteStocktake() {
   ElMessage.success('盘点单已归档')
   openStocktakeDetail(stTakeDetail.value)
   loadStocktakes()
+}
+function printStocktake() {
+  const d = stTakeDetail.value
+  if (!d) return
+  const rows = (d.items ?? [])
+    .map(
+      (it: any, i: number) =>
+        `<tr><td>${i + 1}</td><td>${escapeHtml(it.drug_name)}</td>` +
+        `<td>${escapeHtml(it.batch_no)}</td><td>${it.is_split ? '拆零' : '整盒'}</td>` +
+        `<td>${escapeHtml(it.book_quantity)}</td>` +
+        `<td>${escapeHtml(it.counted_quantity ?? '')}</td>` +
+        `<td>${it.counted_quantity != null ? it.counted_quantity - it.book_quantity : ''}</td></tr>`,
+    )
+    .join('')
+  printDocument(
+    `盘点单 ${d.stocktake_no ?? ''}`,
+    `<h2>盘点单</h2>
+<div class="meta"><span>单号：${escapeHtml(d.stocktake_no)}</span>` +
+      `<span>库房：${escapeHtml(locationName(d.location_id))}</span>` +
+      `<span>类型：${d.type === 1 ? '周期' : '动态'}</span>` +
+      `<span>状态：${escapeHtml(ST_TAKE_LABEL[d.status] ?? d.status)}</span></div>
+<table><thead><tr><th>#</th><th>药品</th><th>批号</th><th>口径</th><th>账面</th><th>实盘</th><th>差异</th></tr></thead>
+<tbody>${rows}</tbody></table>
+<div class="footer"><span>打印时间：${new Date().toLocaleString('zh-CN')}</span>` +
+      `<span>盘点人签字：________</span><span>复核人签字：________</span></div>`,
+  )
 }
 async function doAdjustStocktake() {
   await adjustStocktake(stTakeDetail.value.id)

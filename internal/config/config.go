@@ -106,6 +106,7 @@ type SchedulerConfig struct {
 	ExpiryWarningCron string `mapstructure:"expiry_warning_cron"`
 	ExpiredLockCron   string `mapstructure:"expired_lock_cron"`
 	StockWarningCron  string `mapstructure:"stock_warning_cron"`
+	LogArchiveCron    string `mapstructure:"log_archive_cron"` // 操作日志归档（000035）
 }
 
 // StockConfig 库存规则配置。
@@ -143,6 +144,7 @@ func Load() (*Config, error) {
 	v.SetDefault("scheduler.expiry_warning_cron", "0 7 * * *")
 	v.SetDefault("scheduler.expired_lock_cron", "0 0 * * *")
 	v.SetDefault("scheduler.stock_warning_cron", "0 7 * * *")
+	v.SetDefault("scheduler.log_archive_cron", "0 3 * * *")
 	v.SetDefault("stock.default_expiry_warning_days", 90)
 	v.SetDefault("log.level", "info")
 	v.SetDefault("log.format", "text")

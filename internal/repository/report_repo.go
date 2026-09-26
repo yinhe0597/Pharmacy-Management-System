@@ -203,7 +203,89 @@ func (r *ReportRepo) PatientCharges(ctx context.Context, patientID int64, start,
 	return rows, nil
 }
 
-// SplitStatRow 拆零统计行（docs/13 F5：拆零量/损耗/毛利）。
+// VisitVolumeRow 就诊量行（docs/20 S7）。
+type VisitVolumeRow struct {
+	Date           string `json:"date"`
+	VisitCount     int64  `json:"visit_count"`     // 挂号总数
+	FinishedCount  int64  `json:"finished_count"`  // 已结束
+	CancelledCount int64  `json:"cancelled_count"` // 退号
+}
+
+// VisitVolume 期间按日就诊量（软删除排除）。
+func (r *ReportRepo) VisitVolume(ctx context.Context, start, end *time.Time) ([]VisitVolumeRow, error) {
+	rows := []VisitVolumeRow{}
+	sql := `
+		SELECT TO_CHAR(registered_at, 'YYYY-MM-DD') AS date,
+		       COUNT(*) AS visit_count,
+		       COUNT(*) FILTER (WHERE status = 'finished') AS finished_count,
+		       COUNT(*) FILTER (WHERE status = 'cancelled') AS cancelled_count
+		FROM visits
+		WHERE registered_at >= ? AND registered_at <= ? AND deleted_at IS NULL
+		GROUP BY TO_CHAR(registered_at, 'YYYY-MM-DD')
+		ORDER BY date`
+	if err := r.db.WithContext(ctx).Raw(sql, start, end).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
+// RevenueBreakdownRow 收入构成行（docs/20 S7：挂号/诊疗/药费占比）。
+type RevenueBreakdownRow struct {
+	ItemType    string `json:"item_type"`
+	ChargeCount int64  `json:"charge_count"` // 结算单数
+	Quantity    int64  `json:"quantity"`     // 费用项数量
+	Amount      int64  `json:"amount"`       // 金额（分）
+}
+
+// RevenueBreakdown 期间已收费结算单按费用项类型聚合。
+// 口径：charges.status='paid'，期间按 paid_at（为空回退 created_at），退费单不计入。
+func (r *ReportRepo) RevenueBreakdown(ctx context.Context, start, end *time.Time) ([]RevenueBreakdownRow, error) {
+	rows := []RevenueBreakdownRow{}
+	sql := `
+		SELECT ci.item_type,
+		       COUNT(DISTINCT ci.charge_id) AS charge_count,
+		       COALESCE(SUM(ci.quantity), 0) AS quantity,
+		       COALESCE(SUM(ci.amount), 0) AS amount
+		FROM charge_items ci
+		JOIN charges c ON c.id = ci.charge_id
+		WHERE c.status = 'paid'
+		  AND COALESCE(c.paid_at, c.created_at) >= ?
+		  AND COALESCE(c.paid_at, c.created_at) <= ?
+		  AND c.deleted_at IS NULL
+		GROUP BY ci.item_type
+		ORDER BY amount DESC`
+	if err := r.db.WithContext(ctx).Raw(sql, start, end).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
+// DiagnosisDistributionRow 诊断分布行（docs/20 S7）。
+type DiagnosisDistributionRow struct {
+	DiagnosisCode string `json:"diagnosis_code"`
+	DiagnosisName string `json:"diagnosis_name"`
+	UseCount      int64  `json:"use_count"`
+}
+
+// DiagnosisDistribution 期间病历诊断 Top20（按使用次数倒序）。
+func (r *ReportRepo) DiagnosisDistribution(ctx context.Context, start, end *time.Time) ([]DiagnosisDistributionRow, error) {
+	rows := []DiagnosisDistributionRow{}
+	sql := `
+		SELECT d.diagnosis_code,
+		       COALESCE(MAX(d.diagnosis_name), '') AS diagnosis_name,
+		       COUNT(*) AS use_count
+		FROM medical_record_diagnoses d
+		JOIN medical_records m ON m.id = d.medical_record_id
+		WHERE m.created_at >= ? AND m.created_at <= ? AND m.deleted_at IS NULL
+		GROUP BY d.diagnosis_code
+		ORDER BY use_count DESC
+		LIMIT 20`
+	if err := r.db.WithContext(ctx).Raw(sql, start, end).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
 type SplitStatRow struct {
 	DrugID       int64  `json:"drug_id"`
 	DrugName     string `json:"drug_name"`

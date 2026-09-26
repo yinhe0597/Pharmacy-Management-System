@@ -22,6 +22,10 @@ func (h *ReportHandler) Register(g Groups) {
 	g.Report.GET("/reports/dispensing-workload", h.DispensingWorkload)
 	g.Report.GET("/reports/split-statistics", h.SplitStatistics)
 	g.Report.GET("/reports/patient-charges", h.PatientCharges)
+	g.Report.GET("/reports/visit-volume", h.VisitVolume)
+	g.Report.GET("/reports/revenue-breakdown", h.RevenueBreakdown)
+	g.Report.GET("/reports/diagnosis-distribution", h.DiagnosisDistribution)
+	g.Report.GET("/reports/export", h.Export)
 }
 
 // InventorySummary godoc
@@ -130,6 +134,95 @@ func (h *ReportHandler) SplitStatistics(c *gin.Context) {
 		return
 	}
 	OK(c, rows)
+}
+
+// VisitVolume godoc
+// @Summary 按日就诊量（docs/20 S7）
+// @Tags reports
+// @Security BearerAuth
+// @Param start query string true "开始时间"
+// @Param end query string true "结束时间"
+// @Success 200 {object} Body
+// @Router /reports/visit-volume [get]
+func (h *ReportHandler) VisitVolume(c *gin.Context) {
+	start, end, err := requiredPeriod(c)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+	rows, err := h.svc.VisitVolume(c.Request.Context(), start, end)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+	OK(c, rows)
+}
+
+// RevenueBreakdown godoc
+// @Summary 收入构成（docs/20 S7）
+// @Tags reports
+// @Security BearerAuth
+// @Param start query string true "开始时间"
+// @Param end query string true "结束时间"
+// @Success 200 {object} Body
+// @Router /reports/revenue-breakdown [get]
+func (h *ReportHandler) RevenueBreakdown(c *gin.Context) {
+	start, end, err := requiredPeriod(c)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+	rows, err := h.svc.RevenueBreakdown(c.Request.Context(), start, end)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+	OK(c, rows)
+}
+
+// DiagnosisDistribution godoc
+// @Summary 诊断分布 Top20（docs/20 S7）
+// @Tags reports
+// @Security BearerAuth
+// @Param start query string true "开始时间"
+// @Param end query string true "结束时间"
+// @Success 200 {object} Body
+// @Router /reports/diagnosis-distribution [get]
+func (h *ReportHandler) DiagnosisDistribution(c *gin.Context) {
+	start, end, err := requiredPeriod(c)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+	rows, err := h.svc.DiagnosisDistribution(c.Request.Context(), start, end)
+	if err != nil {
+		Error(c, err)
+		return
+	}
+	OK(c, rows)
+}
+
+// Export godoc
+// @Summary 报表导出 CSV（含 BOM，Excel 直接打开不乱码）
+// @Tags reports
+// @Security BearerAuth
+// @Param name query string true "报表名：inventory-summary/expiry-analysis/special-drug-usage/dispensing-workload/split-statistics/patient-charges/visit-volume/revenue-breakdown/diagnosis-distribution"
+// @Param start query string false "开始时间（效期分析不需要）"
+// @Param end query string false "结束时间（效期分析不需要）"
+// @Param patient_id query int false "患者ID（仅 patient-charges）"
+// @Success 200 {string} string "CSV 文件"
+// @Router /reports/export [get]
+func (h *ReportHandler) Export(c *gin.Context) {
+	name := c.Query("name")
+	start, end := parseTime(c.Query("start")), parseTime(c.Query("end"))
+	filename, data, err := h.svc.ExportCSV(c.Request.Context(), name, int64(atoi(c.Query("patient_id"))), start, end, nowToday())
+	if err != nil {
+		Error(c, err)
+		return
+	}
+	c.Header("Content-Type", "text/csv; charset=utf-8")
+	c.Header("Content-Disposition", "attachment; filename="+filename)
+	c.Data(200, "text/csv; charset=utf-8", data)
 }
 
 // PatientCharges godoc

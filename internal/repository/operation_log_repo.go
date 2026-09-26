@@ -47,3 +47,26 @@ func (r *OperationLogRepo) List(ctx context.Context, userID int64, action, resou
 	}
 	return list, total, nil
 }
+
+// ArchiveBefore 归档早于 cutoff 的日志：单条语句原子搬运
+// （DELETE ... RETURNING → INSERT 归档表），返回归档条数。
+// 分批执行（batch 条/次），调度器循环调用直至返回 0（000035）。
+func (r *OperationLogRepo) ArchiveBefore(ctx context.Context, cutoff time.Time, batch int) (int64, error) {
+	res := r.db.WithContext(ctx).Exec(`
+		WITH moved AS (
+			DELETE FROM operation_logs
+			WHERE id IN (
+				SELECT id FROM operation_logs
+				WHERE created_at < ? ORDER BY id LIMIT ?
+			)
+			RETURNING id, user_id, username, user_role, action, resource,
+			          resource_id, method, path, ip, detail, created_at
+		)
+		INSERT INTO operation_logs_archive
+			(id, user_id, username, user_role, action, resource,
+			 resource_id, method, path, ip, detail, created_at, archived_at)
+		SELECT id, user_id, username, user_role, action, resource,
+		       resource_id, method, path, ip, detail, created_at, now()
+		FROM moved`, cutoff, batch)
+	return res.RowsAffected, res.Error
+}

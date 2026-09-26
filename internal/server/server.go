@@ -56,6 +56,7 @@ type App struct {
 	records      *service.MedicalRecordService
 	charges      *service.ChargeService
 	settings     *service.SettingService
+	notif        *service.NotificationService
 
 	patientService port.IPatientService
 	pricingService port.IPricingService
@@ -102,11 +103,18 @@ func NewApp(cfg *config.Config, db *gorm.DB) *App {
 		records:        service.NewMedicalRecordService(db),
 		charges:        service.NewChargeService(db, pricer),
 		settings:       service.NewSettingService(db),
+		notif:          service.NewNotificationService(db),
 	}
 }
 
 // Inventory 返回库存服务（供调度器使用）。
 func (a *App) Inventory() *service.InventoryService { return a.inventory }
+
+// OperationLogs 返回操作日志服务（供调度器归档使用）。
+func (a *App) OperationLogs() *service.OperationLogService { return a.logSvc }
+
+// Notifications 返回通知服务（供调度器投递使用）。
+func (a *App) Notifications() *service.NotificationService { return a.notif }
 
 // BeginShutdown 标记服务进入关闭流程（/healthz 随即返回 503，便于负载均衡/编排摘流量）。
 // 在收到退出信号后、调用 http.Server.Shutdown 之前调用。
@@ -200,6 +208,7 @@ func (a *App) Engine() *gin.Engine {
 	handler.NewPatientHandler(a.patients).Register(groups)
 	handler.NewVisitHandler(a.visits, a.records, a.charges).Register(groups)
 	handler.NewSettingHandler(a.settings).Register(groups)
+	handler.NewNotificationHandler(a.notif).Register(groups)
 
 	return r
 }

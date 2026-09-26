@@ -70,6 +70,33 @@ func (s *ReportService) SplitStatistics(ctx context.Context, start, end *time.Ti
 	return repository.NewReportRepo(s.db).SplitStatistics(ctx, st, ed)
 }
 
+// VisitVolume 期间按日就诊量（docs/20 S7）。
+func (s *ReportService) VisitVolume(ctx context.Context, start, end *time.Time) ([]repository.VisitVolumeRow, error) {
+	st, ed, err := parsePeriod(start, end)
+	if err != nil {
+		return nil, err
+	}
+	return repository.NewReportRepo(s.db).VisitVolume(ctx, st, ed)
+}
+
+// RevenueBreakdown 期间收入构成（docs/20 S7）。
+func (s *ReportService) RevenueBreakdown(ctx context.Context, start, end *time.Time) ([]repository.RevenueBreakdownRow, error) {
+	st, ed, err := parsePeriod(start, end)
+	if err != nil {
+		return nil, err
+	}
+	return repository.NewReportRepo(s.db).RevenueBreakdown(ctx, st, ed)
+}
+
+// DiagnosisDistribution 期间诊断分布 Top20（docs/20 S7）。
+func (s *ReportService) DiagnosisDistribution(ctx context.Context, start, end *time.Time) ([]repository.DiagnosisDistributionRow, error) {
+	st, ed, err := parsePeriod(start, end)
+	if err != nil {
+		return nil, err
+	}
+	return repository.NewReportRepo(s.db).DiagnosisDistribution(ctx, st, ed)
+}
+
 // PatientCharges 按患者聚合计费（docs/15 G6）。
 func (s *ReportService) PatientCharges(ctx context.Context, patientID int64, start, end *time.Time) ([]repository.PatientChargeRow, error) {
 	var st, ed *time.Time

@@ -4,6 +4,32 @@
 
 ## [Unreleased]
 
+### 新增（第五轮：业务与运维完善）
+
+> 完整报告见 [docs/27-第五轮业务完善报告.md](docs/27-第五轮业务完善报告.md)。
+> 医保真实结算保留 `port` 接口暂不实现；CI 流水线与压力测试留待另一台机器执行。
+
+- **S7 合并结算报表（docs/20 收尾）**：`GET /reports/visit-volume`（按日挂号/结束/退号）、
+  `/reports/revenue-breakdown`（已收费口径按费用项聚合，挂号/诊疗/药费占比）、
+  `/reports/diagnosis-distribution`（Top20）；软删除表（visits/charges/medical_records）均带
+  `deleted_at IS NULL`；前端报表页 3 新 Tab + ECharts。
+- **报表导出 CSV**：`GET /reports/export?name=` 覆盖 9 报表，UTF-8 BOM（Excel 直接打开不乱码），
+  金额分→元；前端每 Tab「导出CSV」按钮（blob 下载专用通道，不走信封拦截器）。
+- **收货/发药库房可配置（000035）**：`default_receive_location`/`default_dispense_location`
+  （种子 1/2）；`SettingService.LocationID` 缺失/非法/停用时回退编译默认值（发药/收货不中断），
+  `Update` 强校验库房存在且启用；退药回补按发药记录溯源原库存行（库房变更后仍账实一致）。
+- **操作日志归档（000035）**：`operation_logs_archive` 表 + `ArchiveBefore` 单语句 CTE 原子搬运
+  （分批 5000/次）+ `RetentionDays`/`CleanupOldLogs` + 调度器每日 03:00
+ （`scheduler.log_archive_cron`，保留期 `log_retention_days` 默认 180 天，0=不归档）。
+- **站内通知（000036）**：`notifications` + `notification_reads`（已读按用户隔离，广播一人已读不影响他人）；
+  `/notifications` 系列 4 端点（Authed 组）；调度器过期锁定 critical 广播 + 每日预警摘要 warning 广播（同日幂等）；
+  前端顶栏铃铛（60s 轮询未读 + 下拉已读/全部已读）。
+- **单据打印**：`pharmacy-web/src/utils/print.ts`（新窗口精简版式）+ 处方签/收费结算单/盘点单三处打印按钮。
+- **前端版本对齐**：`pharmacy-web` 0.1.0 → 1.4.0（对齐后端发布基线）。
+- **测试守护**：`testCleanupTables` 包变量化并补全至 40 表；`TestCleanupCoversAllTables`
+  强制新增表登记（静态表附原因）；`report_export_test.go`（CSV/BOM/保留期解析）；
+  `report_s7_sql_test.go`（归档 CTE 原子性断言；Raw+Scan 的 SELECT 不支持 DryRun，口径由集成环境覆盖）。
+
 ### 修复（第三轮：审计收尾与运维加固）
 
 > 复核 v1.4.0 修复质量后补齐的遗留项；全部经 `go build/vet/test`、`golangci-lint`、

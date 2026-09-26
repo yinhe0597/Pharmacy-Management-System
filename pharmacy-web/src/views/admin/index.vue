@@ -107,7 +107,7 @@
       <!-- 系统设置：自定义默认诊费（合并结算自动带入） -->
       <el-tab-pane label="系统设置" name="settings">
         <div class="toolbar">
-          <el-button type="primary" @click="saveSettings">保存诊费配置</el-button>
+          <el-button type="primary" @click="saveSettings">保存配置</el-button>
         </div>
         <el-descriptions :column="1" border>
           <el-descriptions-item label="默认挂号费（分）">
@@ -116,8 +116,32 @@
           <el-descriptions-item label="默认诊查费（分）">
             <el-input-number v-model="feeConsultation" :min="0" :step="100" />
           </el-descriptions-item>
+          <el-descriptions-item label="默认收货库房">
+            <el-select v-model="receiveLocation" placeholder="采购收货入库目标">
+              <el-option
+                v-for="loc in activeLocations"
+                :key="loc.id"
+                :label="`${loc.name}（${loc.code}）`"
+                :value="loc.id"
+              />
+            </el-select>
+          </el-descriptions-item>
+          <el-descriptions-item label="默认发药库房">
+            <el-select v-model="dispenseLocation" placeholder="处方发药来源">
+              <el-option
+                v-for="loc in activeLocations"
+                :key="loc.id"
+                :label="`${loc.name}（${loc.code}）`"
+                :value="loc.id"
+              />
+            </el-select>
+          </el-descriptions-item>
+          <el-descriptions-item label="操作日志保留天数">
+            <el-input-number v-model="logRetentionDays" :min="0" :step="30" />
+          </el-descriptions-item>
           <el-descriptions-item label="说明">
             结算就诊费用时，若就诊尚无对应费用且金额 &gt; 0，将自动把挂号费/诊查费带入合并结算单。
+            收货/发药库房调整后仅对新业务生效；日志保留 0 表示不归档，超期日志搬运至归档表。
           </el-descriptions-item>
         </el-descriptions>
       </el-tab-pane>
@@ -185,7 +209,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import {
@@ -243,7 +267,11 @@ const userRules: FormRules = {
 
 const feeRegistration = ref(0)
 const feeConsultation = ref(0)
+const receiveLocation = ref<number | undefined>(undefined)
+const dispenseLocation = ref<number | undefined>(undefined)
+const logRetentionDays = ref(180)
 const locations = ref<any[]>([])
+const activeLocations = computed(() => locations.value.filter((l) => l.is_active !== false))
 const locationVisible = ref(false)
 const locationForm = reactive<Record<string, any>>({ code: '', name: '', type: 2, is_active: true })
 
@@ -298,12 +326,20 @@ async function loadSettings() {
   for (const s of list) {
     if (s.key === 'default_registration_fee') feeRegistration.value = Number(s.value) || 0
     if (s.key === 'default_consultation_fee') feeConsultation.value = Number(s.value) || 0
+    if (s.key === 'default_receive_location') receiveLocation.value = Number(s.value) || undefined
+    if (s.key === 'default_dispense_location') dispenseLocation.value = Number(s.value) || undefined
+    if (s.key === 'log_retention_days') logRetentionDays.value = Number(s.value) || 0
   }
 }
 async function saveSettings() {
   await updateSystemSetting('default_registration_fee', String(feeRegistration.value))
   await updateSystemSetting('default_consultation_fee', String(feeConsultation.value))
-  ElMessage.success('诊费配置已保存')
+  if (receiveLocation.value)
+    await updateSystemSetting('default_receive_location', String(receiveLocation.value))
+  if (dispenseLocation.value)
+    await updateSystemSetting('default_dispense_location', String(dispenseLocation.value))
+  await updateSystemSetting('log_retention_days', String(logRetentionDays.value))
+  ElMessage.success('配置已保存')
 }
 function openUser() {
   Object.keys(userForm).forEach((k) => delete userForm[k])
