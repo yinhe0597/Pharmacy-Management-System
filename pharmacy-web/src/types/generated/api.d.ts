@@ -3079,6 +3079,160 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 我的通知（全员广播 + 定向） */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description 仅未读 */
+                    unread?: boolean;
+                    /** @description 页码 */
+                    page?: number;
+                    /** @description 每页条数 */
+                    page_size?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["internal_handler.Body"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** 全部通知标已读 */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["internal_handler.Body"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 我的未读通知数 */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["internal_handler.Body"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** 标记单条通知已读 */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description 通知ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["internal_handler.Body"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/operation-logs": {
         parameters: {
             query?: never;
@@ -3215,7 +3369,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody: components["requestBodies"]["yaofang_internal_model.Patient"];
+            requestBody: components["requestBodies"]["internal_handler.patientWriteRequest"];
             responses: {
                 /** @description OK */
                 200: {
@@ -3276,7 +3430,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody: components["requestBodies"]["yaofang_internal_model.Patient"];
+            requestBody: components["requestBodies"]["internal_handler.patientWriteRequest"];
             responses: {
                 /** @description OK */
                 200: {
@@ -4519,6 +4673,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reports/diagnosis-distribution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 诊断分布 Top20（docs/20 S7） */
+        get: {
+            parameters: {
+                query: {
+                    /** @description 开始时间 */
+                    start: string;
+                    /** @description 结束时间 */
+                    end: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["internal_handler.Body"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/reports/dispensing-workload": {
         parameters: {
             query?: never;
@@ -4584,6 +4779,51 @@ export interface paths {
                     };
                     content: {
                         "*/*": components["schemas"]["internal_handler.Body"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 报表导出 CSV（含 BOM，Excel 直接打开不乱码） */
+        get: {
+            parameters: {
+                query: {
+                    /** @description 报表名：inventory-summary/expiry-analysis/special-drug-usage/dispensing-workload/split-statistics/patient-charges/visit-volume/revenue-breakdown/diagnosis-distribution */
+                    name: string;
+                    /** @description 开始时间（效期分析不需要） */
+                    start?: string;
+                    /** @description 结束时间（效期分析不需要） */
+                    end?: string;
+                    /** @description 患者ID（仅 patient-charges） */
+                    patient_id?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description CSV 文件 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": string;
                     };
                 };
             };
@@ -4680,6 +4920,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reports/revenue-breakdown": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 收入构成（docs/20 S7） */
+        get: {
+            parameters: {
+                query: {
+                    /** @description 开始时间 */
+                    start: string;
+                    /** @description 结束时间 */
+                    end: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["internal_handler.Body"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/reports/special-drug-usage": {
         parameters: {
             query?: never;
@@ -4729,6 +5010,47 @@ export interface paths {
             cookie?: never;
         };
         /** 拆零统计（拆零量/损耗） */
+        get: {
+            parameters: {
+                query: {
+                    /** @description 开始时间 */
+                    start: string;
+                    /** @description 结束时间 */
+                    end: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["internal_handler.Body"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/visit-volume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 按日就诊量（docs/20 S7） */
         get: {
             parameters: {
                 query: {
@@ -5898,6 +6220,14 @@ export interface components {
             password: string;
             username: string;
         };
+        "internal_handler.patientWriteRequest": {
+            age?: string;
+            card_no?: string;
+            gender?: string;
+            is_lactating?: boolean;
+            name?: string;
+            phone?: string;
+        };
         "internal_handler.receiveRequest": {
             items: components["schemas"]["yaofang_internal_service.ReceiveItemInput"][];
         };
@@ -6145,17 +6475,6 @@ export interface components {
             pharmacist?: string;
             prescription_id?: number;
         };
-        "yaofang_internal_model.Patient": {
-            age?: string;
-            card_no?: string;
-            created_at?: string;
-            gender?: string;
-            id?: number;
-            is_lactating?: boolean;
-            name?: string;
-            phone?: string;
-            updated_at?: string;
-        };
         "yaofang_internal_model.PatientAllergy": {
             created_at?: string;
             drug_name?: string;
@@ -6370,6 +6689,12 @@ export interface components {
                 "application/json": components["schemas"]["yaofang_internal_model.Supplier"];
             };
         };
+        /** @description 患者档案 */
+        "internal_handler.patientWriteRequest": {
+            content: {
+                "application/json": components["schemas"]["internal_handler.patientWriteRequest"];
+            };
+        };
         /** @description 标签交互规则 */
         "yaofang_internal_model.TagInteraction": {
             content: {
@@ -6422,12 +6747,6 @@ export interface components {
         "yaofang_internal_model.MedicationGuidance": {
             content: {
                 "application/json": components["schemas"]["yaofang_internal_model.MedicationGuidance"];
-            };
-        };
-        /** @description 患者档案 */
-        "yaofang_internal_model.Patient": {
-            content: {
-                "application/json": components["schemas"]["yaofang_internal_model.Patient"];
             };
         };
     };

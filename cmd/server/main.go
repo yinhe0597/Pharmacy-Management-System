@@ -20,7 +20,7 @@ import (
 )
 
 // @title 药房管理系统 API
-// @version 1.3.0
+// @version 1.5.0
 // @description 药房进销存与处方调配后端服务
 // @host localhost:8080
 // @BasePath /api/v1

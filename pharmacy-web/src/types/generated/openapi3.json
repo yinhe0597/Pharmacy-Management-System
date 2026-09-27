@@ -4,7 +4,7 @@
         "description": "药房进销存与处方调配后端服务",
         "title": "药房管理系统 API",
         "contact": {},
-        "version": "1.3.0"
+        "version": "1.5.0"
     },
     "paths": {
         "/adverse-reactions": {
@@ -3437,6 +3437,143 @@
                 }
             }
         },
+        "/notifications": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "我的通知（全员广播 + 定向）",
+                "parameters": [
+                    {
+                        "description": "仅未读",
+                        "name": "unread",
+                        "in": "query",
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
+                        "description": "页码",
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "description": "每页条数",
+                        "name": "page_size",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_handler.Body"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/notifications/read-all": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "全部通知标已读",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_handler.Body"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/notifications/unread-count": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "我的未读通知数",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_handler.Body"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/notifications/{id}/read": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "标记单条通知已读",
+                "parameters": [
+                    {
+                        "description": "通知ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_handler.Body"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/operation-logs": {
             "get": {
                 "security": [
@@ -3625,7 +3762,7 @@
                 ],
                 "summary": "新建患者档案",
                 "requestBody": {
-                    "$ref": "#/components/requestBodies/yaofang_internal_model.Patient"
+                    "$ref": "#/components/requestBodies/internal_handler.patientWriteRequest"
                 },
                 "responses": {
                     "200": {
@@ -3698,7 +3835,7 @@
                     }
                 ],
                 "requestBody": {
-                    "$ref": "#/components/requestBodies/yaofang_internal_model.Patient"
+                    "$ref": "#/components/requestBodies/internal_handler.patientWriteRequest"
                 },
                 "responses": {
                     "200": {
@@ -5069,6 +5206,51 @@
                 }
             }
         },
+        "/reports/diagnosis-distribution": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "reports"
+                ],
+                "summary": "诊断分布 Top20（docs/20 S7）",
+                "parameters": [
+                    {
+                        "description": "开始时间",
+                        "name": "start",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "结束时间",
+                        "name": "end",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_handler.Body"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/reports/dispensing-workload": {
             "get": {
                 "security": [
@@ -5132,6 +5314,66 @@
                             "*/*": {
                                 "schema": {
                                     "$ref": "#/components/schemas/internal_handler.Body"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/reports/export": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "reports"
+                ],
+                "summary": "报表导出 CSV（含 BOM，Excel 直接打开不乱码）",
+                "parameters": [
+                    {
+                        "description": "报表名：inventory-summary/expiry-analysis/special-drug-usage/dispensing-workload/split-statistics/patient-charges/visit-volume/revenue-breakdown/diagnosis-distribution",
+                        "name": "name",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "开始时间（效期分析不需要）",
+                        "name": "start",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "结束时间（效期分析不需要）",
+                        "name": "end",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "患者ID（仅 patient-charges）",
+                        "name": "patient_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "CSV 文件",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "string"
                                 }
                             }
                         }
@@ -5235,6 +5477,51 @@
                 }
             }
         },
+        "/reports/revenue-breakdown": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "reports"
+                ],
+                "summary": "收入构成（docs/20 S7）",
+                "parameters": [
+                    {
+                        "description": "开始时间",
+                        "name": "start",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "结束时间",
+                        "name": "end",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_handler.Body"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/reports/special-drug-usage": {
             "get": {
                 "security": [
@@ -5291,6 +5578,51 @@
                     "reports"
                 ],
                 "summary": "拆零统计（拆零量/损耗）",
+                "parameters": [
+                    {
+                        "description": "开始时间",
+                        "name": "start",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "结束时间",
+                        "name": "end",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/internal_handler.Body"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/reports/visit-volume": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "reports"
+                ],
+                "summary": "按日就诊量（docs/20 S7）",
                 "parameters": [
                     {
                         "description": "开始时间",
@@ -6645,6 +6977,17 @@
                 "description": "供应商",
                 "required": true
             },
+            "internal_handler.patientWriteRequest": {
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/internal_handler.patientWriteRequest"
+                        }
+                    }
+                },
+                "description": "患者档案",
+                "required": true
+            },
             "yaofang_internal_model.TagInteraction": {
                 "content": {
                     "application/json": {
@@ -6742,17 +7085,6 @@
                     }
                 },
                 "description": "指导记录",
-                "required": true
-            },
-            "yaofang_internal_model.Patient": {
-                "content": {
-                    "application/json": {
-                        "schema": {
-                            "$ref": "#/components/schemas/yaofang_internal_model.Patient"
-                        }
-                    }
-                },
-                "description": "患者档案",
                 "required": true
             }
         },
@@ -6939,6 +7271,29 @@
                         "type": "string"
                     },
                     "username": {
+                        "type": "string"
+                    }
+                }
+            },
+            "internal_handler.patientWriteRequest": {
+                "type": "object",
+                "properties": {
+                    "age": {
+                        "type": "string"
+                    },
+                    "card_no": {
+                        "type": "string"
+                    },
+                    "gender": {
+                        "type": "string"
+                    },
+                    "is_lactating": {
+                        "type": "boolean"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "phone": {
                         "type": "string"
                     }
                 }
@@ -7680,38 +8035,6 @@
                     },
                     "prescription_id": {
                         "type": "integer"
-                    }
-                }
-            },
-            "yaofang_internal_model.Patient": {
-                "type": "object",
-                "properties": {
-                    "age": {
-                        "type": "string"
-                    },
-                    "card_no": {
-                        "type": "string"
-                    },
-                    "created_at": {
-                        "type": "string"
-                    },
-                    "gender": {
-                        "type": "string"
-                    },
-                    "id": {
-                        "type": "integer"
-                    },
-                    "is_lactating": {
-                        "type": "boolean"
-                    },
-                    "name": {
-                        "type": "string"
-                    },
-                    "phone": {
-                        "type": "string"
-                    },
-                    "updated_at": {
-                        "type": "string"
                     }
                 }
             },
