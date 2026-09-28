@@ -142,9 +142,10 @@ func (s *VisitService) Cancel(ctx context.Context, id int64) error {
 func (s *VisitService) transition(ctx context.Context, id int64, from, to, tsCol string) error {
 	now := time.Now()
 	updates := map[string]interface{}{"status": to, "updated_at": now}
-	if tsCol == "visited_at" {
+	switch tsCol {
+	case "visited_at":
 		updates["visited_at"] = now
-	} else if tsCol == "finished_at" {
+	case "finished_at":
 		updates["finished_at"] = now
 	}
 	res := s.db.WithContext(ctx).Model(&model.Visit{}).
@@ -521,9 +522,10 @@ func (s *ChargeService) chargeTransition(ctx context.Context, id int64, from, to
 	if to == enum.ChargeStatusPaid {
 		updates["paid_amount"] = paid
 	}
-	if tsCol == "paid_at" {
+	switch tsCol {
+	case "paid_at":
 		updates["paid_at"] = now
-	} else if tsCol == "refunded_at" {
+	case "refunded_at":
 		updates["refunded_at"] = now
 	}
 	res := s.db.WithContext(ctx).Model(&model.Charge{}).Where("id = ? AND status = ?", id, from).Updates(updates)

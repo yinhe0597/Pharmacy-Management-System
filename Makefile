@@ -1,5 +1,5 @@
 # 药房管理系统 Makefile（Linux / Git Bash）
-.PHONY: build run vet fmt fmt-check lint test test-integration cover swag ci env-init db-migrate db-backup db-up db-down docker-build docker-up docker-down docker-logs
+.PHONY: build run vet fmt fmt-check lint test test-integration test-db-init cover swag ci env-init db-migrate db-backup db-up db-down docker-build docker-up docker-down docker-logs
 
 APP := bin/yaofang
 
@@ -41,8 +41,21 @@ test:
 	go test ./...
 
 # 集成测试（需 PostgreSQL；本地可先 make db-up 用 Docker 起库并迁移）
+# 注意：集成测试会 TRUNCATE 业务表，默认连独立的 yaofang_test 库，不碰开发库。
+# 首次使用先执行 make test-db-init 建库并跑完迁移。
 test-integration:
 	go test -tags=integration -count=1 ./internal/service/ ./internal/handler/
+
+# 建测试库并迁移到最新版本（幂等，可重复执行）
+test-db-init:
+	@PGHOST=$${YF_TEST_DB_HOST:-localhost} PGUSER=$${YF_TEST_DB_USER:-yaofang} \
+	  PGPASSWORD=$${YF_TEST_DB_PASSWORD:-$${YF_DATABASE_PASSWORD:-$${PGPASSWORD:-}}} \
+	  sh -c 'psql -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='"'"'$${YF_TEST_DB_NAME:-yaofang_test}'"'"'" | grep -q 1 || createdb "$${YF_TEST_DB_NAME:-yaofang_test}"'
+	@PGHOST=$${YF_TEST_DB_HOST:-localhost} PGUSER=$${YF_TEST_DB_USER:-yaofang} \
+	  PGDATABASE=$${YF_TEST_DB_NAME:-yaofang_test} \
+	  PGPASSWORD=$${YF_TEST_DB_PASSWORD:-$${YF_DATABASE_PASSWORD:-$${PGPASSWORD:-}}} \
+	  MIGRATIONS_DIR=migrations sh scripts/migrate.sh
+	@echo "=== 测试库就绪：$${YF_TEST_DB_NAME:-yaofang_test} ==="
 
 # 覆盖率门槛（domain≥85% / service≥35% / repository≥20% / handler≥10%；集成口径需数据库）
 cover:

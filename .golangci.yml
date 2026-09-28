@@ -1,32 +1,42 @@
 # golangci-lint 配置（docs/06 §1 要求的 CI 门槛）
+#
+# v2 格式：v1 无法解析 Go 1.24+ 标准库（内嵌 go/types 过旧），
+# 故 CI 锁定 golangci-lint v2.x，配置须为 version: "2" 格式。
+# 相对 v1 的关键变化：
+#   disable-all → linters.default: none
+#   linters-settings → linters.settings
+#   gosimple 已并入 staticcheck，不再单列
+#   misspell.ignore-words → misspell.ignore-rules
+#   issues.exclude-dirs → linters.exclusions.paths
+#   issues.exclude-use-default 已移除（v2 默认不启用任何 preset，不启用即等价）
+version: "2"
+
 run:
   timeout: 5m
   tests: true
 
 linters:
-  disable-all: true
+  default: none
   enable:
     - govet
     - errcheck
     - staticcheck
     - ineffassign
     - unused
-    - gosimple
     - gocyclo
     - misspell
-
-linters-settings:
-  gocyclo:
-    # 事务型方法复杂度阈值放宽到 25；超出者须显式 //nolint 并注明理由
-    min-complexity: 25
-  misspell:
-    locale: US
-    ignore-words:
-      - cancelled # 领域术语（状态值 cancelled 与数据库存储一致，不可改拼写）
+  settings:
+    gocyclo:
+      # 事务型方法复杂度阈值放宽到 25；超出者须显式 //nolint 并注明理由
+      min-complexity: 25
+    misspell:
+      locale: US
+      ignore-rules:
+        - cancelled # 领域术语（状态值 cancelled 与数据库存储一致，不可改拼写）
+  exclusions:
+    paths:
+      - pharmacy-web # 前端工程（含 node_modules，不参与 Go 静态检查）
 
 issues:
-  exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
-  exclude-dirs:
-    - pharmacy-web # 前端工程（含 node_modules，不参与 Go 静态检查）

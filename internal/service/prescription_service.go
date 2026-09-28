@@ -569,7 +569,8 @@ func (s *PrescriptionService) Review(ctx context.Context, id int64, input AuditI
 		if err != nil {
 			return err
 		}
-		if input.Action == "pass" {
+		switch input.Action {
+		case "pass":
 			auditResult, err := s.checkAuditRules(ctx, tx, items, p)
 			if err != nil {
 				return err
@@ -593,19 +594,19 @@ func (s *PrescriptionService) Review(ctx context.Context, id int64, input AuditI
 			p.AuditorName = auditorName
 			now := time.Now()
 			p.ReviewedAt = &now
-		} else if input.Action == "reject" {
+		case "reject":
 			result = &AuditReviewResult{Passed: false}
 			p.Status = prescription.StatusReviewedRejected.String()
 			if err := s.releaseReservationsTx(ctx, tx, id); err != nil {
 				return err
 			}
-		} else if input.Action == "return" {
+		case "return":
 			// 药师退回医生修改：保持 pending_review 状态，释放预占；医生修改后重新提交再预占。
 			result = &AuditReviewResult{Passed: false}
 			if err := s.releaseReservationsTx(ctx, tx, id); err != nil {
 				return err
 			}
-		} else {
+		default:
 			return errs.ErrBadRequest
 		}
 		if _, err := repository.NewPrescriptionRepo(tx).UpdateStatus(ctx, p, p.Version); err != nil {

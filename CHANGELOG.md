@@ -4,7 +4,7 @@
 
 ## [Unreleased]
 
-### 修复（第六轮：生产阻断收口 + 账务口径统一 + 单号多副本）
+### 修复（第六轮：生产阻断收口 + 账务口径统一 + 单号多副本 + 前后端契约守卫）
 
 > 本轮以「能否上线」为标准复审全量代码/配置/部署，**凡可证伪的一律实测**
 > （真实 PG16 / Docker build / 依赖库源码 / 并发测试），据此推翻了 3 条静态审计结论。
@@ -121,14 +121,42 @@
 
 **测试**
 
-- 新增回归测试 13 个用例 / 5 个文件：调拨负数、红冲净额归零、分次退药终态、自动拆零退货、药品停用、
+- 新增回归测试 16 个用例 / 6 个文件：调拨负数、红冲净额归零、分次退药终态、自动拆零退货、药品停用、
   局部更新保角色、审核痕迹、预警处置、收货质检；效期 date-only、过期锁定、软删唯一性、JWT 吊销、
   空切片、并发 upsert；结算归集不串号、手工药品费进账、处方不重复计费、报表单一凭证、费用行回源；
   多副本单号唯一性（20 分配器 × 10 单号实测零重复）、格式列宽、号段不相交；
   `days=0` 绕过、超限量、最严归类、非法类型、必填项；限速边界、令牌吊销、`alg=none`、release CORS 门禁。
+- **新增前后端字段契约守卫**（`pharmacy-web/src/types/contract.test.ts`，4 例）：
+  扫描 `.vue` 中静态绑定的 `el-table-column prop="X"`，校验 X 存在于后端 struct 的 json tag 中。
+  契约源取 `internal/` 而非 `docs/swagger.json`——多数 handler 走泛型 `Body` 返回，
+  swag 不生成 definition，用 swagger 会产生 61 个误报使守卫失去意义。
 - **修复测试基础设施缺陷**：`setupTestDB` 此前每用例各自 `OpenDB` 且从不关闭，用例数一多累计连接数超 `max_connections`，
   后续用例随机报 "too many clients already"，把基础设施问题伪装成业务失败。改为全测试共用单句柄。
+- **修复集成测试会抹掉开发库数据**：`setupTestDB` 逐表 `TRUNCATE ... RESTART IDENTITY`，
+  而库名硬编码为开发库 `yaofang`——跑一次集成测试即清空开发者本地数据。
+  改为默认连独立库 `yaofang_test`（`YF_TEST_DB_NAME` 可覆盖），新增 `make test-db-init` 建库并迁移（幂等）。
 - 迁移守护 `TestCleanupCoversAllTables` 由本轮自动抓出 `doc_segments` 漏登记并强制补齐。
+
+**收尾修复（补契约测试时连带查出）**
+
+- **效期/库存预警三列空白**：`StockAlertRepo.List` 是裸 `Find(model.StockAlert{})`，前端却渲染
+  `drug_name` / `location_name` / `days_left`——与本轮修过的库存主列表同一类断裂，预警路径当时漏掉了。
+  新增 `StockAlertRow` 行 DTO 并 JOIN drugs + inventory_locations，服务层签名同步。
+  修复中踩到 SQL 陷阱并**实测确认**：PG 中 `date - date` 返回 `integer` 而非 `interval`，
+  `EXTRACT(DAY FROM ...)` 会因缺少 `extract(unknown, integer)` 重载让整个接口运行期报错；已改用直接相减。
+- **两个 CI 流水线从未触发**：`ci.yml` 与 `frontend-ci.yml` 的 `on.push.branches` 都只写 `[main]`，
+  而本仓库主干是 `master` 且直接推 master → 迁移、lint、单测、集成、覆盖率、Swagger 一致性
+  及全部前端门禁长期未执行，「CI 全绿」形同虚设。已改为 `[master, main]`。
+- **`golangci-lint` 门禁配置与所锁版本不兼容**：`.golangci.yml` 是 v1 格式，CI 锁定 v2.1.6，
+  v2 要求 `version: "2"`，直接报 `unsupported version of the configuration: ""` 并退出——
+  **该门禁从未真正执行过**。已手写迁移为 v2 格式（`disable-all`→`default: none`、
+  `linters-settings`→`linters.settings`、`ignore-words`→`ignore-rules`、
+  `exclude-dirs`→`exclusions.paths`，并移除已并入 staticcheck 的 `gosimple`）。
+- **lint 门槛实际变严并暴露 3 处 QF1003**：v1 的 `staticcheck` 只含 SA\* 检查，v2 合并了 QF\*，
+  查出 3 处 if-else 链可改为 tagged switch（`clinical2_service.go` ×2、`prescription_service.go` ×1），
+  已改，`golangci-lint run` 现为 **0 issues**。
+- 同步文档：docs/00 补 3 条坑位（测试库隔离、DATE 相减禁套 EXTRACT、主干分支名）、
+  docs/06 新增 §8.1「前后端字段契约（强制）」、docs/10 补 §11.1 本地跑集成测试。
 
 **推翻的静态审计结论（3 条，避免后人重复走弯路）**
 
@@ -141,10 +169,14 @@
 `users.token_version` / `charge_records.visit_id` + `charge_items.source_record_id` / `doc_segments` 号段表。
 
 **验证**：41 个迁移在干净 PG16 库顺序执行全通过；`gofmt`/`go build`/`go vet`（含 integration tag）全绿；
-单元测试 11 包全通过；集成测试（真实 PG16）全通过；`docker build` 实测成功；构建产物端到端
-（`/readyz`/登录/库存/报表）通过，令牌吊销实测「改密后旧 token 立即 401」；前端
-`type-check`/`lint`/`test` 全绿；`swag` 后 `docs/` 仅 `visit_id` 新增（符合预期）。
-其中 Docker 构建、FEFO 口径、自动拆零退货三项做了**反向验证**（还原修复后测试确实失败并报出预期症状）。
+`golangci-lint v2.1.6` **0 issues**（配置迁到 v2 格式后才真正跑起来）；
+单元测试 11 包全通过；集成测试（真实 PG16，独立测试库 `yaofang_test`）全通过；`docker build` 实测成功；
+构建产物端到端（`/readyz`/登录/库存/报表）通过，令牌吊销实测「改密后旧 token 立即 401」；
+覆盖率门槛全达标（domain 90.8 / middleware 66.7 / auth 85.7 / money 89.3 / config 39.6 /
+service 44.7 / repository 31.3 / handler 12.3）；前端 `type-check`/`lint`/`test` 全绿（20 用例）；
+`swag` 后 `docs/` 无变化（符合预期）。
+其中 Docker 构建、FEFO 口径、自动拆零退货、预警行 DTO（缺 JOIN 与套 EXTRACT 两种形态）、契约守卫
+五项做了**反向验证**（还原修复后测试确实失败并报出预期症状）。
 
 ## [v1.5.0] - 2026-09-28
 

@@ -2,7 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # master 是本仓库实际使用的分支；此前只配 main，导致直接推 master 时 CI 整体不触发
+    branches: [master, main]
   pull_request:
 
 jobs:

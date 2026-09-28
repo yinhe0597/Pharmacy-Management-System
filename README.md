@@ -276,11 +276,16 @@ yaofang/
 | 第四轮生产差异收口（处方 FK/网关限速与安全头/ECharts 按需/分层覆盖率） | ✅ 已修复 |
 | 第五轮业务完善（S7 报表/CSV 导出/库房可配置/日志归档/站内通知/打印/测试守护） | ✅ 已交付（集成口径待另一环境实测） |
 | 第六轮审计修复（Docker 构建双重阻断/质检门禁/账务口径统一/单号多副本/令牌吊销/效期口径/字段契约） | ✅ 已交付（见 docs/28） |
+| 第六轮收尾（前后端字段契约守卫/预警行 DTO 修复/CI 触发分支修正/集成测试库隔离） | ✅ 已交付（见 docs/28 §十一） |
 | 二期就诊模块规划（docs/20） | ✅ S1-S7 全部交付 |
 
 > 迁移至 `000041`，共 **41 个版本**（`schema_migrations` 版本表驱动，增量执行、可重复运行）；
 > 质量门禁：后端 `go build` / `go vet` / `go test` / `gofmt` / `golangci-lint` / `govulncheck` +
 > 前端 `vue-tsc` / `eslint` / `prettier` / `vitest` / `build` 全绿 ✅
+>
+> **主干分支为 `master`**（Gitee `origin/master`）。两条流水线此前只监听 `main`，
+> 导致推送 master 时 CI 整体不触发，已修正为 `[master, main]`。
+> 本地跑集成测试请先 `make test-db-init`（建独立测试库 `yaofang_test`，不碰开发库）。
 
 ### 🧭 生产就绪检查清单
 

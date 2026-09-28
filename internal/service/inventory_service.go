@@ -958,7 +958,7 @@ func (s *InventoryService) ListTransactions(ctx context.Context, f repository.Tx
 }
 
 // ListAlerts 预警列表。
-func (s *InventoryService) ListAlerts(ctx context.Context, alertType, status string, page, pageSize int) ([]model.StockAlert, int64, error) {
+func (s *InventoryService) ListAlerts(ctx context.Context, alertType, status string, page, pageSize int) ([]repository.StockAlertRow, int64, error) {
 	return repository.NewStockAlertRepo(s.db).List(ctx, alertType, status, (page-1)*pageSize, pageSize)
 }
 

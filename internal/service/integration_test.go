@@ -86,11 +86,15 @@ func setupTestDB(t *testing.T) *gorm.DB {
 			return
 		}
 		// 显式指定测试库连接，不依赖工作目录下的配置文件（端口可用 YF_TEST_DB_PORT 覆盖，便于 PG 多版本矩阵测试）
+		//
+		// 库名默认 yaofang_test 而非 yaofang：setupTestDB 会对 testCleanupTables 逐表
+		// TRUNCATE ... RESTART IDENTITY，指向开发库会直接抹掉开发者本地数据。
+		// 首次使用需先建库并跑完迁移（make test-db-init）。
 		cfg.Database.Host = getenv("YF_TEST_DB_HOST", "127.0.0.1")
 		cfg.Database.Port = getenvPort("YF_TEST_DB_PORT", 5432)
 		cfg.Database.User = getenv("YF_TEST_DB_USER", "yaofang")
 		cfg.Database.Password = getenv("YF_TEST_DB_PASSWORD", "yaofang123")
-		cfg.Database.Name = "yaofang"
+		cfg.Database.Name = getenv("YF_TEST_DB_NAME", "yaofang_test")
 		sharedDB, sharedDBErr = server.OpenDB(&cfg.Database)
 	})
 	if sharedDBErr != nil {

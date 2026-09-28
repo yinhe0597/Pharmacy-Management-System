@@ -2,7 +2,8 @@ name: Frontend CI
 
 on:
   push:
-    branches: [main]
+    # master 是本仓库实际主干；此前只配 main，推 master 时前端流水线整体不触发
+    branches: [master, main]
   pull_request:
 
 defaults:
@@ -13,6 +14,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # 必须 checkout 整个仓库：src/types/contract.test.ts 的前后端字段契约守卫
+      # 要读 ../internal 下后端 struct 的 json tag，只 checkout pharmacy-web/ 会失败
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4

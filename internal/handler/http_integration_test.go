@@ -53,11 +53,12 @@ func newTestEngine(t *testing.T, mode string) (*gorm.DB, http.Handler) {
 	if err != nil {
 		t.Fatalf("加载配置失败: %v", err)
 	}
+	// 库名默认 yaofang_test：本套件会 TRUNCATE 业务表，指向开发库会抹掉本地数据
 	cfg.Database.Host = getenv("YF_TEST_DB_HOST", "127.0.0.1")
 	cfg.Database.Port = getenvPort("YF_TEST_DB_PORT", 5432)
 	cfg.Database.User = getenv("YF_TEST_DB_USER", "yaofang")
 	cfg.Database.Password = getenv("YF_TEST_DB_PASSWORD", "yaofang123")
-	cfg.Database.Name = getenv("YF_TEST_DB_NAME", "yaofang")
+	cfg.Database.Name = getenv("YF_TEST_DB_NAME", "yaofang_test")
 	cfg.Server.Mode = mode
 	// 不依赖本地 configs/config.yaml 的 CORS 白名单，锁定 fail-closed 语义
 	cfg.Server.CORSAllowOrigins = nil

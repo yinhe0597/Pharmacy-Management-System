@@ -457,21 +457,40 @@ func (r *StockAlertRepo) CreateIfAbsent(ctx context.Context, a *model.StockAlert
 	return res.RowsAffected > 0, nil
 }
 
-// List 分页查询预警。
-func (r *StockAlertRepo) List(ctx context.Context, alertType, status string, offset, limit int) ([]model.StockAlert, int64, error) {
-	q := r.db.WithContext(ctx).Model(&model.StockAlert{})
+// StockAlertRow 预警列表行：在预警字段基础上补出药品名、库房名与剩余效期天数。
+// 前端预警表按 drug_name / location_name / days_left 渲染，model.StockAlert 三列皆无，
+// 不 JOIN 则整表三列空白（与 InventoryRow 同一类断裂，此处此前遗漏）。
+// DaysLeft 为 NULL 时表示该预警无关联效期（低库存预警），前端留空而非显示 0。
+type StockAlertRow struct {
+	model.StockAlert
+	DrugName     string `json:"drug_name"`
+	LocationName string `json:"location_name"`
+	DaysLeft     *int   `json:"days_left"`
+}
+
+// List 分页查询预警（含药品名、库房名与剩余效期）。
+// days_left 直接用 date - date：PG 中 date 相减本身即返回整天数（可为负），
+// 且 expiry_date 为 NULL 时结果为 NULL。不要套 EXTRACT(DAY FROM ...)——
+// date 相减结果是 integer 而非 interval，PG 无 extract(unknown, integer) 重载，
+// 套上去会让整个预警列表接口在运行期直接报错（已实测）。
+func (r *StockAlertRepo) List(ctx context.Context, alertType, status string, offset, limit int) ([]StockAlertRow, int64, error) {
+	q := r.db.WithContext(ctx).Model(&model.StockAlert{}).
+		Joins("LEFT JOIN drugs d ON d.id = stock_alerts.drug_id AND d.deleted_at IS NULL").
+		Joins("LEFT JOIN inventory_locations l ON l.id = stock_alerts.location_id")
 	if alertType != "" {
-		q = q.Where("alert_type = ?", alertType)
+		q = q.Where("stock_alerts.alert_type = ?", alertType)
 	}
 	if status != "" {
-		q = q.Where("status = ?", status)
+		q = q.Where("stock_alerts.status = ?", status)
 	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var list []model.StockAlert
-	if err := q.Order("id DESC").Offset(offset).Limit(limit).Find(&list).Error; err != nil {
+	var list []StockAlertRow
+	if err := q.Select("stock_alerts.*, d.generic_name AS drug_name, l.name AS location_name, " +
+		"(stock_alerts.expiry_date - CURRENT_DATE) AS days_left").
+		Order("stock_alerts.id DESC").Offset(offset).Limit(limit).Find(&list).Error; err != nil {
 		return nil, 0, err
 	}
 	return list, total, nil
