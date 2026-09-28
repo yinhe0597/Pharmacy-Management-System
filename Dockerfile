@@ -4,7 +4,7 @@
 #   docker build --build-arg VERSION=v1.4.0 --build-arg COMMIT=$(git rev-parse --short HEAD) -t yaofang-api .
 # 运行时全部配置走环境变量（YF_ 前缀），镜像内不含任何配置文件/密钥。
 # ────────────────────────────────────────
-FROM golang:1.26.5-alpine AS builder
+FROM golang:1.26.6-alpine AS builder
 
 WORKDIR /src
 

@@ -44,25 +44,45 @@ func (r *PrescriptionRepo) LockForUpdate(ctx context.Context, id int64) (*model.
 }
 
 // UpdateStatus 更新状态并自增版本号（乐观锁）。expectVersion < 0 表示不校验版本。
+// 审核/调配/核对痕迹列仅在调用方回填了值时才写入：这些列在处方流转的不同阶段
+// 由不同角色设置，无条件写入会把已记录的 reviewed_at / auditor_id 抹成零值。
 func (r *PrescriptionRepo) UpdateStatus(ctx context.Context, p *model.Prescription, expectVersion int) (bool, error) {
 	q := r.db.WithContext(ctx).Model(&model.Prescription{}).
 		Where("id = ?", p.ID)
 	if expectVersion >= 0 {
 		q = q.Where("version = ?", expectVersion)
 	}
-	res := q.Updates(map[string]any{
-		"status":                     p.Status,
-		"version":                    gorm.Expr("version + 1"),
-		"reviewed_at":                p.ReviewedAt,
-		"dispensed_at":               p.DispensedAt,
-		"auditor_id":                 p.AuditorID,
-		"auditor_name":               p.AuditorName,
-		"dispensing_pharmacist_id":   p.DispensingPharmacistID,
-		"dispensing_pharmacist_name": p.DispensingPharmacistName,
-		"checker_id":                 p.CheckerID,
-		"checker_name":               p.CheckerName,
-		"updated_at":                 time.Now(),
-	})
+	set := map[string]any{
+		"status":  p.Status,
+		"version": gorm.Expr("version + 1"),
+	}
+	if p.ReviewedAt != nil {
+		set["reviewed_at"] = p.ReviewedAt
+	}
+	if p.DispensedAt != nil {
+		set["dispensed_at"] = p.DispensedAt
+	}
+	if p.AuditorID != 0 {
+		set["auditor_id"] = p.AuditorID
+	}
+	if p.AuditorName != "" {
+		set["auditor_name"] = p.AuditorName
+	}
+	if p.DispensingPharmacistID != 0 {
+		set["dispensing_pharmacist_id"] = p.DispensingPharmacistID
+	}
+	if p.DispensingPharmacistName != "" {
+		set["dispensing_pharmacist_name"] = p.DispensingPharmacistName
+	}
+	if p.CheckerID != 0 {
+		set["checker_id"] = p.CheckerID
+	}
+	if p.CheckerName != "" {
+		set["checker_name"] = p.CheckerName
+	}
+	set["updated_at"] = time.Now()
+
+	res := q.Updates(set)
 	if res.Error != nil {
 		return false, res.Error
 	}
@@ -134,6 +154,10 @@ func NewPrescriptionItemRepo(db *gorm.DB) *PrescriptionItemRepo { return &Prescr
 
 // CreateBatch 批量新建明细。
 func (r *PrescriptionItemRepo) CreateBatch(ctx context.Context, items []*model.PrescriptionItem) error {
+	// GORM 对空切片 Create 返回 ErrEmptySlice（会被当 500 上报）；空明细视为无事发生。
+	if len(items) == 0 {
+		return nil
+	}
 	return r.db.WithContext(ctx).Create(items).Error
 }
 
@@ -181,6 +205,10 @@ func NewDispenseRecordRepo(db *gorm.DB) *DispenseRecordRepo { return &DispenseRe
 
 // CreateBatch 批量新建发药记录。
 func (r *DispenseRecordRepo) CreateBatch(ctx context.Context, records []*model.PrescriptionDispenseRecord) error {
+	// 同上：空切片不得触发 GORM ErrEmptySlice。
+	if len(records) == 0 {
+		return nil
+	}
 	return r.db.WithContext(ctx).Create(records).Error
 }
 

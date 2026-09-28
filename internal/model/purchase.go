@@ -59,8 +59,11 @@ type PurchaseReceiptItem struct {
 	BatchNo          string    `gorm:"size:50;not null" json:"batch_no"`
 	ExpiryDate       time.Time `gorm:"type:date;not null" json:"expiry_date"`
 	UnitPrice        int64     `gorm:"not null" json:"unit_price"`
-	QCResult         int       `gorm:"not null;default:1" json:"qc_result"` // 1合格 2不合格
-	QCNotes          string    `gorm:"size:200" json:"qc_notes"`
+	// 0=未质检 1=合格 2=不合格。刻意不带 default：带 default 时 GORM 会把 0 视作零值
+	// 跳过该列，落盘时被 DDL 的 DEFAULT 1 覆盖，导致「未质检」永远无法持久化、
+	// HasUninspected（qc_result NOT IN (1,2)）恒为 false，收货质检门禁失效。
+	QCResult int    `gorm:"not null" json:"qc_result"`
+	QCNotes  string `gorm:"size:200" json:"qc_notes"`
 }
 
 func (PurchaseReceiptItem) TableName() string { return "purchase_receipt_items" }

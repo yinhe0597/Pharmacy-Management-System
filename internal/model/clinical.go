@@ -23,10 +23,15 @@ type ClinicalService struct {
 
 func (ClinicalService) TableName() string { return "clinical_services" }
 
-// ChargeRecord 计费记录（药品/耗材/诊疗项目统一入口）。
+// ChargeRecord 应收计费项目源（药品/耗材/诊疗项目统一入口）。
+//
+// 定位：**不是记账凭证**。唯一记账凭证是 charges（结算单）+ charge_items（费用行）。
+// 本表只承载「已产生、待归集到结算单的费用项」，由结算单按 visit_id 精确消费；
+// 任何报表都不应直接统计本表，否则会与已结算凭证重复计费。
 type ChargeRecord struct {
 	ID            int64     `gorm:"primaryKey" json:"id"`
-	PatientID     int64     `gorm:"index" json:"patient_id"` // 关联患者档案（可选）
+	VisitID       *int64    `gorm:"index" json:"visit_id"` // 关联就诊（结算归集依据；000040）
+	PatientID     int64     `gorm:"index" json:"patient_id"`
 	PatientName   string    `gorm:"size:50;not null" json:"patient_name"`
 	PatientCardNo string    `gorm:"size:50" json:"patient_card_no"`
 	ItemType      string    `gorm:"size:20;not null" json:"item_type"` // drug / consumable / clinical_service

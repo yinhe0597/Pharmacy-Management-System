@@ -120,7 +120,7 @@ make db-up                                   # = make env-init + docker compose 
 psql -U postgres -h localhost -c "CREATE ROLE yaofang LOGIN PASSWORD 'yaofang123';"
 psql -U postgres -h localhost -c "CREATE DATABASE yaofang OWNER yaofang;"
 
-# 执行迁移（共 36 个版本）：增量 + 版本表，可安全重复执行
+# 执行迁移（共 41 个版本）：增量 + 版本表，可安全重复执行
 make db-migrate                              # = scripts/migrate.sh（PGHOST/PGUSER/PGDATABASE/YF_DB_* 可覆盖）
 # 历史库（旧版「全量重放」方式初始化）首次升级需一次性指定基线：
 #   YF_MIGRATE_BASELINE_TO=000032 make db-migrate
@@ -211,10 +211,10 @@ yaofang/
 │   ├── middleware/        # 🛡️ JWT、日志、恢复、请求ID、写审计、安全头
 │   ├── scheduler/         # ⏰ 定时任务
 │   └── pkg/               # 🧰 通用组件（errs/money/pagination/auth）
-├── migrations/            # 📦 golang-migrate SQL 迁移（36 个版本，scripts/migrate.sh 增量执行）
+├── migrations/            # 📦 golang-migrate SQL 迁移（41 个版本，scripts/migrate.sh 增量执行）
 ├── configs/               # ⚙️ 配置样例
 ├── deploy/                # 🚢 部署资产：systemd 单元、K8s manifests、日志聚合配置
-├── docs/                  # 📚 开发文档（26 篇编号文档，00–26）
+├── docs/                  # 📚 开发文档（28 篇编号文档，00–28）
 ├── scripts/               # 🔧 运维/构建/覆盖率脚本
 ├── Dockerfile             # 🐳 后端镜像（多阶段构建）
 └── docker-compose.yml     # 🐳 全栈编排（db + migrate + api + web）
@@ -275,9 +275,10 @@ yaofang/
 | 第三轮审计收尾（增量迁移/默认口令门禁/写操作审计覆盖/预警去重/测试隔离） | ✅ 已修复并实测 |
 | 第四轮生产差异收口（处方 FK/网关限速与安全头/ECharts 按需/分层覆盖率） | ✅ 已修复 |
 | 第五轮业务完善（S7 报表/CSV 导出/库房可配置/日志归档/站内通知/打印/测试守护） | ✅ 已交付（集成口径待另一环境实测） |
+| 第六轮审计修复（Docker 构建双重阻断/质检门禁/账务口径统一/单号多副本/令牌吊销/效期口径/字段契约） | ✅ 已交付（见 docs/28） |
 | 二期就诊模块规划（docs/20） | ✅ S1-S7 全部交付 |
 
-> 迁移至 `000036`，共 **36 个版本**（`schema_migrations` 版本表驱动，增量执行、可重复运行）；
+> 迁移至 `000041`，共 **41 个版本**（`schema_migrations` 版本表驱动，增量执行、可重复运行）；
 > 质量门禁：后端 `go build` / `go vet` / `go test` / `gofmt` / `golangci-lint` / `govulncheck` +
 > 前端 `vue-tsc` / `eslint` / `prettier` / `vitest` / `build` 全绿 ✅
 
@@ -286,12 +287,15 @@ yaofang/
 | 项 | 状态 | 说明 |
 |----|------|------|
 | 核心业务端到端（就诊→开方→发药→结算） | ✅ | HTTP 冒烟 43 项 + 集成场景 8 类（真实 PG） |
-| 安全基线（注入/越权/弱口令/密钥） | ✅ | SQL 全参数化、RBAC 矩阵、弱密钥拒启、默认口令 release 拒启、登录限速（后端 IP+用户名 + Nginx 网关）、可信代理白名单、CORS fail-closed、安全响应头 |
-| 审计与脱敏 | ✅ | 全量写操作审计（`operation_logs`）+ 处方/库存领域审计 + 证件/手机号脱敏 |
+| 安全基线（注入/越权/弱口令/密钥） | ✅ | SQL 全参数化、RBAC 矩阵、弱密钥拒启、默认口令 release 拒启、**JWT 令牌可吊销（改密即失效）**、release 下 CORS 通配拒启、登录限速（后端 IP+用户名 + Nginx 网关）、可信代理白名单、CORS fail-closed + `Vary: Origin`、安全响应头 |
+| 容器构建 | ✅ | `docker build` 实测通过（第六轮修复了 Go 版本不匹配与 `.dockerignore` 排除 `docs/` 两处阻断） |
+| **多副本部署** | ✅ | 业务单号改号段表（`doc_segments`），5~20 副本下全局唯一（实测 20 分配器 × 10 单号零重复） |
+| 账务口径 | ✅ | `charges`+`charge_items` 为唯一记账凭证；`charge_records` 为应收项目源，按 `visit_id` 精确归集（见 docs/28 §5.1） |
+| 审计与脱敏 | ✅ | 全量写操作审计（`operation_logs`，`context.WithoutCancel` 防规避）+ 处方/库存领域审计 + 证件/手机号脱敏 |
 | 供应链漏洞扫描 | ✅ | govulncheck 0 可达（Go 1.26.6）；`npm audit` 0 漏洞 |
-| 结构化日志 + 聚合 | ✅ | slog text/json + Loki/Promtail/Grafana（`compose.logging.yml`） |
+| 结构化日志 + 聚合 | ✅ | slog text/json + Loki/Promtail/Grafana（`compose.logging.yml`；生产 compose 已显式设 `YF_LOG_FORMAT=json`） |
 | 数据库备份 | ✅ | `make db-backup`（pg_dump -Fc + 保留策略 + 容器回退 + crontab，见 docs/10 §12） |
-| 数据库迁移 | ✅ | `scripts/migrate.sh`：`schema_migrations` 版本表 + 增量执行 + 单文件单事务（可重复运行，至 000036） |
+| 数据库迁移 | ✅ | `scripts/migrate.sh`：`schema_migrations` 版本表 + 增量执行 + 单文件单事务（可重复运行，至 000041） |
 | 前端构建优化 | ✅ | Nginx gzip + 强缓存、路由懒加载、vendor 分包（vue/element-plus/echarts 按需/axios） |
 | 压力测试（50+ 并发 <500ms） | 📋 | 待专项执行（见 docs/12 容量公式） |
 | 备份恢复演练 | 📋 | 建议每季一次（恢复至临时库校验） |
@@ -316,6 +320,13 @@ yaofang/
   Go 1.26.6 + quic-go v0.59.1（govulncheck 0 可达）；前端 vitest 单测接入 CI
 - ✅ **第四轮生产差异收口**：处方 `patient_id` 外键（000034）；审计记登录名；Nginx 登录限速与安全头；ECharts 按需引入；分层覆盖率门槛 + HTTP 层集成测试
 - ✅ **第五轮业务完善**：S7 结算报表三端点 + CSV 导出；收货/发药库房可配置（000035，退药溯源回补）；操作日志归档（000035，调度器每日搬运）；站内通知（000036，过期锁定/预警日报 + 顶栏铃铛）；处方签/结算单/盘点单打印；全链路版本统一 v1.5.0；集成测试清理清单守护
+- ✅ **第六轮审计修复**（详见 [docs/28-第六轮审计修复报告.md](docs/28-第六轮审计修复报告.md)）：
+  - **阻断**：`docker build` 双重阻断（Go 版本不匹配 + `.dockerignore` 排除 `docs/`）——此前任何容器化路径都必然失败
+  - **合规**：收货质检门禁失效（`qc_result` 的 `default:1` 把「未质检」改写为「合格」，收货可零质检入库）；麻精 `days=0` 绕过限量
+  - **正确性**：库存调拨负数量致源库房虚增；红冲净额变负；自动拆零处方退药回补到整盒行致库存虚增；效期 date-only 口径（FEFO 与过期锁定自相矛盾）
+  - **断链**：GORM 零值更新致「药品无法停用」「诊疗项目编码必被毁」；`PUT /users/:id` 省略 role 致账号锁死；状态流转抹除审核痕迹
+  - **架构收敛**：账务口径统一为唯一凭证（000040）；业务单号号段表支持 5~20 副本（000041）；JWT 令牌可吊销（000039）；软删与全局唯一约束冲突 + 17 表补 `deleted_at` 索引（000038）
+  - **连通性**：前后端 6 处字段契约断裂（库存/采购/收货/拆零/药学服务共 8 列全空白、库存搜索静默失效）；麻精开方 UI 打通 + 限量绕过收口
 - 🔭 **二期**：医保真实结算对接（`port` 接口已预留，暂不实现）
 
 ---
@@ -354,6 +365,7 @@ yaofang/
 | 🛡️ [docs/25-第三轮审计修复报告.md](docs/25-第三轮审计修复报告.md) | 第三轮审计复核：回归修复、迁移增量执行、遗留项收尾与全量实测证据 |
 | 🛡️ [docs/26-第四轮审计修复报告.md](docs/26-第四轮审计修复报告.md) | 第四轮生产差异收口：处方 FK、网关限速/安全头、ECharts 按需、分层覆盖率 |
 | 🛡️ [docs/27-第五轮业务完善报告.md](docs/27-第五轮业务完善报告.md) | 第五轮业务完善：S7 报表/CSV 导出/库房可配置/日志归档/站内通知/打印/测试守护 |
+| 🛡️ [docs/28-第六轮审计修复报告.md](docs/28-第六轮审计修复报告.md) | 第六轮：Docker 构建双重阻断、收货质检门禁、**账务口径统一为唯一凭证**、**单号号段表支持 5~20 副本**、JWT 令牌吊销、效期 date-only 口径、前后端字段契约 |
 
 ---
 

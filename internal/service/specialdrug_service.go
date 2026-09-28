@@ -29,6 +29,9 @@ type SpecialDrugService struct {
 func NewSpecialDrugService(db *gorm.DB) *SpecialDrugService { return &SpecialDrugService{db: db} }
 
 // CheckPrescriptionLimit 麻精处方单张剂量限量。
+// 限量按「开方天数」判定，而天数是处方计量的必要项：
+// days <= 0 时若直接放行（0 > limit 恒假），等于给出一条「不填天数即绕过限量」的通路。
+// 因此非普通处方必须填天数，否则拒绝。
 func (s *SpecialDrugService) CheckPrescriptionLimit(_ context.Context, prescType int, items []PrescriptionItemInput) error {
 	limit := 0
 	switch prescType {
@@ -39,10 +42,10 @@ func (s *SpecialDrugService) CheckPrescriptionLimit(_ context.Context, prescType
 	case enum.PrescriptionTypePsychoTwo:
 		limit = specialLimitPsychoTwoDays
 	default:
-		return nil // 毒性/放射性/普通不限
+		return nil // 普通/毒性/放射性不限量
 	}
 	for _, it := range items {
-		if it.Days > limit {
+		if it.Days <= 0 || it.Days > limit {
 			return errs.ErrSpecialDrugLimit
 		}
 	}
@@ -95,6 +98,10 @@ func (s *SpecialDrugService) CreateAmpouleReturn(ctx context.Context, a *model.A
 // VerifyAmpouleReturn 核对空安瓿回收（与发药数联动由药房线下执行，系统登记核对人）。
 // 核对人落库（verified_by），并保证幂等：仅 pending → verified 一次，重复核对返回状态冲突。
 func (s *SpecialDrugService) VerifyAmpouleReturn(ctx context.Context, id int64, verifiedBy string) error {
+	// 核对人必须落库：麻精空安瓿回收属「双人核对」强制留痕，空核对人无法追溯。
+	if verifiedBy == "" {
+		return errs.ErrBadRequest
+	}
 	repo := repository.NewAmpouleReturnRepo(s.db)
 	if _, err := repo.GetByID(ctx, id); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

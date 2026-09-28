@@ -15,7 +15,8 @@ coverage.out
 .env
 configs
 data/
-docs/
+# 注意：docs/ 不可排除——internal/server 硬依赖 yaofang/docs（swag 生成的路由包），
+# 排除后 `go build ./cmd/server` 报 "package yaofang/docs is not in std" 而失败。
 pharmacy-web/
 node_modules/
 dist/

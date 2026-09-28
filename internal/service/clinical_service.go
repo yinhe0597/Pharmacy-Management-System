@@ -68,7 +68,8 @@ func (s *ClinicalService) ListServices(ctx context.Context, keyword string, page
 
 // ChargeInput 计费输入。
 type ChargeInput struct {
-	PatientID     int64  `json:"patient_id"` // 关联患者档案（可选）
+	VisitID       int64  `json:"visit_id"` // 关联就诊（000040：结算单按此精确归集本费用项）
+	PatientID     int64  `json:"patient_id"`
 	PatientName   string `json:"patient_name" binding:"required"`
 	PatientCardNo string `json:"patient_card_no"`
 	ItemType      string `json:"item_type" binding:"required"` // drug / consumable / clinical_service
@@ -112,7 +113,22 @@ func (s *ClinicalService) CreateCharge(ctx context.Context, input ChargeInput, o
 	if input.Quantity == 0 {
 		input.Quantity = 1
 	}
+	// visit_id 决定该费用项被哪张结算单归集（000040）。必须校验就诊真实存在且患者一致，
+	// 否则可把费用错归到他人就诊上，造成账单串号。
+	if input.VisitID > 0 {
+		var v model.Visit
+		if err := s.db.WithContext(ctx).First(&v, input.VisitID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, errs.ErrVisitNotFound
+			}
+			return nil, err
+		}
+		if input.PatientID > 0 && v.PatientID != input.PatientID {
+			return nil, errs.ErrBadRequest
+		}
+	}
 	cr := &model.ChargeRecord{
+		VisitID:       idOrNil(input.VisitID),
 		PatientID:     input.PatientID,
 		PatientName:   input.PatientName,
 		PatientCardNo: input.PatientCardNo,
@@ -160,11 +176,16 @@ func (s *ClinicalService) VoidCharge(ctx context.Context, id int64, operatorID i
 			return errs.ErrChargeVoided
 		}
 		itemID := cr.ItemID
+		// 冲正单与原单成对出现：原单已置 voided=true 被下游过滤，若冲正单保持
+		// voided=false 则下游「voided=FALSE」口径只捞到 -X，患者净额/结算金额
+		// 凭空减少一笔（结算甚至因 payable<0 阻断）。两单都置已红冲，
+		// 净额归零；审计留痕由原单 voided=true + 冲正单记录（ref_type=charge_void）承担。
 		return repository.NewChargeRecordRepo(tx).Create(ctx, &model.ChargeRecord{
-			PatientID: cr.PatientID, PatientName: cr.PatientName, PatientCardNo: cr.PatientCardNo,
+			VisitID: cr.VisitID, PatientID: cr.PatientID,
+			PatientName: cr.PatientName, PatientCardNo: cr.PatientCardNo,
 			ItemType: cr.ItemType, ItemID: itemID, ItemName: cr.ItemName,
 			Quantity: cr.Quantity, UnitPrice: cr.UnitPrice, Amount: -cr.Amount,
-			Voided: false, RefType: "charge_void", RefID: id,
+			Voided: true, RefType: "charge_void", RefID: id,
 			OperatorID: &operatorID, OperatorName: operatorName, Remarks: "红冲 原单#" + strconv.FormatInt(id, 10),
 		})
 	})
@@ -228,7 +249,8 @@ func (s *ClinicalService) buildChargesFromRecordsTx(ctx context.Context, tx *gor
 			name = rec.BatchNo
 		}
 		charges = append(charges, model.ChargeRecord{
-			PatientID: idOrZero(p.PatientID), PatientName: p.PatientName, PatientCardNo: p.PatientCardNo,
+			VisitID: p.VisitID, PatientID: idOrZero(p.PatientID),
+			PatientName: p.PatientName, PatientCardNo: p.PatientCardNo,
 			ItemType: enum.ItemTypeDrug, ItemID: &itemID, ItemName: name,
 			Quantity: int(rec.Quantity), UnitPrice: rec.UnitPrice, Amount: rec.Amount,
 			RefType: "prescription", RefID: p.ID,
@@ -278,7 +300,8 @@ func (s *ClinicalService) refundPrescriptionTx(ctx context.Context, tx *gorm.DB,
 		amt := itemAmount(&it, in.ReturnQuantity)
 		itemID := it.DrugID
 		charges = append(charges, model.ChargeRecord{
-			PatientID: idOrZero(p.PatientID), PatientName: p.PatientName, PatientCardNo: p.PatientCardNo,
+			VisitID: p.VisitID, PatientID: idOrZero(p.PatientID),
+			PatientName: p.PatientName, PatientCardNo: p.PatientCardNo,
 			ItemType: enum.ItemTypeDrug, ItemID: &itemID, ItemName: it.DrugName,
 			Quantity: int(in.ReturnQuantity), UnitPrice: 0, Amount: -amt,
 			RefType: "prescription", RefID: prescriptionID,

@@ -86,7 +86,7 @@ export interface MedicationRecord {
 
 export interface PurchaseOrder {
   id: number
-  order_no: string
+  purchase_no: string
   supplier_id: number
   supplier_name?: string
   status: string

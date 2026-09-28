@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -29,6 +30,9 @@ type WriteAuditor interface {
 
 // auditSkipPrefixes 已由业务侧显式记录审计日志的路径前缀（避免重复记录）。
 var auditSkipPrefixes = []string{"/api/v1/auth/"}
+
+// auditWriteTimeout 审计落库的超时上限（脱离客户端取消后仍需兜底，避免拖慢响应）。
+const auditWriteTimeout = 3 * time.Second
 
 // AuditWrites 统一写操作审计：对已认证用户的非只读请求（POST/PUT/PATCH/DELETE）
 // 落一条操作日志，覆盖此前仅登录/改密/建用户有审计的缺口（发药、盘点、调拨、红冲、
@@ -68,7 +72,12 @@ func AuditWrites(auditor WriteAuditor) gin.HandlerFunc {
 				entry.ResourceID = id
 			}
 		}
-		auditor.Audit(c.Request.Context(), entry)
+		// 审计用「脱离客户端取消」的上下文：net/http 在客户端断开时会取消
+		// request context，若直接沿用，敏感写操作（发药/红冲/改价/停用）已提交入库
+		// 而审计行丢失且无补偿——构成「发请求→读到 200→立刻 RST」的审计规避原语。
+		auditCtx, cancel := context.WithTimeout(context.WithoutCancel(c.Request.Context()), auditWriteTimeout)
+		defer cancel()
+		auditor.Audit(auditCtx, entry)
 	}
 }
 

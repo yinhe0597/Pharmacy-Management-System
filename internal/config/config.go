@@ -198,6 +198,16 @@ func (c *Config) validate() error {
 	if len(c.Auth.JWTSecret) < 32 {
 		return fmt.Errorf("auth.jwt_secret 强度不足：当前 %d 字符 < 32（HS256 对称签名，密钥泄露即可离线伪造任意 token）", len(c.Auth.JWTSecret))
 	}
+	// release 模式禁止 CORS 通配：放行任意来源会让任意站点的前端脚本
+	// 读取本系统返回的患者/处方/账务数据（Authorization 头可由页面自行附加）。
+	// 此前仅在 server 侧打 slog.Warn，误配不会阻断上线。
+	if c.Server.Mode == "release" {
+		for _, o := range c.Server.CORSAllowOrigins {
+			if o == "*" {
+				return fmt.Errorf("server.cors_allow_origins 在 release 模式下不得包含 \"*\"：请限定具体来源域名（如 https://pharmacy.example.com），或使用环境变量 YF_SERVER_CORS_ALLOW_ORIGINS")
+			}
+		}
+	}
 	return nil
 }
 

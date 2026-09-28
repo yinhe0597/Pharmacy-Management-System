@@ -128,7 +128,7 @@
           <el-table-column prop="drug_id" label="药品ID" width="90" />
           <el-table-column prop="batch_no" label="批号" width="120" />
           <el-table-column prop="boxes" label="拆盒数" width="90" />
-          <el-table-column prop="units_in" label="入片数" width="90" />
+          <el-table-column prop="units" label="入片数" width="90" />
           <el-table-column prop="damaged" label="破损" width="80" />
           <el-table-column prop="reviewer_name" label="复核人" width="100" />
           <el-table-column prop="created_at" label="时间" width="170" />

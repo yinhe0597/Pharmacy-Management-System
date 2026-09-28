@@ -110,6 +110,10 @@ type PriceLine struct {
 	Quantity  int64  `json:"quantity"`
 	UnitPrice int64  `json:"unit_price"` // 分
 	Amount    int64  `json:"amount"`     // 分
+	// SourceRecordID 本行对应的应收计费项目源（charge_records.id，000040）。
+	// 0 表示该行不是从 charge_records 归集而来（如按处方快照直读的处方药费、
+	// 由系统设置带入的挂号费/诊查费），落 charge_items 时留空。
+	SourceRecordID int64 `json:"source_record_id"`
 }
 
 // IPricingService 计价服务接口。一期仅计算药费，二期扩展多费用项。

@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"yaofang/internal/middleware"
 	"yaofang/internal/model"
 	"yaofang/internal/pkg/errs"
 	"yaofang/internal/pkg/pagination"
@@ -87,7 +88,9 @@ func (h *SpecialDrugHandler) VerifyAmpouleReturn(c *gin.Context) {
 		Error(c, errs.ErrBadRequest)
 		return
 	}
-	if err := h.svc.VerifyAmpouleReturn(c.Request.Context(), id, c.Query("verified_by")); err != nil {
+	// 核对人取当前登录用户（服务端权威身份）：空安瓿回收的「双人核对」是
+	// 麻精五专的强制留痕，客户端不传或传空会让 verified_by 落空、追溯链断裂。
+	if err := h.svc.VerifyAmpouleReturn(c.Request.Context(), id, middleware.UserNameFromCtx(c)); err != nil {
 		Error(c, err)
 		return
 	}

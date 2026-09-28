@@ -30,6 +30,9 @@ func CORS(allowOrigins []string) gin.HandlerFunc {
 				allow = "*"
 			}
 			c.Header("Access-Control-Allow-Origin", allow)
+			// 回显具体 Origin 时必须带 Vary: Origin：否则前置 Nginx/CDN 的响应缓存
+			// 会把为 A 域计算的 ACAO 命中并返回给 B 域。
+			c.Header("Vary", "Origin")
 			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 			c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Request-ID")
 			c.Header("Access-Control-Max-Age", "86400")

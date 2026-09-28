@@ -17,7 +17,7 @@ if not exist .env (
     "$jb=New-Object byte[] 48; $rng.GetBytes($jb); $jwt=[Convert]::ToBase64String($jb);" ^
     "$db=New-Object byte[] 24; $rng.GetBytes($db); $dbp=[BitConverter]::ToString($db).Replace('-','');" ^
     "if ($jwt.Length -lt 32) { throw 'JWT 密钥生成失败' };" ^
-    "$lines=@('# 由 start.bat 自动生成','# 含密钥与口令，请勿提交版本库、勿外传。','JWT_SECRET=' + $jwt,'DB_PASSWORD=' + $dbp,'HTTP_PORT=80');" ^
+    "$lines=@('# 由 start.bat 自动生成','# 含密钥与口令，请勿提交版本库、勿外传。','YF_AUTH_JWT_SECRET=' + $jwt,'YF_DATABASE_PASSWORD=' + $dbp,'HTTP_PORT=80');" ^
     "Set-Content -Path '.env' -Value $lines -Encoding ASCII"
   if errorlevel 1 (
     echo 生成 .env 失败，请检查 PowerShell 可用性。
@@ -35,15 +35,15 @@ for /f "usebackq tokens=2 delims==" %%a in (`findstr /b "HTTP_PORT=" .env`) do s
 set "HTTP_PORT=%HTTP_PORT:'=%"
 
 echo [2/4] 校验部署配置...
-findstr /b "JWT_SECRET=" .env >nul 2>&1
+findstr /b "YF_AUTH_JWT_SECRET=" .env >nul 2>&1
 if errorlevel 1 (
-  echo 错误：.env 缺少 JWT_SECRET。请删除 .env 重新运行本脚本。
+  echo 错误：.env 缺少 YF_AUTH_JWT_SECRET。请删除 .env 重新运行本脚本。
   pause
   exit /b 1
 )
-findstr /b "DB_PASSWORD=" .env >nul 2>&1
+findstr /b "YF_DATABASE_PASSWORD=" .env >nul 2>&1
 if errorlevel 1 (
-  echo 错误：.env 缺少 DB_PASSWORD。请删除 .env 重新运行本脚本。
+  echo 错误：.env 缺少 YF_DATABASE_PASSWORD。请删除 .env 重新运行本脚本。
   pause
   exit /b 1
 )
@@ -68,7 +68,7 @@ if errorlevel 1 (
   echo   本机访问:   http://localhost:%HTTP_PORT%
   echo   内网访问:   http://本机IP:%HTTP_PORT%  （其它设备浏览器直接打开）
   echo   默认账号:   admin / admin123 （种子账号，登录后请立即改密码！）
-  echo   数据库口令: 随机生成，见 .env（DB_PASSWORD）
+  echo   数据库口令: 随机生成，见 .env（YF_DATABASE_PASSWORD）
   echo   数据库:     Docker 卷 pgdata_prod 持久化
   echo   ⚠ release 模式下若仍使用默认口令 admin123，服务将拒绝启动。
   echo ============================================

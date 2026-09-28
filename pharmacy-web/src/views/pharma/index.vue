@@ -58,9 +58,11 @@ const tab = ref('consultations')
 const consultColumns = ['patient_name', 'question', 'answer', 'created_at']
 const consultFields = ['patient_name', 'question', 'answer']
 
-const adverseColumns = ['patient_name', 'drug_name', 'reaction', 'severity', 'created_at']
-const adverseFields = ['patient_name', 'drug_name', 'reaction']
+// drug_name 由后端 JOIN 药品表返回（只读展示列）；表单字段用后端真实入参名
+// （drug_id / reaction_desc），此前用 drug_name/reaction 提交会被后端丢弃。
+const adverseColumns = ['patient_name', 'drug_name', 'reaction_desc', 'severity', 'created_at']
+const adverseFields = ['patient_name', 'drug_id', 'reaction_desc']
 
 const guidanceColumns = ['drug_name', 'content', 'created_at']
-const guidanceFields = ['drug_name', 'content']
+const guidanceFields = ['patient_id', 'drug_id', 'content']
 </script>

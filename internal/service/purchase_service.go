@@ -55,8 +55,12 @@ func (s *PurchaseService) CreateOrder(ctx context.Context, supplierID int64, ite
 		return nil, err
 	}
 	drugRepo := repository.NewDrugRepo(s.db)
+	poNo, err := seq.Next(ctx, "PO")
+	if err != nil {
+		return nil, err
+	}
 	po := &model.PurchaseOrder{
-		PurchaseNo: seq.Next("PO"),
+		PurchaseNo: poNo,
 		SupplierID: supplierID, Status: "draft",
 		ExpectedAt: expectedAt, CreatedBy: operatorID, Remarks: remarks,
 	}
@@ -83,7 +87,7 @@ func (s *PurchaseService) CreateOrder(ctx context.Context, supplierID int64, ite
 		})
 	}
 	po.TotalAmount = total
-	err := s.db.Transaction(func(tx *gorm.DB) error {
+	err = s.db.Transaction(func(tx *gorm.DB) error {
 		if err := repository.NewPurchaseOrderRepo(tx).Create(ctx, po); err != nil {
 			return err
 		}
@@ -159,7 +163,7 @@ func (s *PurchaseService) Receive(ctx context.Context, orderID int64, items []Re
 		if err != nil {
 			return err
 		}
-		byID := make(map[int64]model.PurchaseOrderItem, len(poItems))
+		byID := make(map[int64]repository.POItemRow, len(poItems))
 		for _, it := range poItems {
 			byID[it.ID] = it
 		}
@@ -182,6 +186,12 @@ func (s *PurchaseService) Receive(ctx context.Context, orderID int64, items []Re
 			if it.BatchNo == "" || it.ExpiryDate.IsZero() {
 				return errs.ErrBadRequest
 			}
+			// 质检结论取值域：0=未质检 1=合格 2=不合格。0 是「未质检」的合法中间态，
+			// 收货确认（CompleteReceipt）会据 HasUninspected 拦截；越界值直接拒绝，
+			// 否则非法值会绕过两道门禁被当作非 1/2 而永久挂在「未质检」上。
+			if it.QCResult < 0 || it.QCResult > 2 {
+				return errs.ErrBadRequest
+			}
 			total += it.ReceivedQuantity * poIt.UnitPrice
 			receiptItems = append(receiptItems, &model.PurchaseReceiptItem{
 				OrderItemID: poIt.ID, DrugID: poIt.DrugID,
@@ -190,8 +200,12 @@ func (s *PurchaseService) Receive(ctx context.Context, orderID int64, items []Re
 				UnitPrice: poIt.UnitPrice, QCResult: it.QCResult, QCNotes: it.QCNotes,
 			})
 		}
+		rcvNo, err := seq.Next(ctx, "RCV")
+		if err != nil {
+			return err
+		}
 		receipt = &model.PurchaseReceipt{
-			ReceiptNo: seq.Next("RCV"), PurchaseOrderID: orderID,
+			ReceiptNo: rcvNo, PurchaseOrderID: orderID,
 			SupplierID: po.SupplierID, Status: "pending_quality",
 			TotalAmount: total, ReceivedBy: operatorID,
 		}
@@ -334,13 +348,13 @@ func (s *PurchaseService) CompleteReceipt(ctx context.Context, receiptID int64, 
 // PurchaseOrderDetail 采购单详情聚合。
 type PurchaseOrderDetail struct {
 	model.PurchaseOrder
-	Items []model.PurchaseOrderItem `json:"items"`
+	Items []repository.POItemRow `json:"items"`
 }
 
 // PurchaseReceiptDetail 收货单详情聚合。
 type PurchaseReceiptDetail struct {
 	model.PurchaseReceipt
-	Items []model.PurchaseReceiptItem `json:"items"`
+	Items []repository.ReceiptItemRow `json:"items"`
 }
 
 // GetOrder 采购单详情。
@@ -359,8 +373,8 @@ func (s *PurchaseService) GetOrder(ctx context.Context, id int64) (*PurchaseOrde
 	return &PurchaseOrderDetail{PurchaseOrder: *po, Items: items}, nil
 }
 
-// ListOrders 采购单列表。
-func (s *PurchaseService) ListOrders(ctx context.Context, supplierID int64, status string, page, pageSize int) ([]model.PurchaseOrder, int64, error) {
+// ListOrders 采购单列表（含供应商名称，前端采购列表按 supplier_name 渲染）。
+func (s *PurchaseService) ListOrders(ctx context.Context, supplierID int64, status string, page, pageSize int) ([]repository.PurchaseOrderRow, int64, error) {
 	return repository.NewPurchaseOrderRepo(s.db).List(ctx, supplierID, status, (page-1)*pageSize, pageSize)
 }
 

@@ -89,21 +89,30 @@ func (r *AdverseReactionRepo) Delete(ctx context.Context, id int64) error {
 	return r.db.WithContext(ctx).Delete(&model.AdverseReaction{}, id).Error
 }
 
-// List 分页查询记录。
-func (r *AdverseReactionRepo) List(ctx context.Context, drugID int64, keyword string, offset, limit int) ([]model.AdverseReaction, int64, error) {
-	q := r.db.WithContext(ctx).Model(&model.AdverseReaction{})
+// AdverseReactionRow 不良反应行：补出药品名（前端不良反应登记表按 drug_name 渲染）。
+type AdverseReactionRow struct {
+	model.AdverseReaction
+	DrugName string `json:"drug_name"`
+}
+
+// List 分页查询记录（含药品名）。
+func (r *AdverseReactionRepo) List(ctx context.Context, drugID int64, keyword string, offset, limit int) ([]AdverseReactionRow, int64, error) {
+	q := r.db.WithContext(ctx).Model(&model.AdverseReaction{}).
+		Joins("LEFT JOIN drugs d ON d.id = adverse_reactions.drug_id AND d.deleted_at IS NULL")
 	if drugID > 0 {
-		q = q.Where("drug_id = ?", drugID)
+		q = q.Where("adverse_reactions.drug_id = ?", drugID)
 	}
 	if keyword != "" {
-		q = q.Where("patient_name ILIKE ? OR reporter ILIKE ?", "%"+keyword+"%", "%"+keyword+"%")
+		q = q.Where("adverse_reactions.patient_name ILIKE ? OR adverse_reactions.reporter ILIKE ? OR d.generic_name ILIKE ?",
+			"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
 	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var list []model.AdverseReaction
-	if err := q.Order("id DESC").Offset(offset).Limit(limit).Find(&list).Error; err != nil {
+	var list []AdverseReactionRow
+	if err := q.Select("adverse_reactions.*, d.generic_name AS drug_name").
+		Order("adverse_reactions.id DESC").Offset(offset).Limit(limit).Find(&list).Error; err != nil {
 		return nil, 0, err
 	}
 	return list, total, nil
@@ -133,18 +142,27 @@ func (r *MedicationGuidanceRepo) GetByID(ctx context.Context, id int64) (*model.
 	return &m, nil
 }
 
-// List 分页查询指导。
-func (r *MedicationGuidanceRepo) List(ctx context.Context, keyword string, offset, limit int) ([]model.MedicationGuidance, int64, error) {
-	q := r.db.WithContext(ctx).Model(&model.MedicationGuidance{})
+// MedicationGuidanceRow 用药指导行：补出药品名（前端用药指导表按 drug_name 渲染）。
+type MedicationGuidanceRow struct {
+	model.MedicationGuidance
+	DrugName string `json:"drug_name"`
+}
+
+// List 分页查询指导（含药品名）。
+func (r *MedicationGuidanceRepo) List(ctx context.Context, keyword string, offset, limit int) ([]MedicationGuidanceRow, int64, error) {
+	q := r.db.WithContext(ctx).Model(&model.MedicationGuidance{}).
+		Joins("LEFT JOIN drugs d ON d.id = medication_guidances.drug_id AND d.deleted_at IS NULL")
 	if keyword != "" {
-		q = q.Where("patient_name ILIKE ? OR content ILIKE ?", "%"+keyword+"%", "%"+keyword+"%")
+		q = q.Where("medication_guidances.patient_name ILIKE ? OR medication_guidances.content ILIKE ? OR d.generic_name ILIKE ?",
+			"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
 	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var list []model.MedicationGuidance
-	if err := q.Order("id DESC").Offset(offset).Limit(limit).Find(&list).Error; err != nil {
+	var list []MedicationGuidanceRow
+	if err := q.Select("medication_guidances.*, d.generic_name AS drug_name").
+		Order("medication_guidances.id DESC").Offset(offset).Limit(limit).Find(&list).Error; err != nil {
 		return nil, 0, err
 	}
 	return list, total, nil

@@ -58,7 +58,8 @@ jobs:
       - name: golangci-lint（docs/06 CI 门槛）
         uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.62.2
+          # v1.62.x 早于 Go 1.24，其内嵌 go/types 无法解析新标准库，lint 门槛会整体失效
+          version: v2.1.6
           args: --timeout=5m
 
       - name: 单元测试

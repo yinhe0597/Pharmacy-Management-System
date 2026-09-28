@@ -170,32 +170,39 @@ type PatientChargeRow struct {
 	Amount       int64  `json:"amount"`        // 净额（收费-冲正，不含已红冲单）
 }
 
-// PatientCharges 按患者聚合计费（可按患者/期间筛选，红冲单不计入）。
+// PatientCharges 按患者聚合**已结算**费用行。
+//
+// 口径：与 RevenueBreakdown 同源——只读唯一记账凭证 charges + charge_items，
+// 限定 status='paid'（退费单 refunded 不计入），按 COALESCE(paid_at, created_at) 归期。
+// 此前直接统计 charge_records（应收计费项目源），与 RevenueBreakdown 分别取自两套台账，
+// 同一笔费用在两个报表口径下不一致，且把「已开未收」与「已结算」混为一谈。
+// charge_records 无 visit_id、无法表达结算归属，故不作为报表数据源（000040）。
 func (r *ReportRepo) PatientCharges(ctx context.Context, patientID int64, start, end *time.Time) ([]PatientChargeRow, error) {
 	q := `
-		SELECT patient_id,
-		       COALESCE(MAX(patient_name), '') AS patient_name,
-		       item_type,
-		       COUNT(*) FILTER (WHERE amount > 0) AS charge_count,
-		       COUNT(*) FILTER (WHERE amount < 0) AS refund_count,
-		       COALESCE(SUM(CASE WHEN amount < 0 THEN -amount ELSE 0 END), 0) AS refund_amount,
-		       COALESCE(SUM(amount), 0) AS amount
-		FROM charge_records
-		WHERE voided = FALSE AND patient_id > 0`
+		SELECT c.patient_id,
+		       COALESCE(MAX(c.patient_name), '') AS patient_name,
+		       ci.item_type,
+		       COUNT(*) FILTER (WHERE ci.amount > 0) AS charge_count,
+		       COUNT(*) FILTER (WHERE ci.amount < 0) AS refund_count,
+		       COALESCE(SUM(CASE WHEN ci.amount < 0 THEN -ci.amount ELSE 0 END), 0) AS refund_amount,
+		       COALESCE(SUM(ci.amount), 0) AS amount
+		FROM charge_items ci
+		JOIN charges c ON c.id = ci.charge_id
+		WHERE c.status = 'paid' AND c.deleted_at IS NULL AND c.patient_id > 0`
 	args := []any{}
 	if patientID > 0 {
-		q += " AND patient_id = ?"
+		q += " AND c.patient_id = ?"
 		args = append(args, patientID)
 	}
 	if start != nil {
-		q += " AND created_at >= ?"
+		q += " AND COALESCE(c.paid_at, c.created_at) >= ?"
 		args = append(args, start)
 	}
 	if end != nil {
-		q += " AND created_at <= ?"
+		q += " AND COALESCE(c.paid_at, c.created_at) <= ?"
 		args = append(args, end)
 	}
-	q += " GROUP BY patient_id, item_type ORDER BY patient_id"
+	q += " GROUP BY c.patient_id, ci.item_type ORDER BY c.patient_id"
 	rows := []PatientChargeRow{}
 	if err := r.db.WithContext(ctx).Raw(q, args...).Scan(&rows).Error; err != nil {
 		return nil, err

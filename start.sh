@@ -37,11 +37,13 @@ if [ ! -f .env ]; then
     exit 1
   fi
   umask 077
+  # 键名与 .env.example / Makefile env-init 统一为 YF_ 前缀：
+  # 历史上的 JWT_SECRET/DB_PASSWORD 与 YF_* 两套命名互斥，照文档配置也会启动失败。
   cat > .env <<EOF
 # 由 start.sh 于 $(date '+%Y-%m-%dT%H:%M:%S%z') 自动生成
 # 含密钥与口令，请勿提交版本库、勿外传；重新生成会使既有登录 token 失效。
-JWT_SECRET='${JWT_SECRET}'
-DB_PASSWORD='${DB_PASSWORD}'
+YF_AUTH_JWT_SECRET='${JWT_SECRET}'
+YF_DATABASE_PASSWORD='${DB_PASSWORD}'
 HTTP_PORT=80
 EOF
   echo "      已生成 .env（权限 600）：数据库口令为随机值，可在 .env 中查看。"
@@ -56,12 +58,12 @@ set -a
 set +a
 
 echo "[2/4] 校验部署配置..."
-if [ -z "${JWT_SECRET:-}" ] || [ "${#JWT_SECRET}" -lt 32 ]; then
-  echo "错误：.env 中 JWT_SECRET 缺失或不足 32 字符。请删除 .env 重新运行本脚本，或手动设置强随机密钥（openssl rand -base64 48）。" >&2
+if [ -z "${YF_AUTH_JWT_SECRET:-}" ] || [ "${#YF_AUTH_JWT_SECRET}" -lt 32 ]; then
+  echo "错误：.env 中 YF_AUTH_JWT_SECRET 缺失或不足 32 字符。请删除 .env 重新运行本脚本，或手动设置强随机密钥（openssl rand -base64 48）。" >&2
   exit 1
 fi
-if [ -z "${DB_PASSWORD:-}" ]; then
-  echo "错误：.env 中 DB_PASSWORD 缺失。请删除 .env 重新运行本脚本。" >&2
+if [ -z "${YF_DATABASE_PASSWORD:-}" ]; then
+  echo "错误：.env 中 YF_DATABASE_PASSWORD 缺失。请删除 .env 重新运行本脚本。" >&2
   exit 1
 fi
 
@@ -77,7 +79,7 @@ for _ in $(seq 1 30); do
     echo " 本机访问:  http://localhost:${HTTP_PORT:-80}"
     echo " 内网访问:  http://<本机IP>:${HTTP_PORT:-80}"
     echo " 默认账号:  admin / admin123（种子账号，请立即修改密码）"
-    echo " 数据库口令: 随机生成，见 .env（DB_PASSWORD）"
+    echo " 数据库口令: 随机生成，见 .env（YF_DATABASE_PASSWORD）"
     echo " ⚠ release 模式下若仍使用默认口令 admin123，服务将拒绝启动。"
     echo "============================================"
     exit 0

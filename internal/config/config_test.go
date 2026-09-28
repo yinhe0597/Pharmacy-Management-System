@@ -52,6 +52,31 @@ func TestValidateRejectsShortSecret(t *testing.T) {
 	}
 }
 
+// TestValidateRejectsWildcardCORSInRelease release 模式下 CORS 通配必须拒绝启动。
+// 回归：此前仅 slog.Warn，误配 "*" 不阻断上线，任意站点前端脚本可读取本系统的
+// 患者/处方/账务响应（Authorization 头由页面自行附加）。
+func TestValidateRejectsWildcardCORSInRelease(t *testing.T) {
+	const strong = "k8sJ3@9fNz!qL2mX7vR5tY8wB1cD6eG4"
+	c := &Config{
+		Server: ServerConfig{Mode: "release", CORSAllowOrigins: []string{"*"}},
+		Auth:   AuthConfig{JWTSecret: strong},
+	}
+	if err := c.validate(); err == nil {
+		t.Fatal("release + cors_allow_origins=* 应拒绝启动")
+	}
+	// release + 限定域名：放行
+	c.Server.CORSAllowOrigins = []string{"https://pharmacy.example.com"}
+	if err := c.validate(); err != nil {
+		t.Fatalf("release + 限定域名不应报错: %v", err)
+	}
+	// debug + 通配：允许（本地开发前端跨域联调）
+	c.Server.Mode = "debug"
+	c.Server.CORSAllowOrigins = []string{"*"}
+	if err := c.validate(); err != nil {
+		t.Fatalf("debug + cors_allow_origins=* 不应报错: %v", err)
+	}
+}
+
 func TestNormalizeFallbacks(t *testing.T) {
 	c := &Config{}
 	c.Database.MaxOpenConns = 0

@@ -46,7 +46,7 @@ func (j *Job) Start() *cron.Cron {
 
 	if _, err := c.AddFunc(j.cfg.Scheduler.ExpiredLockCron, func() {
 		ctx := context.Background()
-		n, err := j.inv.LockExpiredBatches(ctx, today())
+		n, err := j.inv.LockExpiredBatches(ctx)
 		if err != nil {
 			slog.Error("scheduler_expired_lock_failed", "err", err)
 			return

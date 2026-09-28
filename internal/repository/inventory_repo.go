@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"gorm.io/gorm"
@@ -54,20 +53,21 @@ type StockSettingRepo struct {
 func NewStockSettingRepo(db *gorm.DB) *StockSettingRepo { return &StockSettingRepo{db: db} }
 
 // Upsert 存在则更新，否则新建（按 drug+location 唯一）。
+// 必须用 ON CONFLICT 原子 upsert（与本文件 UpsertAddQuantity 同一范式）：
+// 「先 First 后 Create」两步在并发首次配置时双方都读到 not-found、都走 Create，
+// 一方撞 uq_stock_setting 报 23505；且 PostgreSQL 下唯一冲突会把事务置入
+// aborted(25P02)，后续任何查询都失败，整次配置以 500 收场。
 func (r *StockSettingRepo) Upsert(ctx context.Context, s *model.DrugStockSetting) error {
-	var existing model.DrugStockSetting
-	err := r.db.WithContext(ctx).Where("drug_id = ? AND location_id = ?", s.DrugID, s.LocationID).First(&existing).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return r.db.WithContext(ctx).Create(s).Error
-	}
-	if err != nil {
-		return err
-	}
-	return r.db.WithContext(ctx).Model(&existing).
-		Updates(map[string]any{
-			"min_quantity": s.MinQuantity, "max_quantity": s.MaxQuantity,
-			"reorder_qty": s.ReorderQty, "is_enabled": s.IsEnabled,
-		}).Error
+	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "drug_id"}, {Name: "location_id"}},
+		DoUpdates: clause.Assignments(map[string]any{
+			"min_quantity": s.MinQuantity,
+			"max_quantity": s.MaxQuantity,
+			"reorder_qty":  s.ReorderQty,
+			"is_enabled":   s.IsEnabled,
+			"updated_at":   gorm.Expr("NOW()"),
+		}),
+	}).Create(s).Error
 }
 
 // ListEnabled 查询启用状态的设置（含药品名称）。
@@ -160,7 +160,11 @@ func (r *InventoryRepo) SetStatus(ctx context.Context, id int64, status int) err
 }
 
 // Deduct 条件扣减数量：quantity >= qty 才扣，返回是否成功（防止负库存）。
+// qty<=0 恒真于条件判断并会写成加法，直接返回 false 拒绝（防调用方漏校验）。
 func (r *InventoryRepo) Deduct(ctx context.Context, id, qty int64) (bool, error) {
+	if qty <= 0 {
+		return false, nil
+	}
 	res := r.db.WithContext(ctx).Model(&model.Inventory{}).
 		Where("id = ? AND quantity >= ?", id, qty).
 		UpdateColumn("quantity", gorm.Expr("quantity - ?", qty))
@@ -174,6 +178,9 @@ func (r *InventoryRepo) Deduct(ctx context.Context, id, qty int64) (bool, error)
 // 供领用/报损等「无行锁、无条件更新」出库路径使用，防止扣穿已预占库存
 // （破坏 quantity >= reserved_quantity 不变量导致发药 Consume 失败）。
 func (r *InventoryRepo) DeductAvailable(ctx context.Context, id, qty int64) (bool, error) {
+	if qty <= 0 {
+		return false, nil
+	}
 	res := r.db.WithContext(ctx).Model(&model.Inventory{}).
 		Where("id = ? AND quantity - reserved_quantity >= ?", id, qty).
 		UpdateColumn("quantity", gorm.Expr("quantity - ?", qty))
@@ -224,32 +231,49 @@ type InventoryListFilter struct {
 	DrugID     int64
 	LocationID int64
 	BatchNo    string
-	Status     int // 0=全部
+	Keyword    string // 药品通用名/商品名/编码/拼音码（前端库存搜索框，此前被静默丢弃）
+	Status     int    // 0=全部
 	NearExpiry bool
 	BelowMin   bool // 与库存设置联动（在服务层处理）
 }
 
-// List 分页查询库存（含药品信息）。
-func (r *InventoryRepo) List(ctx context.Context, f InventoryListFilter, offset, limit int) ([]model.Inventory, int64, error) {
-	q := r.db.WithContext(ctx).Model(&model.Inventory{})
+// InventoryRow 库存列表行：在批次字段基础上补出药品名与库房名。
+// 前端库存列表按 drug_name / location_name 渲染，纯 model.Inventory 无此两列会整列空白。
+type InventoryRow struct {
+	model.Inventory
+	DrugName     string `json:"drug_name"`
+	LocationName string `json:"location_name"`
+}
+
+// List 分页查询库存（含药品与库房名称）。
+func (r *InventoryRepo) List(ctx context.Context, f InventoryListFilter, offset, limit int) ([]InventoryRow, int64, error) {
+	q := r.db.WithContext(ctx).Model(&model.Inventory{}).
+		Joins("LEFT JOIN drugs d ON d.id = inventory.drug_id AND d.deleted_at IS NULL").
+		Joins("LEFT JOIN inventory_locations l ON l.id = inventory.location_id")
 	if f.DrugID > 0 {
-		q = q.Where("drug_id = ?", f.DrugID)
+		q = q.Where("inventory.drug_id = ?", f.DrugID)
 	}
 	if f.LocationID > 0 {
-		q = q.Where("location_id = ?", f.LocationID)
+		q = q.Where("inventory.location_id = ?", f.LocationID)
 	}
 	if f.BatchNo != "" {
-		q = q.Where("batch_no ILIKE ?", "%"+f.BatchNo+"%")
+		q = q.Where("inventory.batch_no ILIKE ?", "%"+f.BatchNo+"%")
+	}
+	if f.Keyword != "" {
+		k := "%" + f.Keyword + "%"
+		q = q.Where("d.generic_name ILIKE ? OR d.brand_name ILIKE ? OR d.py_code ILIKE ? OR d.code ILIKE ?", k, k, k, k)
 	}
 	if f.Status > 0 {
-		q = q.Where("status = ?", f.Status)
+		q = q.Where("inventory.status = ?", f.Status)
 	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var list []model.Inventory
-	if err := q.Order("drug_id ASC, expiry_date ASC").Offset(offset).Limit(limit).Find(&list).Error; err != nil {
+	var list []InventoryRow
+	if err := q.Select("inventory.*, d.generic_name AS drug_name, l.name AS location_name").
+		Order("inventory.drug_id ASC, inventory.expiry_date ASC").
+		Offset(offset).Limit(limit).Find(&list).Error; err != nil {
 		return nil, 0, err
 	}
 	return list, total, nil
@@ -257,22 +281,30 @@ func (r *InventoryRepo) List(ctx context.Context, f InventoryListFilter, offset,
 
 // FindAvailableForDispenseUnit 按 FEFO 查找可发药批次（指定口径 isSplit）：
 // 同口径内按效期升序、入库时间升序；优先拆零库存由调用方按需选择。排除已锁定与已过期批次。
-func (r *InventoryRepo) FindAvailableForDispenseUnit(ctx context.Context, drugID, locationID int64, isSplit bool, today time.Time) ([]model.Inventory, error) {
+//
+// 效期比较用 CURRENT_DATE 而非传入时刻：expiry_date 是 DATE 列，PostgreSQL 会把它
+// 按会话时区提升为当天 00:00 再与参数比较。若传 time.Now()（带时分秒），
+// 「当天到期」的批次会因 00:00 < 当前时刻而被整日排除，无法发药；
+// 同一参数传给 LockExpired 的 < 比较又会把当天批次判为已过期并锁定——
+// 两条路径自相矛盾。域规则 rule.IsExpired 明确定义「效期早于今天才算过期」，
+// 故此处按 date-only 比较，与 rule/预警口径一致。
+func (r *InventoryRepo) FindAvailableForDispenseUnit(ctx context.Context, drugID, locationID int64, isSplit bool) ([]model.Inventory, error) {
 	var list []model.Inventory
 	err := r.db.WithContext(ctx).
-		Where("drug_id = ? AND location_id = ? AND is_split = ? AND status = 1 AND quantity > reserved_quantity AND expiry_date >= ?",
-			drugID, locationID, isSplit, today).
+		Where("drug_id = ? AND location_id = ? AND is_split = ? AND status = 1 AND quantity > reserved_quantity AND expiry_date >= CURRENT_DATE",
+			drugID, locationID, isSplit).
 		Order("expiry_date ASC, received_at ASC").
 		Find(&list).Error
 	return list, err
 }
 
 // FindAvailableForDispense 全口径可发药批次视图（供展示，FEFO 排序，优先拆零）。
-func (r *InventoryRepo) FindAvailableForDispense(ctx context.Context, drugID, locationID int64, today time.Time) ([]model.Inventory, error) {
+// 效期口径同 FindAvailableForDispenseUnit（date-only）。
+func (r *InventoryRepo) FindAvailableForDispense(ctx context.Context, drugID, locationID int64) ([]model.Inventory, error) {
 	var list []model.Inventory
 	err := r.db.WithContext(ctx).
-		Where("drug_id = ? AND location_id = ? AND status = 1 AND quantity > reserved_quantity AND expiry_date >= ?",
-			drugID, locationID, today).
+		Where("drug_id = ? AND location_id = ? AND status = 1 AND quantity > reserved_quantity AND expiry_date >= CURRENT_DATE",
+			drugID, locationID).
 		Order("is_split DESC, expiry_date ASC, received_at ASC").
 		Find(&list).Error
 	return list, err
@@ -286,9 +318,11 @@ func (r *InventoryRepo) FindActive(ctx context.Context) ([]model.Inventory, erro
 }
 
 // LockExpired 将已过期批次状态置为 2（定时任务兜底）。
-func (r *InventoryRepo) LockExpired(ctx context.Context, today time.Time) (int64, error) {
+// 「已过期」= 效期早于今天（date-only），当天到期仍可发药，与 rule.IsExpired 一致；
+// 若按 expiry_date < <带时分秒的时刻> 比较，当天到期批次会被误判过期并锁死。
+func (r *InventoryRepo) LockExpired(ctx context.Context) (int64, error) {
 	res := r.db.WithContext(ctx).Model(&model.Inventory{}).
-		Where("status = 1 AND expiry_date < ?", today).
+		Where("status = 1 AND expiry_date < CURRENT_DATE").
 		Update("status", 2)
 	return res.RowsAffected, res.Error
 }
@@ -444,14 +478,20 @@ func (r *StockAlertRepo) List(ctx context.Context, alertType, status string, off
 }
 
 // UpdateStatus 将预警流转到目标状态（resolved/ignored），记录处理人与时间。
-func (r *StockAlertRepo) UpdateStatus(ctx context.Context, id int64, status string, resolvedBy int64, resolvedByName string) error {
+// 返回是否实际发生流转：对不存在或已处置的预警必须返回 false，
+// 否则调用方会把「未落库」当成「处置成功」上报（批量点击时静默丢单）。
+func (r *StockAlertRepo) UpdateStatus(ctx context.Context, id int64, status string, resolvedBy int64, resolvedByName string) (bool, error) {
 	now := time.Now()
-	return r.db.WithContext(ctx).Model(&model.StockAlert{}).
+	res := r.db.WithContext(ctx).Model(&model.StockAlert{}).
 		Where("id = ? AND status = 'open'", id).
 		Updates(map[string]any{
 			"status":           status,
 			"resolved_at":      now,
 			"resolved_by":      resolvedBy,
 			"resolved_by_name": resolvedByName,
-		}).Error
+		})
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected > 0, nil
 }

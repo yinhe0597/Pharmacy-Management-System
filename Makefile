@@ -107,8 +107,11 @@ swag:
 
 # 执行数据库迁移（增量 + 版本表；需 psql 可用，连接参数经 YF_DB_* 覆盖）
 # 历史库首次升级：make db-migrate YF_MIGRATE_BASELINE_TO=000032
+# 口令必须一并导出：scripts/migrate.sh 只读 PG*/MIGRATIONS_DIR，不读任何 YF_ 口令变量，
+# 此前漏设 PGPASSWORD 会让对有口令的库执行 make db-migrate 直接 fe_sendauth 失败。
 db-migrate:
 	PGHOST=$${YF_DB_HOST:-localhost} PGUSER=$${YF_DB_USER:-yaofang} PGDATABASE=$${YF_DB_NAME:-yaofang} \
+	  PGPASSWORD=$${YF_DB_PASSWORD:-$${YF_DATABASE_PASSWORD:-$${PGPASSWORD:-}}} \
 	  MIGRATIONS_DIR=migrations sh scripts/migrate.sh
 
 # CI 门槛：静态检查 + 格式 + 单元 + 集成

@@ -46,8 +46,12 @@ func (s *InventoryService) CreateRequisitionOrder(ctx context.Context, input Req
 		if err := s.checkLocationNotCounting(ctx, tx, input.LocationID); err != nil {
 			return err
 		}
+		reqNo, err := seq.Next(ctx, "REQ")
+		if err != nil {
+			return err
+		}
 		order = &model.RequisitionOrder{
-			RequisitionNo: seq.Next("REQ"),
+			RequisitionNo: reqNo,
 			LocationID:    input.LocationID,
 			Purpose:       input.Purpose,
 			Reason:        input.Reason,
@@ -104,8 +108,12 @@ func (s *InventoryService) requisitionDrugTx(ctx context.Context, tx *gorm.DB, i
 			return errs.ErrNegativeStock
 		}
 		before := b.Quantity
+		reqTxnNo, err := seq.Next(ctx, "ITN")
+		if err != nil {
+			return err
+		}
 		if err := txnRepo.Create(ctx, &model.InventoryTransaction{
-			TransactionNo: seq.Next("ITN"),
+			TransactionNo: reqTxnNo,
 			DrugID:        in.DrugID, LocationID: order.LocationID,
 			BatchNo: b.BatchNo, ExpiryDate: &b.ExpiryDate,
 			Quantity: -take, IsSplit: b.IsSplit,
@@ -122,7 +130,7 @@ func (s *InventoryService) requisitionDrugTx(ctx context.Context, tx *gorm.DB, i
 		return nil
 	}
 	// 1) 拆零批次（单位即 LDU）
-	splitBatches, err := invRepo.FindAvailableForDispenseUnit(ctx, in.DrugID, order.LocationID, true, todayNow())
+	splitBatches, err := invRepo.FindAvailableForDispenseUnit(ctx, in.DrugID, order.LocationID, true)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +153,7 @@ func (s *InventoryService) requisitionDrugTx(ctx context.Context, tx *gorm.DB, i
 	}
 	// 2) 整盒批次（1 盒 = pack_size LDU，向上取整到整盒）
 	if remaining > 0 {
-		wholeBatches, err := invRepo.FindAvailableForDispenseUnit(ctx, in.DrugID, order.LocationID, false, todayNow())
+		wholeBatches, err := invRepo.FindAvailableForDispenseUnit(ctx, in.DrugID, order.LocationID, false)
 		if err != nil {
 			return nil, err
 		}

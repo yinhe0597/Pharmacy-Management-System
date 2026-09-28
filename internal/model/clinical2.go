@@ -92,18 +92,24 @@ type Charge struct {
 func (Charge) TableName() string { return "charges" }
 
 // ChargeItem 结算单明细（多费用项）。
+// 凭证行：与 Charge 共同构成唯一记账凭证，所有收入/计费报表只统计本表。
 type ChargeItem struct {
-	ID        int64     `gorm:"primaryKey" json:"id"`
-	ChargeID  int64     `gorm:"not null;index" json:"charge_id"`
-	VisitID   *int64    `gorm:"index" json:"visit_id"`
-	ItemType  string    `gorm:"size:20;not null" json:"item_type"` // registration/consultation/treatment/examination/drug/consumable/clinical_service
-	ItemID    *int64    `json:"item_id"`                           // 关联 clinical_services.id / drugs.id / charge_records.id
-	ItemName  string    `gorm:"size:200;not null" json:"item_name"`
-	Quantity  int       `gorm:"not null;default:1" json:"quantity"`
-	UnitPrice int64     `gorm:"not null;default:0" json:"unit_price"`
-	Amount    int64     `gorm:"not null;default:0" json:"amount"`
-	SortOrder int       `gorm:"not null;default:0" json:"sort_order"`
-	CreatedAt time.Time `json:"created_at"`
+	ID int64 `gorm:"primaryKey" json:"id"`
+	// ChargeID 所属结算单。visit_id 同一结算单内恒等于 Charge.VisitID。
+	ChargeID int64  `gorm:"not null;index" json:"charge_id"`
+	VisitID  *int64 `gorm:"index" json:"visit_id"`
+	ItemType string `gorm:"size:20;not null" json:"item_type"` // registration/consultation/treatment/examination/drug/consumable/clinical_service
+	// ItemID 业务对象 ID（drugs.id / clinical_services.id …），含义随 ItemType 而定。
+	ItemID *int64 `json:"item_id"`
+	// SourceRecordID 本行对应的应收计费项目源（charge_records.id，000040）。
+	// ItemID 是多态引用、缺少判别字段，追溯回源须用本列显式记录。
+	SourceRecordID *int64    `gorm:"index" json:"source_record_id"`
+	ItemName       string    `gorm:"size:200;not null" json:"item_name"`
+	Quantity       int       `gorm:"not null;default:1" json:"quantity"`
+	UnitPrice      int64     `gorm:"not null;default:0" json:"unit_price"`
+	Amount         int64     `gorm:"not null;default:0" json:"amount"`
+	SortOrder      int       `gorm:"not null;default:0" json:"sort_order"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 func (ChargeItem) TableName() string { return "charge_items" }

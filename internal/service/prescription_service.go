@@ -94,32 +94,41 @@ func NewPrescriptionService(db *gorm.DB, inventory *InventoryService, special *S
 	return &PrescriptionService{db: db, inventory: inventory, special: special, interSvc: interSvc, patientSvc: patientSvc, clinical: clinical}
 }
 
-// deriveSpecialType 根据明细药品的管制标记推导处方类型。
+// deriveSpecialType 根据明细药品的管制标记推导处方类型（未显式指定时）。
+//
+// 取「最严」而非编号最大：SpecialControlNarcotic=1 < SpecialControlPsycho=2 <
+// Toxic=3 < Radio=4，原先用 max 会让「麻醉 + 二类精神」被判为二类精神（限 7 日），
+// 麻醉的 3 日限量被跳过。精神类再按最小分级（更严）归类。
 func deriveSpecialType(items []model.Drug) int {
-	max := 0
+	hasNarcotic, hasPsycho, hasToxic, hasRadio := false, false, false, false
+	minPsychoLevel := 0
 	for _, d := range items {
-		if d.SpecialControlType > max {
-			max = d.SpecialControlType
+		switch d.SpecialControlType {
+		case enum.SpecialControlNarcotic:
+			hasNarcotic = true
+		case enum.SpecialControlPsycho:
+			hasPsycho = true
+			if minPsychoLevel == 0 || d.PsychotropicLevel < minPsychoLevel {
+				minPsychoLevel = d.PsychotropicLevel
+			}
+		case enum.SpecialControlToxic:
+			hasToxic = true
+		case enum.SpecialControlRadio:
+			hasRadio = true
 		}
 	}
-	switch max {
-	case enum.SpecialControlNarcotic:
+	switch {
+	case hasRadio:
+		return enum.PrescriptionTypeRadio
+	case hasToxic:
+		return enum.PrescriptionTypeToxic
+	case hasNarcotic:
 		return enum.PrescriptionTypeNarcotic
-	case enum.SpecialControlPsycho:
-		// 依据精神分级
-		for _, d := range items {
-			if d.SpecialControlType == enum.SpecialControlPsycho {
-				if d.PsychotropicLevel == enum.PsychoLevelOne {
-					return enum.PrescriptionTypePsychoOne
-				}
-				return enum.PrescriptionTypePsychoTwo
-			}
+	case hasPsycho:
+		if minPsychoLevel == enum.PsychoLevelOne {
+			return enum.PrescriptionTypePsychoOne
 		}
 		return enum.PrescriptionTypePsychoTwo
-	case enum.SpecialControlToxic:
-		return enum.PrescriptionTypeToxic
-	case enum.SpecialControlRadio:
-		return enum.PrescriptionTypeRadio
 	}
 	return enum.PrescriptionTypeNormal
 }
@@ -172,7 +181,11 @@ func (s *PrescriptionService) Create(ctx context.Context, input PrescriptionInpu
 	if prescType == 0 {
 		prescType = deriveSpecialType(drugs)
 	}
-	if prescType != enum.PrescriptionTypeNormal {
+	// 未知类型会落入 CheckPrescriptionLimit 的 default 分支跳过限量校验，绕开麻精管控。
+	if !enum.IsValidPrescriptionType(prescType) {
+		return nil, errs.ErrBadRequest
+	}
+	if enum.IsSpecialPrescriptionType(prescType) {
 		if input.PatientCardNo == "" || input.Diagnosis == "" {
 			return nil, errs.ErrSpecialDrugRequired
 		}
@@ -181,8 +194,12 @@ func (s *PrescriptionService) Create(ctx context.Context, input PrescriptionInpu
 			return nil, err
 		}
 	}
+	rxNo, err := seq.Next(ctx, "RX")
+	if err != nil {
+		return nil, err
+	}
 	p := &model.Prescription{
-		PrescriptionNo:     seq.Next("RX"),
+		PrescriptionNo:     rxNo,
 		PatientID:          idOrNil(input.PatientID),
 		PatientName:        input.PatientName,
 		PatientGender:      input.PatientGender,
@@ -627,18 +644,26 @@ func (s *PrescriptionService) checkAuditRules(ctx context.Context, db *gorm.DB, 
 		inSet[id] = struct{}{}
 	}
 	drugRepo := repository.NewDrugRepo(db)
+	// 一次性载入全部相关药品（复用 interaction_service 的 BatchGetDrugProfiles 范式）：
+	// 原实现对每个交互对与每条明细各发一次 GetByID（嵌套循环 N+1），且静默吞掉查询错误。
+	drugs, err := drugRepo.BatchGetDrugProfiles(ctx, drugIDs)
+	if err != nil {
+		return nil, err
+	}
+	drugByID := make(map[int64]*model.Drug, len(drugs))
+	for i := range drugs {
+		drugByID[drugs[i].ID] = &drugs[i]
+	}
 	for _, inter := range interactions {
 		_, aIn := inSet[inter.DrugAID]
 		_, bIn := inSet[inter.DrugBID]
 		if aIn && bIn {
-			da, _ := drugRepo.GetByID(ctx, inter.DrugAID)
-			db2, _ := drugRepo.GetByID(ctx, inter.DrugBID)
 			nameA, nameB := "", ""
-			if da != nil {
-				nameA = da.GenericName
+			if d := drugByID[inter.DrugAID]; d != nil {
+				nameA = d.GenericName
 			}
-			if db2 != nil {
-				nameB = db2.GenericName
+			if d := drugByID[inter.DrugBID]; d != nil {
+				nameB = d.GenericName
 			}
 			f := interaction.InteractionFinding{
 				DrugAID:       inter.DrugAID,
@@ -661,8 +686,8 @@ func (s *PrescriptionService) checkAuditRules(ctx context.Context, db *gorm.DB, 
 	}
 	// 极量检查
 	for _, it := range items {
-		d, err := drugRepo.GetByID(ctx, it.DrugID)
-		if err != nil {
+		d := drugByID[it.DrugID]
+		if d == nil {
 			continue
 		}
 		if d.MaxSingleDose > 0 && it.SingleDose > 0 && it.SingleDose > d.MaxSingleDose {
@@ -781,7 +806,8 @@ func (s *PrescriptionService) ConfirmDispense(ctx context.Context, id int64, che
 			}
 		}
 		// 核销预占并实扣库存（以该单据预占为准，混合整盒+拆零批次）
-		if err := s.inventory.consumeTx(ctx, tx, "prescription", id, nil); err != nil {
+		// 流水操作人取核对人（与上方 buildDispenseRecords 的 DispensedBy 保持同一口径）。
+		if err := s.inventory.consumeTx(ctx, tx, "prescription", id, nil, checkerID, checkerName); err != nil {
 			return err
 		}
 		// 更新明细状态与主单
@@ -881,7 +907,13 @@ func (s *PrescriptionService) Return(ctx context.Context, id int64, inputs []Ret
 		if err := s.inventory.checkLocationNotCounting(ctx, tx, locID); err != nil {
 			return err
 		}
-		fullyReturned := make(map[int64]bool, len(items))
+		// 累计退回量：以库中快照为基线，叠加本次请求各明细的增量。
+		// 不能用「本次请求的明细集合」判定整方终态——分次退药（先退 A 再退 B）
+		// 会让 B 的请求里查不到 A 的结果，allReturned 恒 false，returned 终态永不可达。
+		returnedByItem := make(map[int64]int64, len(items))
+		for i := range items {
+			returnedByItem[items[i].ID] = items[i].ReturnedQuantity
+		}
 		for _, in := range inputs {
 			it, ok := itemMap[in.ItemID]
 			if !ok {
@@ -938,6 +970,12 @@ func (s *PrescriptionService) Return(ctx context.Context, id int64, inputs []Ret
 				rowLoc := locID
 				if err == nil {
 					rowLoc = inv.LocationID
+					// 自动拆零发药（need_split）的发药记录按拆零形态（片）计量，
+					// 但 rec.InventoryID 仍指向被拆开的整盒行。直接回补会让「片」写进
+					// 以「盒」计量的行，库存虚增一个整盒。此处改定位同批次拆零行。
+					if rec.IsSplit && !inv.IsSplit {
+						inv, err = invRepo.FindByKey(ctx, rec.DrugID, rowLoc, rec.BatchNo, rec.ExpiryDate, true)
+					}
 				} else {
 					if !errors.Is(err, gorm.ErrRecordNotFound) {
 						return err
@@ -982,8 +1020,12 @@ func (s *PrescriptionService) Return(ctx context.Context, id int64, inputs []Ret
 					return err
 				}
 				expiry := rec.ExpiryDate
+				returnNo, err := seq.Next(ctx, "ITN")
+				if err != nil {
+					return err
+				}
 				txn := &model.InventoryTransaction{
-					TransactionNo: seq.Next("ITN"),
+					TransactionNo: returnNo,
 					DrugID:        rec.DrugID, LocationID: rowLoc,
 					BatchNo: rec.BatchNo, ExpiryDate: &expiry,
 					Quantity: takeRows, IsSplit: rec.IsSplit,
@@ -1022,12 +1064,12 @@ func (s *PrescriptionService) Return(ctx context.Context, id int64, inputs []Ret
 			if err := itemRepo.UpdateReturned(ctx, it.ID, in.ReturnQuantity, itemStatus); err != nil {
 				return err
 			}
-			fullyReturned[in.ItemID] = newReturned >= it.DispensedQuantity
+			returnedByItem[in.ItemID] = newReturned
 		}
-		// 仅当「所有明细」均已全部退回时才置整方 returned，未出现在本次输入的明细视作未退
+		// 仅当「所有明细」均已全部退回时才置整方 returned
 		allReturned := true
 		for _, it := range items {
-			if !fullyReturned[it.ID] {
+			if returnedByItem[it.ID] < it.DispensedQuantity {
 				allReturned = false
 				break
 			}

@@ -40,9 +40,9 @@ func doRequest(t *testing.T, r *gin.Engine, token string) *httptest.ResponseReco
 func TestRequireRoles(t *testing.T) {
 	r, mgr := newTestRouter()
 
-	adminTok, _ := mgr.Generate(1, "admin", "管理员", "admin")
-	pharmTok, _ := mgr.Generate(2, "pharm", "药师", "pharmacist")
-	nurseTok, _ := mgr.Generate(3, "pharmacy_nurse", "药房护士", "pharmacy_nurse")
+	adminTok, _ := mgr.Generate(1, "admin", "管理员", "admin", 0)
+	pharmTok, _ := mgr.Generate(2, "pharm", "药师", "pharmacist", 0)
+	nurseTok, _ := mgr.Generate(3, "pharmacy_nurse", "药房护士", "pharmacy_nurse", 0)
 
 	cases := []struct {
 		name     string
@@ -67,7 +67,7 @@ func TestRequireRoles(t *testing.T) {
 // TestAuthInjectsRole 鉴权中间件注入用户角色到上下文（供 RequireRoles 使用）。
 func TestAuthInjectsRole(t *testing.T) {
 	r, mgr := newTestRouter()
-	tok, err := mgr.Generate(7, "doctor", "医生", "doctor")
+	tok, err := mgr.Generate(7, "doctor", "医生", "doctor", 0)
 	if err != nil {
 		t.Fatalf("生成 token 失败: %v", err)
 	}
@@ -156,7 +156,7 @@ func TestAuthInjectsUsername(t *testing.T) {
 			"name":     UserNameFromCtx(c),
 		})
 	})
-	tok, err := mgr.Generate(1, "alice", "爱丽丝", "admin")
+	tok, err := mgr.Generate(1, "alice", "爱丽丝", "admin", 0)
 	if err != nil {
 		t.Fatalf("生成 token 失败: %v", err)
 	}

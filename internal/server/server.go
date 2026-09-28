@@ -20,6 +20,7 @@ import (
 	"yaofang/internal/model"
 	"yaofang/internal/pkg/auth"
 	"yaofang/internal/pkg/errs"
+	"yaofang/internal/pkg/seq"
 	"yaofang/internal/repository"
 	"yaofang/internal/service"
 	"yaofang/internal/service/patient"
@@ -64,6 +65,10 @@ type App struct {
 
 // NewApp 构建应用依赖。
 func NewApp(cfg *config.Config, db *gorm.DB) *App {
+	// 业务单号号段分配器：多副本部署下靠 doc_segments 表保证全局唯一。
+	// 放在组合根初始化，任何嵌入方（main / 集成测试）都自动获得可用的单号生成器。
+	seq.Init(db, 0)
+
 	// TTL 兜底必须在构建 Manager 之前（否则显式配 0 会签发即时过期 token）
 	if cfg.Auth.TokenTTL <= 0 {
 		cfg.Auth.TokenTTL = 720 * time.Hour
@@ -151,17 +156,21 @@ func (a *App) Engine() *gin.Engine {
 		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	}
 
-	// 用户状态复查：token 有效但账号已被停用/删除/降权时，按数据库当前状态与角色处理（吊销能力）
+	// 用户状态复查：token 有效但账号已被停用/删除/降权/改口令时，按数据库当前状态处理。
+	// 同时返回库中当前的登录名/姓名，使操作日志归属不因改名而失真；
+	// TokenVer 与 claims 不一致即视为口令已轮换、token 已吊销。
 	users := repository.NewUserRepo(a.db)
-	checkActive := middleware.UserStateChecker(func(ctx context.Context, userID int64) (string, error) {
+	checkActive := middleware.UserStateChecker(func(ctx context.Context, userID int64) (*middleware.UserState, error) {
 		u, err := users.GetByID(ctx, userID)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		if u.Status != 1 {
-			return "", errs.ErrUnauthorized
+			return nil, errs.ErrUnauthorized
 		}
-		return u.Role, nil
+		return &middleware.UserState{
+			Username: u.Username, Name: u.Name, Role: u.Role, TokenVer: u.TokenVersion,
+		}, nil
 	})
 	authMW := func() gin.HandlerFunc { return middleware.Auth(a.jwt, checkActive) }
 	// 统一写操作审计：所有已认证的非只读请求落 operation_logs（M7：此前仅登录/改密/建用户有审计）

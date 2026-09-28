@@ -80,6 +80,7 @@ func (h *InventoryHandler) List(c *gin.Context) {
 		DrugID:     int64(atoi(c.Query("drug_id"))),
 		LocationID: int64(atoi(c.Query("location_id"))),
 		BatchNo:    c.Query("batch_no"),
+		Keyword:    c.Query("keyword"),
 		Status:     atoi(c.Query("status")),
 	}
 	list, total, err := h.svc.ListInventory(c.Request.Context(), f, q.Page, q.PageSize)

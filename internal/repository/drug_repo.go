@@ -52,8 +52,13 @@ func (r *DrugRepo) FindByUnique(ctx context.Context, genericName, specification,
 }
 
 // Update 更新药品。
+// 必须 Omit 主键/编码/创建时间并 Select("*")：GORM 结构体 Updates 会跳过全部零值字段，
+// 若不 Select，status=0（停用）、is_split_allowed=false（禁拆零）、retail_price=0 等
+// 合法赋值会被静默忽略，接口返回成功但数据未变。
 func (r *DrugRepo) Update(ctx context.Context, d *model.Drug) error {
-	return r.db.WithContext(ctx).Model(d).Omit("code", "created_at").Updates(d).Error
+	return r.db.WithContext(ctx).Model(d).
+		Omit("id", "code", "created_at").
+		Select("*").Updates(d).Error
 }
 
 // Delete 软删除药品（调用方先做冻结检查）。

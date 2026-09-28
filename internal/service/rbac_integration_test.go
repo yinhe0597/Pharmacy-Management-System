@@ -60,8 +60,8 @@ func TestNurseRoleRBAC(t *testing.T) {
 	router := app.Engine()
 	mgr := auth.NewManager(cfg.Auth.JWTSecret, time.Hour)
 
-	clinicTok, _ := mgr.Generate(1001, "clinic_nurse", "跟诊护士", "clinic_nurse")
-	pharmTok, _ := mgr.Generate(1002, "pharmacy_nurse", "药房护士", "pharmacy_nurse")
+	clinicTok, _ := mgr.Generate(1001, "clinic_nurse", "跟诊护士", "clinic_nurse", 0)
+	pharmTok, _ := mgr.Generate(1002, "pharmacy_nurse", "药房护士", "pharmacy_nurse", 0)
 
 	// 跟诊护士：可建档患者（PatientAdmin）
 	w := doJSON(t, router, http.MethodPost, "/api/v1/patients", clinicTok,

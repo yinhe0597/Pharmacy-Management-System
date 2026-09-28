@@ -36,7 +36,7 @@ func splitRowQty(t *testing.T, db *gorm.DB, drugID int64) (qty int64, unitPrice 
 	return qty, unitPrice
 }
 
-func wholeRow(t *testing.T, db *gorm.DB, drugID int64) model.Inventory {
+func wholeRow(t *testing.T, db *gorm.DB, drugID int64) repository.InventoryRow {
 	t.Helper()
 	rows, _, err := repository.NewInventoryRepo(db).List(context.Background(),
 		repository.InventoryListFilter{DrugID: drugID, LocationID: 2}, 0, 20)
@@ -49,7 +49,7 @@ func wholeRow(t *testing.T, db *gorm.DB, drugID int64) model.Inventory {
 		}
 	}
 	t.Fatal("无整盒行")
-	return model.Inventory{}
+	return repository.InventoryRow{}
 }
 
 // TestSplitCostFromBatch 拆零行进价应取「批次实际进价」折算，而非主数据拆零进价。

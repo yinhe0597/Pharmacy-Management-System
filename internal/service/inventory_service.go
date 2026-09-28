@@ -51,8 +51,28 @@ type InventoryService struct {
 // NewInventoryService 构建库存服务。
 func NewInventoryService(db *gorm.DB) *InventoryService { return &InventoryService{db: db} }
 
-// todayNow 当前业务日期（统一取系统当前日）。
-func todayNow() time.Time { return time.Now() }
+// businessTZ 业务时区。与 DSN 的 TimeZone=Asia/Shanghai（config.DSN）保持一致。
+var businessTZ = func() *time.Location {
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		// 内嵌 time/tzdata（cmd/server/main.go）保证可用；兜底回退 UTC 不致 panic。
+		return time.UTC
+	}
+	return loc
+}()
+
+// todayNow 当前业务日期，归一化为 Asia/Shanghai 当天 00:00:00。
+//
+// 两个理由：
+//  1. 效期是 date-only 语义（rule.IsExpired：「效期早于今天才算过期」），
+//     传入带时分秒的时刻会让「当天到期」在按时刻比较时被误判；
+//  2. 归一化后即使被误当作 SQL 参数（expiry_date >= ?）传下去也依然正确，
+//     而容器 TZ 常为 UTC，与 DSN 钉定的 Asia/Shanghai 会差最多 8 小时、
+//     跨零点时业务日错一天。数据库侧的 CURRENT_DATE 与此保持同一时区口径。
+func todayNow() time.Time {
+	n := time.Now().In(businessTZ)
+	return time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, businessTZ)
+}
 
 // checkLocationNotCounting 盘点中的库房禁止入库/出库/调拨。
 func (s *InventoryService) checkLocationNotCounting(ctx context.Context, tx *gorm.DB, locationID int64) error {
@@ -106,11 +126,11 @@ func (s *InventoryService) Requisition(ctx context.Context, drugID, locationID, 
 		if err := s.checkLocationNotCounting(ctx, tx, locationID); err != nil {
 			return err
 		}
-		batches, err := invRepo.FindAvailableForDispenseUnit(ctx, drugID, locationID, false, todayNow())
+		batches, err := invRepo.FindAvailableForDispenseUnit(ctx, drugID, locationID, false)
 		if err != nil {
 			return err
 		}
-		splitBatches, err := invRepo.FindAvailableForDispenseUnit(ctx, drugID, locationID, true, todayNow())
+		splitBatches, err := invRepo.FindAvailableForDispenseUnit(ctx, drugID, locationID, true)
 		if err != nil {
 			return err
 		}
@@ -138,8 +158,12 @@ func (s *InventoryService) Requisition(ctx context.Context, drugID, locationID, 
 				return errs.ErrNegativeStock
 			}
 			before := batches[i].Quantity
+			txnNo, err := seq.Next(ctx, "ITN")
+			if err != nil {
+				return err
+			}
 			if err := txnRepo.Create(ctx, &model.InventoryTransaction{
-				TransactionNo: seq.Next("ITN"),
+				TransactionNo: txnNo,
 				DrugID:        drugID, LocationID: locationID,
 				BatchNo: batches[i].BatchNo, ExpiryDate: &batches[i].ExpiryDate,
 				Quantity: -take, IsSplit: batches[i].IsSplit,
@@ -197,8 +221,12 @@ func (s *InventoryService) addStockTx(ctx context.Context, tx *gorm.DB, entries 
 			return err
 		}
 		expiry := e.ExpiryDate
+		txnNo, err := seq.Next(ctx, "ITN")
+		if err != nil {
+			return err
+		}
 		txn := &model.InventoryTransaction{
-			TransactionNo: seq.Next("ITN"),
+			TransactionNo: txnNo,
 			DrugID:        e.DrugID, LocationID: e.LocationID,
 			BatchNo: e.BatchNo, ExpiryDate: &expiry,
 			Quantity: e.Quantity, IsSplit: e.IsSplit,
@@ -217,6 +245,13 @@ func (s *InventoryService) addStockTx(ctx context.Context, tx *gorm.DB, entries 
 func (s *InventoryService) Transfer(ctx context.Context, fromLoc, toLoc int64, items []TransferItem, operatorID int64, operatorName string) error {
 	if fromLoc == toLoc {
 		return errs.ErrBadRequest
+	}
+	// 数量必须为正：负数会让 Available()<qty 恒真、Deduct 生成 "quantity + N"，
+	// 源库房库存凭空增加且 transfer_out 流水记为正数（伪入库）。
+	for _, it := range items {
+		if it.Quantity <= 0 {
+			return errs.ErrBadRequest
+		}
 	}
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		if err := s.checkLocationNotCounting(ctx, tx, fromLoc); err != nil {
@@ -256,8 +291,12 @@ func (s *InventoryService) Transfer(ctx context.Context, fromLoc, toLoc int64, i
 			// 写入转出流水
 			expiry := inv.ExpiryDate
 			before := inv.Quantity
+			outNo, err := seq.Next(ctx, "ITN")
+			if err != nil {
+				return err
+			}
 			out := &model.InventoryTransaction{
-				TransactionNo: seq.Next("ITN"),
+				TransactionNo: outNo,
 				DrugID:        inv.DrugID, LocationID: fromLoc,
 				BatchNo: inv.BatchNo, ExpiryDate: &expiry,
 				Quantity: -it.Quantity, IsSplit: inv.IsSplit,
@@ -373,8 +412,12 @@ func (s *InventoryService) doSplit(ctx context.Context, tx *gorm.DB, invID, boxe
 	if damaged > 0 {
 		remarks = fmt.Sprintf("拆零损耗%d片", damaged)
 	}
+	outNo, err := seq.Next(ctx, "ITN")
+	if err != nil {
+		return err
+	}
 	out := &model.InventoryTransaction{
-		TransactionNo: seq.Next("ITN"),
+		TransactionNo: outNo,
 		DrugID:        inv.DrugID, LocationID: inv.LocationID,
 		BatchNo: inv.BatchNo, ExpiryDate: &expiry,
 		Quantity: -boxes, IsSplit: false,
@@ -388,8 +431,12 @@ func (s *InventoryService) doSplit(ctx context.Context, tx *gorm.DB, invID, boxe
 	// 拆零行进价 = round(批次实际进价 / pack_size)；落拆零操作单
 	unitPrice := money.Cents(inv.UnitPrice).SplitPrice(drug.PackSize).Int64()
 	expiryDate := inv.ExpiryDate
+	splitNo, err := seq.Next(ctx, "SPL")
+	if err != nil {
+		return err
+	}
 	if err := repository.NewSplitOrderRepo(tx).Create(ctx, &model.SplitOrder{
-		SplitNo: seq.Next("SPL"), InventoryID: inv.ID, DrugID: inv.DrugID,
+		SplitNo: splitNo, InventoryID: inv.ID, DrugID: inv.DrugID,
 		LocationID: inv.LocationID, BatchNo: inv.BatchNo, ExpiryDate: &expiryDate,
 		Boxes: boxes, Units: units, Damaged: damaged, SplitUnitCost: unitPrice,
 		OperatorID: operatorID, OperatorName: operatorName,
@@ -446,8 +493,12 @@ func (s *InventoryService) Adjust(ctx context.Context, req AdjustRequest, operat
 			before, after = inv.Quantity, inv.Quantity+req.Quantity
 		}
 		expiry := inv.ExpiryDate
+		adjNo, err := seq.Next(ctx, "ITN")
+		if err != nil {
+			return err
+		}
 		txn := &model.InventoryTransaction{
-			TransactionNo: seq.Next("ITN"),
+			TransactionNo: adjNo,
 			DrugID:        inv.DrugID, LocationID: inv.LocationID,
 			BatchNo: inv.BatchNo, ExpiryDate: &expiry,
 			Quantity: req.Quantity, IsSplit: inv.IsSplit,
@@ -519,7 +570,7 @@ func (s *InventoryService) reserveItemTx(ctx context.Context, tx *gorm.DB, refTy
 // reserveSameUnitTx 在同口径批次（整盒或拆零）中 FEFO 预占，数量以该口径计。
 func (s *InventoryService) reserveSameUnitTx(ctx context.Context, tx *gorm.DB, invRepo *repository.InventoryRepo, resvRepo *repository.StockReservationRepo, refType string, refID int64, item port.ReserveItem, isSplit bool, limit int64) (port.ReservationResult, error) {
 	res := port.ReservationResult{DrugID: item.DrugID, Quantity: item.Quantity}
-	batches, err := invRepo.FindAvailableForDispenseUnit(ctx, item.DrugID, item.LocationID, isSplit, todayNow())
+	batches, err := invRepo.FindAvailableForDispenseUnit(ctx, item.DrugID, item.LocationID, isSplit)
 	if err != nil {
 		return res, err
 	}
@@ -557,7 +608,7 @@ func (s *InventoryService) reserveMixedTx(ctx context.Context, tx *gorm.DB, invR
 	pack := int64(drug.PackSize)
 
 	// 拆零库存总量（用于整单优先拆零判定）
-	splitBatches, err := invRepo.FindAvailableForDispenseUnit(ctx, item.DrugID, item.LocationID, true, todayNow())
+	splitBatches, err := invRepo.FindAvailableForDispenseUnit(ctx, item.DrugID, item.LocationID, true)
 	if err != nil {
 		return res, err
 	}
@@ -579,7 +630,7 @@ func (s *InventoryService) reserveMixedTx(ctx context.Context, tx *gorm.DB, invR
 
 		// 整盒部分（数量按盒，LDU 折算 ×pack）
 		if boxes > 0 {
-			wholeBatches, err := invRepo.FindAvailableForDispenseUnit(ctx, item.DrugID, item.LocationID, false, todayNow())
+			wholeBatches, err := invRepo.FindAvailableForDispenseUnit(ctx, item.DrugID, item.LocationID, false)
 			if err != nil {
 				return res, err
 			}
@@ -616,7 +667,7 @@ func (s *InventoryService) reserveMixedTx(ctx context.Context, tx *gorm.DB, invR
 // reserveOpenBox 自动拆零规划：预留 1 盒整盒（need_split），拆开后 splitUnits 片用于处方。
 // 返回该盒对处方的 LDU 覆盖量（splitUnits）；无可用整盒返回 0（缺货）。
 func (s *InventoryService) reserveOpenBox(ctx context.Context, tx *gorm.DB, invRepo *repository.InventoryRepo, resvRepo *repository.StockReservationRepo, refType string, refID int64, item port.ReserveItem, splitUnits int64) (int64, error) {
-	wholeBatches, err := invRepo.FindAvailableForDispenseUnit(ctx, item.DrugID, item.LocationID, false, todayNow())
+	wholeBatches, err := invRepo.FindAvailableForDispenseUnit(ctx, item.DrugID, item.LocationID, false)
 	if err != nil {
 		return 0, err
 	}
@@ -631,8 +682,12 @@ func (s *InventoryService) reserveOpenBox(ctx context.Context, tx *gorm.DB, invR
 		if !ok {
 			continue
 		}
+		resvNo, err := seq.Next(ctx, "RSV")
+		if err != nil {
+			return 0, err
+		}
 		resv := &model.StockReservation{
-			ReservationNo: seq.Next("RSV"),
+			ReservationNo: resvNo,
 			RefType:       refType, RefID: refID, ItemID: item.ItemID,
 			InventoryID: b.ID, DrugID: b.DrugID, LocationID: b.LocationID,
 			BatchNo: b.BatchNo, ExpiryDate: b.ExpiryDate, IsSplit: false,
@@ -672,8 +727,12 @@ func (s *InventoryService) reserveAcrossBatches(ctx context.Context, tx *gorm.DB
 				return reserved, err
 			}
 			if ok {
+				resvNo, err := seq.Next(ctx, "RSV")
+				if err != nil {
+					return reserved, err
+				}
 				resv := &model.StockReservation{
-					ReservationNo: seq.Next("RSV"),
+					ReservationNo: resvNo,
 					RefType:       refType, RefID: refID, ItemID: item.ItemID,
 					InventoryID: b.ID, DrugID: b.DrugID, LocationID: b.LocationID,
 					BatchNo: b.BatchNo, ExpiryDate: b.ExpiryDate, IsSplit: b.IsSplit,
@@ -702,13 +761,15 @@ func (s *InventoryService) reserveAcrossBatches(ctx context.Context, tx *gorm.DB
 // DispenseAndReduceStock 发药实扣（按该单据的 active 预占核销）。
 func (s *InventoryService) DispenseAndReduceStock(ctx context.Context, refType string, refID int64, items []port.DispenseItem) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		return s.consumeTx(ctx, tx, refType, refID, items)
+		return s.consumeTx(ctx, tx, refType, refID, items, 0, "")
 	})
 }
 
 // consumeTx 核销预占并实扣库存、写发药流水。
 // 以该单据的 active 预占为准核销（分配即定义），items 参数保留供接口契约校验参考。
-func (s *InventoryService) consumeTx(ctx context.Context, tx *gorm.DB, refType string, refID int64, _ []port.DispenseItem) error {
+// operatorID/operatorName 用于流水追溯：自动拆零的 split_in 流水若不带操作人，
+// 麻精药品「专人负责/双人核对」在库存侧无法追溯。
+func (s *InventoryService) consumeTx(ctx context.Context, tx *gorm.DB, refType string, refID int64, _ []port.DispenseItem, operatorID int64, operatorName string) error {
 	resvRepo := repository.NewStockReservationRepo(tx)
 	invRepo := repository.NewInventoryRepo(tx)
 	txnRepo := repository.NewInventoryTransactionRepo(tx)
@@ -722,7 +783,7 @@ func (s *InventoryService) consumeTx(ctx context.Context, tx *gorm.DB, refType s
 		}
 		if r.NeedSplit {
 			// 自动拆零：整盒拆开，splitUnits 片用于处方，余片入拆零柜
-			if err := s.consumeOpenBoxTx(ctx, tx, invRepo, txnRepo, refType, refID, &r); err != nil {
+			if err := s.consumeOpenBoxTx(ctx, tx, invRepo, txnRepo, refType, refID, &r, operatorID, operatorName); err != nil {
 				return err
 			}
 			continue
@@ -746,8 +807,12 @@ func (s *InventoryService) consumeTx(ctx context.Context, tx *gorm.DB, refType s
 			return err
 		}
 		expiry := r.ExpiryDate
+		dispNo, err := seq.Next(ctx, "ITN")
+		if err != nil {
+			return err
+		}
 		txn := &model.InventoryTransaction{
-			TransactionNo: seq.Next("ITN"),
+			TransactionNo: dispNo,
 			DrugID:        r.DrugID, LocationID: r.LocationID,
 			BatchNo: r.BatchNo, ExpiryDate: &expiry,
 			Quantity: -r.Quantity, IsSplit: r.IsSplit,
@@ -763,7 +828,7 @@ func (s *InventoryService) consumeTx(ctx context.Context, tx *gorm.DB, refType s
 
 // consumeOpenBoxTx 自动拆零入账：整盒行 -1 → 拆零行 +(pack-splitUnits) → 预占置 consumed。
 // 患者取走的 splitUnits 片由整盒扣减涵盖（不重复扣拆零行），发药记录在 buildDispenseRecords 生成。
-func (s *InventoryService) consumeOpenBoxTx(ctx context.Context, tx *gorm.DB, invRepo *repository.InventoryRepo, txnRepo *repository.InventoryTransactionRepo, refType string, refID int64, r *model.StockReservation) error {
+func (s *InventoryService) consumeOpenBoxTx(ctx context.Context, tx *gorm.DB, invRepo *repository.InventoryRepo, txnRepo *repository.InventoryTransactionRepo, refType string, refID int64, r *model.StockReservation, operatorID int64, operatorName string) error {
 	inv, err := invRepo.LockForUpdate(ctx, r.InventoryID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -782,13 +847,18 @@ func (s *InventoryService) consumeOpenBoxTx(ctx context.Context, tx *gorm.DB, in
 	}
 	// 整盒拆分流水（split_out）
 	expiry := inv.ExpiryDate
+	splitOutNo, err := seq.Next(ctx, "ITN")
+	if err != nil {
+		return err
+	}
 	out := &model.InventoryTransaction{
-		TransactionNo: seq.Next("ITN"),
+		TransactionNo: splitOutNo,
 		DrugID:        inv.DrugID, LocationID: inv.LocationID,
 		BatchNo: inv.BatchNo, ExpiryDate: &expiry,
 		Quantity: -1, IsSplit: false,
 		BeforeQuantity: before, AfterQuantity: before - 1,
 		TxnType: enum.TxnSplitOut, RefType: refType, RefID: refID,
+		OperatorID: operatorID, OperatorName: operatorName,
 		Remarks: "自动拆零发放",
 	}
 	if err := txnRepo.Create(ctx, out); err != nil {
@@ -804,7 +874,7 @@ func (s *InventoryService) consumeOpenBoxTx(ctx context.Context, tx *gorm.DB, in
 		if err := s.addStockTx(ctx, tx, []StockEntry{{
 			DrugID: inv.DrugID, LocationID: inv.LocationID, BatchNo: inv.BatchNo,
 			ExpiryDate: inv.ExpiryDate, IsSplit: true, Quantity: remain, UnitPrice: unitPrice,
-		}}, refType, refID, enum.TxnSplitIn, 0, ""); err != nil {
+		}}, refType, refID, enum.TxnSplitIn, operatorID, operatorName); err != nil {
 			return err
 		}
 	}
@@ -877,8 +947,8 @@ func (s *InventoryService) GetInventoryDetail(ctx context.Context, id int64) (*m
 	return inv, nil
 }
 
-// ListInventory 库存列表。
-func (s *InventoryService) ListInventory(ctx context.Context, f repository.InventoryListFilter, page, pageSize int) ([]model.Inventory, int64, error) {
+// ListInventory 库存列表（含药品名与库房名，前端按 drug_name/location_name 渲染）。
+func (s *InventoryService) ListInventory(ctx context.Context, f repository.InventoryListFilter, page, pageSize int) ([]repository.InventoryRow, int64, error) {
 	return repository.NewInventoryRepo(s.db).List(ctx, f, (page-1)*pageSize, pageSize)
 }
 
@@ -897,7 +967,15 @@ func (s *InventoryService) ResolveAlert(ctx context.Context, id int64, action st
 	if action != "resolved" && action != "ignored" {
 		return errs.ErrBadRequest
 	}
-	return repository.NewStockAlertRepo(s.db).UpdateStatus(ctx, id, action, operatorID, operatorName)
+	ok, err := repository.NewStockAlertRepo(s.db).UpdateStatus(ctx, id, action, operatorID, operatorName)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		// 预警不存在或已被处置：明确报状态冲突，避免调用方误以为处置落库成功。
+		return errs.ErrStateConflict
+	}
+	return nil
 }
 
 // ListStocktakes 盘点单列表。
@@ -976,7 +1054,7 @@ func (s *InventoryService) AvailablePacks(ctx context.Context, drugID, locationI
 // availablePacksTx 事务内版本：供已开启事务的调用方复用同一连接（读一致，避免事务外快照）。
 func (s *InventoryService) availablePacksTx(ctx context.Context, db *gorm.DB, drugID, locationID int64) (int64, error) {
 	rows, err := repository.NewInventoryRepo(db).
-		FindAvailableForDispenseUnit(ctx, drugID, locationID, false, todayNow())
+		FindAvailableForDispenseUnit(ctx, drugID, locationID, false)
 	if err != nil {
 		return 0, err
 	}

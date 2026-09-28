@@ -108,6 +108,25 @@
         <el-form-item label="患者" required
           ><el-input v-model="chargeForm.patient_name"
         /></el-form-item>
+        <el-form-item label="关联就诊">
+          <el-select
+            v-model="chargeForm.visit_id"
+            filterable
+            clearable
+            remote
+            :remote-method="searchVisits"
+            :loading="visitLoading"
+            placeholder="按患者姓名搜索就诊（不选则按时间窗口归集）"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="v in visits"
+              :key="v.id"
+              :label="`${v.visit_no} · ${v.status === 'visiting' ? '就诊中' : v.status === 'finished' ? '已结束' : v.status}`"
+              :value="v.id"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="类型">
           <el-select v-model="chargeForm.item_type">
             <el-option label="药品" value="drug" /><el-option
@@ -171,6 +190,7 @@ import {
   deleteClinicalService,
   setClinicalServiceStatus,
 } from '@/api/billing'
+import { listVisits } from '@/api/clinical2'
 import MoneyText from '@/components/MoneyText.vue'
 import PatientPicker from '@/components/PatientPicker.vue'
 import { CHARGE_ITEM_TYPES } from '@/types/business'
@@ -183,12 +203,17 @@ const loading = ref(false)
 const query = reactive({ keyword: '', item_type: '', patient_id: undefined as number | undefined })
 const chargeVisible = ref(false)
 const chargeForm = reactive({
+  // visit_id 决定该费用项被哪张结算单精确归集（后端 charge_records.visit_id，000040）。
+  // 不传时后端回退到时间窗口猜测归属，可能错归到同患者的其它就诊。
+  visit_id: undefined as number | undefined,
   patient_name: '',
   item_type: 'clinical_service',
   item_name: '',
   quantity: 1,
   unit_price: 0,
 })
+const visits = ref<any[]>([])
+const visitLoading = ref(false)
 const services = ref<any[]>([])
 const serviceVisible = ref(false)
 const serviceForm = reactive<Record<string, any>>({
@@ -220,13 +245,27 @@ async function loadServices() {
 }
 function openCreate() {
   Object.assign(chargeForm, {
+    visit_id: undefined,
     patient_name: '',
     item_type: 'clinical_service',
     item_name: '',
     quantity: 1,
     unit_price: 0,
   })
+  visits.value = []
   chargeVisible.value = true
+}
+async function searchVisits(keyword: string) {
+  if (!keyword) {
+    visits.value = []
+    return
+  }
+  visitLoading.value = true
+  try {
+    visits.value = (await listVisits({ keyword, page: 1, page_size: 20 }))?.list ?? []
+  } finally {
+    visitLoading.value = false
+  }
 }
 async function saveCharge() {
   await createCharge(chargeForm)

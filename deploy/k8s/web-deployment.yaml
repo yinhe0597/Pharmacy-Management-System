@@ -16,16 +16,34 @@ spec:
       labels:
         app: yaofang-web
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: web
           image: registry.example.com/yaofang-web:latest  # 替换为你的镜像地址
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           ports:
             - name: http
               containerPort: 80
           env:
             - name: API_UPSTREAM
               value: "yaofang-api:8080"   # Nginx 模板替换：/api 反代到后端 Service
+          # 存活探针：Nginx 主进程假死时重启（仅有 readiness 时 Pod 只会持续 NotReady）
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
           readinessProbe:
             httpGet:
               path: /

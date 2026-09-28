@@ -26,6 +26,10 @@ func NewAuthService(db *gorm.DB, jwt *auth.Manager) *AuthService {
 	return &AuthService{db: db, jwt: jwt}
 }
 
+// dummyPasswordHash 用户不存在时也执行一次等价的 bcrypt 比对，消除时序侧信道。
+// 该哈希由随机口令生成、线上不可解，成本参数与真实口令一致（bcrypt.DefaultCost）。
+const dummyPasswordHash = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
+
 // Login 校验账号密码并签发 JWT。
 // 先验密码再查停用状态：用户不存在/密码错误/停用等失败信息不对未通过认证者泄露
 // （避免无密码探测账号存在性与状态）。
@@ -33,6 +37,9 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (str
 	u, err := repository.NewUserRepo(s.db).GetByUsername(ctx, username)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// 对不存在账号同样走一次 bcrypt 比对：直接返回会让「账号不存在」的
+			// 响应比「密码错误」快 ~60-100ms，统计上可稳定区分账号是否存在。
+			_ = bcrypt.CompareHashAndPassword([]byte(dummyPasswordHash), []byte(password))
 			return "", nil, errs.ErrBadRequest
 		}
 		return "", nil, err
@@ -43,7 +50,7 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (str
 	if u.Status != 1 {
 		return "", nil, errs.ErrAccountDisabled
 	}
-	token, err := s.jwt.Generate(u.ID, u.Username, u.Name, u.Role)
+	token, err := s.jwt.Generate(u.ID, u.Username, u.Name, u.Role, u.TokenVersion)
 	if err != nil {
 		return "", nil, err
 	}
@@ -107,6 +114,8 @@ func (s *AuthService) CreateUser(ctx context.Context, u *model.User, password st
 }
 
 // UpdateUser 更新用户信息。
+// name/role/phone 为空串表示「不修改」：调用方常只提交 {status} 或 {password} 做局部更新，
+// 无条件赋值会把 role 写成空串，RequireRoles 全线 403，账号被静默锁死且不可用 API 恢复。
 // status 为指针：nil 表示不修改；传 0/1 显式设置（修复此前传 0 被视为未修改、账号无法停用的问题）。
 func (s *AuthService) UpdateUser(ctx context.Context, id int64, name, role, phone string, status *int, newPassword string) error {
 	if role != "" && !enum.IsValidRole(role) {
@@ -122,9 +131,15 @@ func (s *AuthService) UpdateUser(ctx context.Context, id int64, name, role, phon
 		}
 		return err
 	}
-	u.Name = name
-	u.Role = role
-	u.Phone = phone
+	if name != "" {
+		u.Name = name
+	}
+	if role != "" {
+		u.Role = role
+	}
+	if phone != "" {
+		u.Phone = phone
+	}
 	if status != nil {
 		u.Status = *status
 	}
@@ -134,6 +149,8 @@ func (s *AuthService) UpdateUser(ctx context.Context, id int64, name, role, phon
 			return err
 		}
 		u.PasswordHash = string(hash)
+		// 管理员重置口令同样要作废该账号的存量 token：否则被重置者仍可用旧会话操作到 TTL 结束。
+		u.TokenVersion++
 	}
 	return repository.NewUserRepo(s.db).Update(ctx, u)
 }

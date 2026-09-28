@@ -42,6 +42,29 @@ const (
 	PrescriptionTypeRadio     = 5 // 放射性
 )
 
+// AllPrescriptionTypes 全部合法处方类型。
+var AllPrescriptionTypes = []int{
+	PrescriptionTypeNormal, PrescriptionTypeNarcotic, PrescriptionTypePsychoOne,
+	PrescriptionTypePsychoTwo, PrescriptionTypeToxic, PrescriptionTypeRadio,
+}
+
+// IsValidPrescriptionType 处方类型取值校验：拒绝越界值（如 99）。
+// 未知类型会落入 CheckPrescriptionLimit 的 default 分支跳过限量校验，
+// 绕开麻精处方管控，故必须在入口拒绝。
+func IsValidPrescriptionType(t int) bool {
+	for _, v := range AllPrescriptionTypes {
+		if v == t {
+			return true
+		}
+	}
+	return false
+}
+
+// IsSpecialPrescriptionType 是否为麻精毒放专管处方（受五专与限量管控）。
+func IsSpecialPrescriptionType(t int) bool {
+	return t != PrescriptionTypeNormal
+}
+
 // 处方来源（一期仅 manual，二期扩展）。
 const (
 	PrescriptionSourceManual     = "manual"     // 药房手工录入

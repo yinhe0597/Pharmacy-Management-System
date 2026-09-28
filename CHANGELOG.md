@@ -4,6 +4,148 @@
 
 ## [Unreleased]
 
+### 修复（第六轮：生产阻断收口 + 账务口径统一 + 单号多副本）
+
+> 本轮以「能否上线」为标准复审全量代码/配置/部署，**凡可证伪的一律实测**
+> （真实 PG16 / Docker build / 依赖库源码 / 并发测试），据此推翻了 3 条静态审计结论。
+> 完整报告见 [docs/28-第六轮审计修复报告.md](docs/28-第六轮审计修复报告.md)
+
+**阻断（此前任何容器化路径都必然失败）**
+
+- **`docker build` 双重阻断**：①`Dockerfile:7` 基础镜像 `golang:1.26.5-alpine` 低于 `go.mod` 要求的 `>= 1.26.6`，
+  构建在 `go mod download` 即终止；②`.dockerignore:18` 排除 `docs/`，但 `internal/server/server.go:29`
+  硬依赖 `yaofang/docs`（swag 生成的路由包）。修复后 `docker build` 实测通过。
+
+**合规**
+
+- **收货质检门禁失效**：`PurchaseReceiptItem.QCResult` 同时带 GORM `default:1` 与 DDL `DEFAULT 1`，
+  「未质检(0)」被 GORM 省略该列后由 DB 默认值改写为「合格(1)」，导致 `HasUninspected` 恒 false
+  ——收货单可在零质检下入库（违反 GSP）。迁移 `000037` 去掉列默认值（**不回溯改写历史行**：
+  无法区分「真合格」与「未登记」）；`Receive` 增加 `qc_result ∈ [0,2]` 取值域校验。
+- **麻精限量绕过**：`CheckPrescriptionLimit` 判据为 `Days > limit`，留空（0）即恒假放行——不填天数成为绕限量通路。
+  改为 `Days <= 0` 拒绝。
+- **麻精限量被宽松类型覆盖**：`deriveSpecialType` 取 `max`，而 `Narcotic=1 < Psycho=2`，
+  「麻醉 + 二类精神」被判为二类精神（限 7 日），**麻醉的 3 日限量被跳过**。改为「最严优先」。
+- **非法处方类型绕限量**：`prescription_type=99` 落入 `CheckPrescriptionLimit` 的 default 分支跳过校验。
+  新增 `IsValidPrescriptionType` 并在入口拒绝越界值。
+
+**正确性**
+
+- **库存调拨负数量致虚增**：`Transfer` 未校验 `Quantity > 0`，负数使 `Available() < qty` 恒真、
+  `Deduct` 生成 `quantity + N`，源库房库存凭空增加且 `transfer_out` 流水记为正数（伪入库）。
+  service 入口 + `Deduct`/`DeductAvailable` 仓储层双层拒绝。
+- **红冲净额变负**：`VoidCharge` 置原单 `voided=true` 并新增 `Amount=-X, Voided=false` 冲正单，
+  而下游只按 `voided=FALSE` 过滤 → 只捞到 `-X`，患者净额凭空减少、结算甚至因 `payable<0` 被阻断。
+  冲正单同步置 `voided=true`（两单成对，净额归零，留痕由冲正单本身承担）。
+- **自动拆零处方退药虚增**：`need_split` 发药记录按拆零形态（片）计量，但 `InventoryID` 仍指向被拆开的整盒行，
+  退药回补把「片」写进以「盒」计量的行 → 虚增一个整盒。改为按 `rec.IsSplit` 定位同批次拆零行。
+- **效期 date-only 口径统一**（实测确认）：`expiry_date` 是 DATE 列，PG 按会话时区提升为当天 00:00；
+  传 `time.Now()`（带时分秒）使 `00:00 >= 14:23` 为 false，当天到期批次被 FEFO **整日排除**，
+  而同一参数的 `<` 比较又把它判为已过期并锁定——两条路径自相矛盾，4 条路径给出 3 种结论。
+  三个仓储方法改用 `CURRENT_DATE` 并**移除 `today` 形参**（从签名消除陷阱）；
+  `todayNow()` 归一化到 Asia/Shanghai 当天零点（容器 TZ=UTC 时原本会差 8 小时、跨零点业务日错一天）。
+- **GORM 零值更新两处断链**：`drug_repo` 结构体 `Updates` 跳过零值 → **药品无法停用**、无法关拆零、无法清零零售价；
+  `clinical_repo` `Select("*")` 无 `Omit` → PUT 漏传 `code` 写空串，**第一次毁掉唯一编码、第二次必撞唯一键**。
+  统一为 `Omit(主键/编码/创建时间).Select("*")` 写法。
+- **状态流转抹除审核痕迹**：`UpdateStatus` 无条件写 `reviewed_at`/`auditor_id`/`checker_*`，
+  调配阶段未回填即把已记录的审核人与审核时间清空。改为仅在回填时才写入。
+- **`PUT /users/:id` 省略 role 致账号锁死**：`role` 是可选字段，无条件赋值导致写入空串 → `RequireRoles` 全线 403 且无 API 可恢复。
+- **分次退药终态不可达**：终态判定基于请求局部 map，多明细分次退药时先退的明细在后续请求中查不到。改为以库中快照累加。
+- **预警处置静默丢单**：`UpdateStatus` 忽略 `RowsAffected`，已处置的预警重复提交返回成功但未落库。改返回 `(bool, error)`。
+- **空安瓿核对人落空**：前端不传 `verified_by` 写入空串，麻精双人核对链在数据层断裂。改取 ctx 登录用户并加非空校验。
+- **负折扣 = 任意加价**：`discount` 无非负校验，`payable = total - discount` 可被抬高且必然可实收。
+- **自动拆零流水丢操作人**：`addStockTx` 实参错位，`split_in`/`split_out` 流水 operator 为空，麻精双人追溯断链。
+- **`StockSettingRepo.Upsert` 并发唯一冲突**：「先 First 后 Create」并发下双双 Create，一方撞 23505 →
+  PG 事务 `aborted(25P02)` 整单 500。改 `ON CONFLICT` 原子 upsert。
+- **4 处批量写入空切片 500**：GORM 对空切片返回 `ErrEmptySlice`（已读 `gorm@v1.31.2` 源码确认）被当系统异常上报。
+- **`Count` 的 error 被丢弃**：DB 抖动时 `n=0` 被误报为「结算单不存在」，掩盖真实故障。
+- **交互检查 N+1 + 吞错**：嵌套循环内 `GetByID`，改 `BatchGetDrugProfiles` 批量载入（仓内既有范式）。
+
+**架构收敛**
+
+- **统一记账口径**（迁移 `000040`）：`charges` + `charge_items` 为**唯一记账凭证**；
+  `charge_records`（+= `visit_id`）降级为「应收计费项目源」，只被结算单按就诊**精确**归集，
+  不被任何报表直接统计。连锁修复：消除按时间窗口猜归属导致的跨就诊错归集；
+  放开 `item_type` 排除 `drug` 修掉「手工药品费永远不进账单」的收入漏记；
+  排除 `ref_type='prescription'` 防止与处方快照口径**重复计费**；
+  `charge_items.source_record_id` 回溯来源，消除 `item_id` 多态引用歧义；
+  `PatientCharges` 报表改读同一凭证，与 `RevenueBreakdown` 同源同口径。
+  > 保留「仅对 `visit_id IS NULL` 存量行」的时间窗口回退——只认 `visit_id` 会让不传该字段的录入方
+  > **静默漏计费**，对药房账目比错归集更危险；同时补上写入路径（手工计费弹窗新增「关联就诊」选择器）。
+- **业务单号多副本安全**（迁移 `000041`）：`seq.Next` 原为「前缀+Unix秒+进程内 3 位自增」，只在单进程唯一；
+  同秒内两副本各自产生第 N 条即得到相同单号，撞 UNIQUE 约束，而 PG 下唯一冲突会把事务置入 `aborted(25P02)`，
+  **整笔业务（含库存扣减）回滚**。改为号段表（`doc_segments`）：单条 `INSERT..ON CONFLICT..RETURNING`
+  原子申请 256 个号，进程内独占区间 → **5~20 副本下全局唯一**，DB 往返摊薄到 1/256。
+  格式 `<prefix><yyyyMMddHHmmss><8 位绝对序号>`，保留「单号可按时间排序」的现场运维刚需；
+  与旧格式长度不同故不与存量单号冲突。`Next` 改为返回 `error`——宁可失败也不产生重复单号。
+- **JWT 令牌可吊销**（迁移 `000039`）：新增 `users.token_version` 签入 claims 并逐请求比对；
+  改密与管理员重置口令时自增，一次性作废该用户全部存量 token（此前最长 30 天无法处置）。
+  附带：`role`/`username`/`name` 改为一律取库中当前值（此前取 token 旧值，改名后操作日志归属失真）。
+- **软删与唯一约束的系统性冲突**（迁移 `000038`）：11 张业务主数据表的**全表**唯一约束在软删后仍占用槽位，
+  而创建路径预检走默认作用域查不到软删行 → 预检通过 → INSERT 撞 23505 → **接口返回 500 而非 409**。
+  改为部分唯一索引 `WHERE deleted_at IS NULL`（沿用 000031/000033 已验证范式）。
+  单据流水号（`visit_no`/`charge_no`/`visit_id`）与 `drugs.code` 刻意保持全局唯一。
+  附带：17 张软删表**零个** `deleted_at` 首列索引（model 声明了 `gorm:"index"` 但 DDL 只 `ADD COLUMN`），
+  每条 List/Count 都隐式 `WHERE deleted_at IS NULL` → 全线退化为顺序扫描，已补齐。
+
+**连通性**
+
+- **前后端 6 处字段契约断裂**（前端类型层给出虚假保证：`vue-tsc` 通过但运行时全空，故长期潜伏）：
+  库存列表药品/库房两列全空、采购列表单号/供应商两列全空、收货质检弹窗药品列全空、拆零单入片数列全空、
+  不良反应/用药指导药品与反应两列全空；**库存列表「药品名称」搜索完全无效**（前端传 `keyword`，后端无该字段）。
+  新增 6 个带 JOIN 的行 DTO 并修正字段名（`units_in`→`units`、`order_no`→`purchase_no`、`reaction`→`reaction_desc`）。
+- **麻精开方 UI 打通**：后端早已支持 `prescription_type`，纯前端缺失导致麻精「五专」链路无法从任何 UI 走通。
+  开方表单新增处方类型选择器（复用共享字典，不新增第 4 份硬编码副本）、动态合规提示条与提交前拦截。
+
+**安全**
+
+- **审计规避原语**：`AuditWrites` 用请求上下文落库，客户端「读到 200 立刻 RST」即可让敏感写操作
+  （发药/红冲/改价/停用）已提交入库而审计行丢失。改 `context.WithoutCancel` + 3s 超时。
+- **登录限速 body 无上限**：未认证的登录接口 `io.ReadAll` 无长度限制 → 远程 OOM。加 4 KiB `LimitReader`。
+- **限速桶无界增长**：用户名由攻击者完全控制且长度不限，桶只清理「已过期」项 → 内存单调增长。
+  用户名截断 64 字节 + 桶数硬上限 4096。
+- **登录时序侧信道**：用户不存在时不执行 bcrypt，与密码错误路径相差 60~100ms，可统计区分账号是否存在。
+  改为对 dummy 哈希执行等价比对。
+- **release 模式 CORS 通配**：原先仅 `slog.Warn` 不阻断启动。升级为 `config.validate()` 拒绝启动。
+- **CORS 缓存污染**：回显具体 Origin 时未下发 `Vary: Origin`，前置代理的响应缓存会把为 A 域计算的 ACAO 命中给 B 域。
+
+**部署与工具链**
+
+- **`.env` 两套互斥变量名**：`JWT_SECRET`/`DB_PASSWORD`（生产脚本）与 `YF_AUTH_JWT_SECRET`/`YF_DATABASE_PASSWORD`
+  （文档/Makefile）互斥 → **照文档配置仍启动失败**。统一为 `YF_` 前缀（`.env.example`/`start.sh`/`start.bat`/prod compose 同步）。
+- **prod 日志格式**：生产 compose 未设 `YF_LOG_FORMAT`，走默认 `text`，而 Promtail/Loki 按 JSON 采集 → 日志聚合**静默降级**。已补。
+- **`make db-migrate` 漏传口令**：从不设 `PGPASSWORD`，对有口令的库直接 `fe_sendauth` 失败。已补导出链。
+- **CI lint 门槛失效**：`golangci-lint v1.62.2` 早于 Go 1.24，其内嵌 `go/types` 无法解析新标准库。升至 `v2.1.6`。
+- **K8s 零 securityContext**：api 与 web 均补 `runAsNonRoot`/`readOnlyRootFilesystem`/`capabilities.drop`/`seccompProfile`；
+  web 容器补 livenessProbe。
+
+**测试**
+
+- 新增回归测试 13 个用例 / 5 个文件：调拨负数、红冲净额归零、分次退药终态、自动拆零退货、药品停用、
+  局部更新保角色、审核痕迹、预警处置、收货质检；效期 date-only、过期锁定、软删唯一性、JWT 吊销、
+  空切片、并发 upsert；结算归集不串号、手工药品费进账、处方不重复计费、报表单一凭证、费用行回源；
+  多副本单号唯一性（20 分配器 × 10 单号实测零重复）、格式列宽、号段不相交；
+  `days=0` 绕过、超限量、最严归类、非法类型、必填项；限速边界、令牌吊销、`alg=none`、release CORS 门禁。
+- **修复测试基础设施缺陷**：`setupTestDB` 此前每用例各自 `OpenDB` 且从不关闭，用例数一多累计连接数超 `max_connections`，
+  后续用例随机报 "too many clients already"，把基础设施问题伪装成业务失败。改为全测试共用单句柄。
+- 迁移守护 `TestCleanupCoversAllTables` 由本轮自动抓出 `doc_segments` 漏登记并强制补齐。
+
+**推翻的静态审计结论（3 条，避免后人重复走弯路）**
+
+- `InventorySummary` 的 `JOIN drugs` 冗余 → **不冗余**（CTE 取 `pack_size` 折算 LDU，外层取 `generic_name`）
+- `supplier_repo.SetDefault` 的 `Transaction` 未绑定 ctx → **已绑定**（`WithContext` 会传递到 tx）
+- `ExpiryAnalysis` 未按 `status=1` 过滤、`JOIN drugs` 未滤 `deleted_at` 属缺陷 → **属语义选择**
+  （效期分析本就要包含已过期/已锁定批次以暴露风险；历史报表保留软删药名通常是期望行为）
+
+**迁移 000037–000041**（共 41 版）：`qc_result` 去默认值 / 软删部分唯一索引 + 17 表 `deleted_at` 索引 /
+`users.token_version` / `charge_records.visit_id` + `charge_items.source_record_id` / `doc_segments` 号段表。
+
+**验证**：41 个迁移在干净 PG16 库顺序执行全通过；`gofmt`/`go build`/`go vet`（含 integration tag）全绿；
+单元测试 11 包全通过；集成测试（真实 PG16）全通过；`docker build` 实测成功；构建产物端到端
+（`/readyz`/登录/库存/报表）通过，令牌吊销实测「改密后旧 token 立即 401」；前端
+`type-check`/`lint`/`test` 全绿；`swag` 后 `docs/` 仅 `visit_id` 新增（符合预期）。
+其中 Docker 构建、FEFO 口径、自动拆零退货三项做了**反向验证**（还原修复后测试确实失败并报出预期症状）。
+
 ## [v1.5.0] - 2026-09-28
 
 > 软件著作权登记版本：累积第三/四/五轮审计修复与业务完善（S7 报表、CSV 导出、打印、站内通知、日志归档、迁移 33-36）。

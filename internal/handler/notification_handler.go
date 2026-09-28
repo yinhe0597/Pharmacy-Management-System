@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"strconv"
+
 	"github.com/gin-gonic/gin"
 
 	"yaofang/internal/middleware"
@@ -73,7 +75,12 @@ func (h *NotificationHandler) UnreadCount(c *gin.Context) {
 // @Success 200 {object} Body
 // @Router /notifications/{id}/read [put]
 func (h *NotificationHandler) MarkRead(c *gin.Context) {
-	ok, err := h.svc.MarkRead(c.Request.Context(), middleware.UserIDFromCtx(c), int64(atoi(c.Param("id"))))
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		Error(c, errs.ErrBadRequest)
+		return
+	}
+	ok, err := h.svc.MarkRead(c.Request.Context(), middleware.UserIDFromCtx(c), id)
 	if err != nil {
 		Error(c, err)
 		return

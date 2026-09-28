@@ -3,6 +3,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -42,13 +43,21 @@ func (r *UserRepo) GetByID(ctx context.Context, id int64) (*model.User, error) {
 
 // Update 更新用户（status/name/phone/role/password_hash）。
 func (r *UserRepo) Update(ctx context.Context, u *model.User) error {
-	return r.db.WithContext(ctx).Model(u).Select("name", "role", "phone", "status", "password_hash", "updated_at").Updates(u).Error
+	// token_version 显式列入：口令被重置时须自增以作废存量 token（000039）。
+	// 结构体 Select 逐列写入，零值也会落盘，故此处不能依赖 GORM 的「跳过零值」行为。
+	return r.db.WithContext(ctx).Model(u).
+		Select("name", "role", "phone", "status", "password_hash", "token_version", "updated_at").
+		Updates(u).Error
 }
 
-// UpdatePassword 仅更新密码哈希。
+// UpdatePassword 更新密码哈希并自增 token_version：作废该用户全部已签发 token。
 func (r *UserRepo) UpdatePassword(ctx context.Context, userID int64, hash string) error {
 	return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", userID).
-		Update("password_hash", hash).Error
+		Updates(map[string]any{
+			"password_hash": hash,
+			"token_version": gorm.Expr("token_version + 1"),
+			"updated_at":    time.Now(),
+		}).Error
 }
 
 // Delete 软删除用户。

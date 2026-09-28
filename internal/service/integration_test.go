@@ -20,6 +20,7 @@ import (
 	"yaofang/internal/model"
 	"yaofang/internal/pkg/errs"
 	"yaofang/internal/pkg/money"
+	"yaofang/internal/pkg/seq"
 	"yaofang/internal/repository"
 	"yaofang/internal/server"
 	"yaofang/internal/service"
@@ -61,26 +62,43 @@ func getenvPort(k string, def int) int {
 	return def
 }
 
+// sharedDB 集成测试共用的数据库句柄（整个测试二进制只建一次连接池）。
+//
+// 此前每个用例各自 OpenDB，得到独立连接池且从不关闭；用例数一多，
+// 累计打开的连接数会超过 PostgreSQL 的 max_connections，后续用例随机报
+// "sorry, too many clients already"，把基础设施问题伪装成业务失败。
+var (
+	sharedDBOnce sync.Once
+	sharedDB     *gorm.DB
+	sharedDBErr  error
+)
+
 func setupTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	// 集成测试只需要数据库连接参数；config.Load() 会校验 JWT 密钥强度（弱/占位密钥拒绝加载），
-	// 而 CI 环境没有 configs/config.yaml（viper 默认值为占位密钥），故此处注入测试专用强密钥，
-	// 使集成测试不依赖本地配置文件与外部环境变量。
-	t.Setenv("YF_AUTH_JWT_SECRET", "integration-test-only-jwt-secret-0123456789abcdef")
-	cfg, err := config.Load()
-	if err != nil {
-		t.Fatalf("加载配置失败: %v", err)
+	sharedDBOnce.Do(func() {
+		// 集成测试只需要数据库连接参数；config.Load() 会校验 JWT 密钥强度（弱/占位密钥拒绝加载），
+		// 而 CI 环境没有 configs/config.yaml（viper 默认值为占位密钥），故此处注入测试专用强密钥，
+		// 使集成测试不依赖本地配置文件与外部环境变量。
+		os.Setenv("YF_AUTH_JWT_SECRET", "integration-test-only-jwt-secret-0123456789abcdef")
+		cfg, err := config.Load()
+		if err != nil {
+			sharedDBErr = fmt.Errorf("加载配置失败: %w", err)
+			return
+		}
+		// 显式指定测试库连接，不依赖工作目录下的配置文件（端口可用 YF_TEST_DB_PORT 覆盖，便于 PG 多版本矩阵测试）
+		cfg.Database.Host = getenv("YF_TEST_DB_HOST", "127.0.0.1")
+		cfg.Database.Port = getenvPort("YF_TEST_DB_PORT", 5432)
+		cfg.Database.User = getenv("YF_TEST_DB_USER", "yaofang")
+		cfg.Database.Password = getenv("YF_TEST_DB_PASSWORD", "yaofang123")
+		cfg.Database.Name = "yaofang"
+		sharedDB, sharedDBErr = server.OpenDB(&cfg.Database)
+	})
+	if sharedDBErr != nil {
+		t.Fatalf("初始化测试数据库失败: %v", sharedDBErr)
 	}
-	// 显式指定测试库连接，不依赖工作目录下的配置文件（端口可用 YF_TEST_DB_PORT 覆盖，便于 PG 多版本矩阵测试）
-	cfg.Database.Host = getenv("YF_TEST_DB_HOST", "127.0.0.1")
-	cfg.Database.Port = getenvPort("YF_TEST_DB_PORT", 5432)
-	cfg.Database.User = getenv("YF_TEST_DB_USER", "yaofang")
-	cfg.Database.Password = getenv("YF_TEST_DB_PASSWORD", "yaofang123")
-	cfg.Database.Name = "yaofang"
-	db, err := server.OpenDB(&cfg.Database)
-	if err != nil {
-		t.Fatalf("连接数据库失败: %v", err)
-	}
+	db := sharedDB
+	// 单号号段分配器（正常由 server.NewApp 初始化；此处直接构造 service，需显式注入）
+	seq.Init(db, 0)
 	// 清空涉及表（CASCADE 处理外键）
 	// 注意：必须覆盖所有会跨用例残留状态的业务表——尤其 stocktakes（盘点中的库房会
 	// 禁止出入库，残留会使后续用例随机失败），以及拆零单/领用单/专账等。

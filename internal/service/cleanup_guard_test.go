@@ -24,9 +24,12 @@ var testStaticTables = map[string]string{
 	"tag_interactions":          "交互规则种子",
 	"patient_contraindications": "患者禁忌种子",
 	"operation_logs_archive":    "只追加归档表，测试不写入",
-	"spatial_ref_sys":           "PostGIS 残留（若装扩展），非业务表",
-	"geography_columns":         "PostGIS 残留（若装扩展），非业务表",
-	"geometry_columns":          "PostGIS 残留（若装扩展），非业务表",
+	// 单号号段分配器：单调计数器，清空会让序号回退而业务行仍在时可能与已用单号冲突。
+	// 与 testCleanupTables 同批清空业务表是安全的，但登记为静态表更稳妥（计数器不该被测试重置）。
+	"doc_segments":      "单号号段分配器（单调计数器，不清空）",
+	"spatial_ref_sys":   "PostGIS 残留（若装扩展），非业务表",
+	"geography_columns": "PostGIS 残留（若装扩展），非业务表",
+	"geometry_columns":  "PostGIS 残留（若装扩展），非业务表",
 }
 
 // TestCleanupCoversAllTables 守护：库里真实存在的业务表必须被覆盖——

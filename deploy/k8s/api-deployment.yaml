@@ -21,10 +21,24 @@ spec:
         app: yaofang-api
     spec:
       terminationGracePeriodSeconds: 30
+      # 容器安全基线：镜像已 USER yaofang（非 root），此处强制并关闭提权/全部 capability。
+      # 本服务承载患者病历、麻精处方等 PHI，收紧逃逸面。
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 100
+        runAsGroup: 101
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: api
           image: registry.example.com/yaofang-api:latest  # 替换为你的镜像地址
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           ports:
             - name: http
               containerPort: 8080

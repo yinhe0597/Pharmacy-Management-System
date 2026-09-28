@@ -90,6 +90,10 @@ func (r *StocktakeItemRepo) GetByID(ctx context.Context, id int64) (*model.Stock
 
 // CreateBatch 批量新建盘点明细。
 func (r *StocktakeItemRepo) CreateBatch(ctx context.Context, items []*model.StocktakeItem) error {
+	// GORM 对空切片 Create 返回 ErrEmptySlice（会被当 500 上报）；空明细视为无事发生。
+	if len(items) == 0 {
+		return nil
+	}
 	return r.db.WithContext(ctx).Create(items).Error
 }
 

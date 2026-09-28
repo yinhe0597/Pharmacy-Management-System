@@ -87,10 +87,18 @@ func Recover() gin.HandlerFunc {
 	}
 }
 
+// UserState 用户当前权威状态（由 server 层查库注入）。
+type UserState struct {
+	Username string // 当前登录名（以库为准，避免改名后审计归属失真）
+	Name     string
+	Role     string
+	TokenVer int64 // 当前口令版本；与 claims.Ver 不一致即视为已吊销
+}
+
 // UserStateChecker 用户状态复查器（由 server 层注入仓储实现，中间件不直接依赖 DB）。
-// 返回当前角色与错误；错误非 nil 表示拒绝访问（账号停用/删除等）。
-// 每请求复查角色，使 Token TTL 内的降权/改角色立即生效（权限不依赖签发时的旧角色）。
-type UserStateChecker func(ctx context.Context, userID int64) (role string, err error)
+// 返回当前状态与错误；错误非 nil 或状态为 nil 表示拒绝访问（账号停用/删除/不存在）。
+// 每请求复查，使 Token TTL 内的降权/改角色/改口令立即生效（不依赖签发时的旧快照）。
+type UserStateChecker func(ctx context.Context, userID int64) (*UserState, error)
 
 // Auth JWT 鉴权中间件。
 // stateCheck 非 nil 时，对每个请求复查签发用户当前状态与角色（token TTL 内停用/删除/降权立即生效）。
@@ -110,20 +118,22 @@ func Auth(jwt *auth.Manager, stateCheck UserStateChecker) gin.HandlerFunc {
 			})
 			return
 		}
-		role := claims.Role
+		// 身份信息一律以库中当前值为准：token 内的 role/name 可能在签发后即已过期，
+		// 直接使用会让降权/改名无法即时生效、并使操作日志归属失真。
+		role, username, name := claims.Role, claims.Username, claims.Name
 		if stateCheck != nil {
-			curRole, cerr := stateCheck(c.Request.Context(), claims.UserID)
-			if cerr != nil {
+			st, cerr := stateCheck(c.Request.Context(), claims.UserID)
+			if cerr != nil || st == nil || st.TokenVer != claims.Ver {
 				c.AbortWithStatusJSON(errs.ErrUnauthorized.HTTP, gin.H{
 					"code": errs.ErrUnauthorized.Code, "message": errs.ErrUnauthorized.Message, "data": nil,
 				})
 				return
 			}
-			role = curRole
+			role, username, name = st.Role, st.Username, st.Name
 		}
 		c.Set(ctxKeyUserID, claims.UserID)
-		c.Set(ctxKeyUserName, claims.Name)
-		c.Set(ctxKeyUsername, claims.Username)
+		c.Set(ctxKeyUserName, name)
+		c.Set(ctxKeyUsername, username)
 		c.Set(ctxKeyUserRole, role)
 		c.Next()
 	}

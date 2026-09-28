@@ -10,7 +10,7 @@
             <el-button @click="loadSuggestions">采购建议</el-button>
           </div>
           <el-table v-loading="loading" :data="list" border>
-            <el-table-column prop="order_no" label="单号" width="150" />
+            <el-table-column prop="purchase_no" label="单号" width="150" />
             <el-table-column prop="supplier_name" label="供应商" min-width="140" />
             <el-table-column prop="status" label="状态" width="100">
               <template #default="{ row }"

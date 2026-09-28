@@ -61,8 +61,12 @@ func (s *VisitService) Register(ctx context.Context, in VisitInput, operator str
 		}
 		return nil, err
 	}
+	visitNo, err := seq.Next(ctx, "V")
+	if err != nil {
+		return nil, err
+	}
 	v := model.Visit{
-		VisitNo:      seq.Next("V"),
+		VisitNo:      visitNo,
 		PatientID:    pat.ID,
 		PatientName:  pat.Name,
 		Department:   in.Department,
@@ -317,6 +321,11 @@ func (s *ChargeService) Create(ctx context.Context, visitID int64, discount int6
 	if len(lines) == 0 {
 		return nil, errs.ErrChargeEmpty
 	}
+	// 折扣必须非负：负折扣等价于任意加价，payable = total - discount 会被抬高，
+	// 且 Pay 强制 paid_amount == payable，抬高出的金额必然可被实收。
+	if discount < 0 {
+		return nil, errs.ErrBadRequest
+	}
 	total := int64(0)
 	for _, l := range lines {
 		total += l.Amount
@@ -325,8 +334,12 @@ func (s *ChargeService) Create(ctx context.Context, visitID int64, discount int6
 	if payable < 0 {
 		return nil, errs.ErrBadRequest
 	}
+	chargeNo, err := seq.Next(ctx, "C")
+	if err != nil {
+		return nil, err
+	}
 	charge := model.Charge{
-		ChargeNo:       seq.Next("C"),
+		ChargeNo:       chargeNo,
 		VisitID:        visitID,
 		PatientID:      visit.PatientID,
 		PatientName:    visit.PatientName,
@@ -347,19 +360,26 @@ func (s *ChargeService) Create(ctx context.Context, visitID int64, discount int6
 		}
 		for i, l := range lines {
 			itemID := l.RefID
-			if itemID == 0 {
-				itemID = 0
+			itemIDPtr := &itemID
+			// 显式记录费用行回溯到的应收计费项目源（000040）：
+			// item_id 是多态引用（drugs.id / clinical_services.id / charge_records.id），
+			// 缺少判别字段，回源必须靠 source_record_id。
+			var srcPtr *int64
+			if l.SourceRecordID > 0 {
+				v := l.SourceRecordID
+				srcPtr = &v
 			}
 			if err := tx.Create(&model.ChargeItem{
-				ChargeID:  charge.ID,
-				VisitID:   &visitID,
-				ItemType:  l.ItemType,
-				ItemID:    &itemID,
-				ItemName:  s.itemName(ctx, tx, l),
-				Quantity:  int(l.Quantity),
-				UnitPrice: l.UnitPrice,
-				Amount:    l.Amount,
-				SortOrder: i,
+				ChargeID:       charge.ID,
+				VisitID:        &visitID,
+				ItemType:       l.ItemType,
+				ItemID:         itemIDPtr,
+				SourceRecordID: srcPtr,
+				ItemName:       s.itemName(ctx, tx, l),
+				Quantity:       int(l.Quantity),
+				UnitPrice:      l.UnitPrice,
+				Amount:         l.Amount,
+				SortOrder:      i,
 			}).Error; err != nil {
 				return err
 			}
@@ -380,6 +400,14 @@ func (s *ChargeService) itemName(ctx context.Context, tx *gorm.DB, l port.PriceL
 		return "挂号费"
 	case enum.ChargeItemTypeConsultation:
 		return "诊查费"
+	}
+	// 回溯到具体计费项目源时，直接用其快照名（权威且免去歧义查询）
+	if l.SourceRecordID > 0 {
+		var cr model.ChargeRecord
+		if err := tx.WithContext(ctx).Where("id = ?", l.SourceRecordID).
+			Take(&cr).Error; err == nil && cr.ItemName != "" {
+			return cr.ItemName
+		}
 	}
 	if l.ItemType == enum.ChargeItemTypeDrug || l.ItemType == enum.ChargeItemTypeConsumable {
 		var it model.PrescriptionItem
@@ -503,8 +531,12 @@ func (s *ChargeService) chargeTransition(ctx context.Context, id int64, from, to
 		return res.Error
 	}
 	if res.RowsAffected == 0 {
+		// 区分「不存在」与「状态不符」：必须检查 Count 的 error，
+		// 否则 DB 抖动时 n 保持 0 会被误报为 ErrChargeNotFound（掩盖真实故障）。
 		var n int64
-		s.db.WithContext(ctx).Model(&model.Charge{}).Where("id = ?", id).Count(&n)
+		if err := s.db.WithContext(ctx).Model(&model.Charge{}).Where("id = ?", id).Count(&n).Error; err != nil {
+			return err
+		}
 		if n == 0 {
 			return errs.ErrChargeNotFound
 		}

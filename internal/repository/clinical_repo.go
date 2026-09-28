@@ -36,8 +36,14 @@ func (r *ClinicalServiceRepo) GetByCode(ctx context.Context, code string) (*mode
 	return &s, nil
 }
 
+// Update 更新诊疗项目。
+// 必须 Omit 主键/编码/创建时间：Select("*") 会连同 code、created_at 一起回写，
+// 而 handler 直接绑定 model.ClinicalService，客户端漏传 code 即写入空串
+// （code 为 UNIQUE NOT NULL）——第一次 PUT 毁掉编码，第二次必然唯一键冲突。
 func (r *ClinicalServiceRepo) Update(ctx context.Context, s *model.ClinicalService) error {
-	return r.db.WithContext(ctx).Model(s).Select("*").Updates(s).Error
+	return r.db.WithContext(ctx).Model(s).
+		Omit("id", "code", "created_at").
+		Select("*").Updates(s).Error
 }
 
 func (r *ClinicalServiceRepo) Delete(ctx context.Context, id int64) error {

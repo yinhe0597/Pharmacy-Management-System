@@ -38,8 +38,12 @@ func (s *InventoryService) CreateStocktake(ctx context.Context, locationID int64
 		if n > 0 {
 			return errs.ErrStocktakeAlreadyOpen
 		}
+		stocktakeNo, err := seq.Next(ctx, "STK")
+		if err != nil {
+			return err
+		}
 		st = &model.Stocktake{
-			StocktakeNo: seq.Next("STK"), LocationID: locationID,
+			StocktakeNo: stocktakeNo, LocationID: locationID,
 			Type: stocktakeType, Status: "draft", StartedBy: operatorID,
 		}
 		if err := repository.NewStocktakeRepo(tx).Create(ctx, st); err != nil {
@@ -183,8 +187,12 @@ func (s *InventoryService) AdjustStocktake(ctx context.Context, id int64, operat
 				}
 			}
 			expiry := inv.ExpiryDate
+			txnNo, err := seq.Next(ctx, "ITN")
+			if err != nil {
+				return err
+			}
 			txn := &model.InventoryTransaction{
-				TransactionNo: seq.Next("ITN"),
+				TransactionNo: txnNo,
 				DrugID:        inv.DrugID, LocationID: inv.LocationID,
 				BatchNo: inv.BatchNo, ExpiryDate: &expiry,
 				Quantity: diff, IsSplit: inv.IsSplit,
@@ -241,8 +249,10 @@ func (s *InventoryService) CancelStocktake(ctx context.Context, id int64) error 
 // ---- 预警与采购建议 ----
 
 // LockExpiredBatches 过期批次锁定（每日兜底）。
-func (s *InventoryService) LockExpiredBatches(ctx context.Context, today time.Time) (int64, error) {
-	return repository.NewInventoryRepo(s.db).LockExpired(ctx, today)
+// 口径为 date-only（当天到期不锁），由仓储层按 CURRENT_DATE 判定，
+// 与 FindAvailableForDispenseUnit / rule.IsExpired 保持一致。
+func (s *InventoryService) LockExpiredBatches(ctx context.Context) (int64, error) {
+	return repository.NewInventoryRepo(s.db).LockExpired(ctx)
 }
 
 // GenerateExpiryWarnings 效期预警：近效期与已过期（去重写入）。

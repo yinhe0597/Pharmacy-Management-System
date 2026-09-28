@@ -57,6 +57,24 @@
       <el-form-item label="诊断"
         ><el-input v-model="form.diagnosis" type="textarea"
       /></el-form-item>
+      <el-form-item label="处方类型">
+        <el-select v-model="form.prescription_type" style="width: 220px">
+          <el-option
+            v-for="t in PRESCRIPTION_TYPE_OPTIONS"
+            :key="t.value"
+            :label="t.label"
+            :value="t.value"
+          />
+        </el-select>
+        <el-alert
+          v-if="isSpecial"
+          type="warning"
+          :closable="false"
+          show-icon
+          style="margin-top: 6px"
+          :title="specialAlert"
+        />
+      </el-form-item>
       <el-row :gutter="12">
         <el-col :span="8"
           ><el-form-item label="妊娠"><el-switch v-model="form.is_pregnant" /></el-form-item
@@ -128,7 +146,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
@@ -138,6 +156,7 @@ import {
   type PrescriptionItemInput,
 } from '@/api/prescriptions'
 import { listPatients } from '@/api/patients'
+import { PRESCRIPTION_TYPES, PRESCRIPTION_TYPE_DAY_LIMITS } from '@/types/business'
 import DrugPicker from '@/components/DrugPicker.vue'
 import DiagnosisPicker from '@/components/DiagnosisPicker.vue'
 
@@ -162,6 +181,12 @@ const ROUTE_USAGE: Record<string, string> = {
 const groupColors = ['#409eff', '#67c23a', '#e6a23c', '#f56c6c', '#9254de']
 const GROUP_NAMES = ['口服组', '外用组', '输液组1', '输液组2', '输液组3']
 
+// 处方类型选项：复用共享字典（types/business.ts），避免第四份硬编码副本。
+const PRESCRIPTION_TYPE_OPTIONS = Object.entries(PRESCRIPTION_TYPES).map(([value, label]) => ({
+  value: Number(value),
+  label: label + '处方',
+}))
+
 type LocalItem = PrescriptionItemInput & { split_allowed?: boolean }
 interface Group {
   name: string
@@ -179,6 +204,7 @@ const form = reactive<Omit<PrescriptionInput, 'items'> & { diagnosis_code: strin
   diagnosis: '',
   department: '',
   doctor_name: '',
+  prescription_type: 0,
   is_pregnant: false,
   is_lactating: false,
 })
@@ -189,6 +215,36 @@ function newItem(): LocalItem {
   return { drug_id: 0, quantity: 1, is_split: false, split_allowed: false, route: 'oral' }
 }
 const groups = reactive<Group[]>([{ name: GROUP_NAMES[0], items: [newItem()] }])
+
+// 已选药品的全部明细（跨分组），用于开方前的限量自检
+const allItems = computed<LocalItem[]>(() =>
+  groups.flatMap((g) => g.items).filter((it) => it.drug_id > 0),
+)
+// prescription_type 在契约中为可选字段，这里收敛为确定的数字以便查字典。
+const rxType = computed(() => form.prescription_type ?? 0)
+const isSpecial = computed(() => rxType.value !== 0)
+const currentType = computed(() => PRESCRIPTION_TYPES[rxType.value] ?? '普通')
+const dayLimit = computed(() => PRESCRIPTION_TYPE_DAY_LIMITS[rxType.value] ?? 0)
+// 超出限量的明细（仅对有限量天数的类型有意义）
+const overLimitItems = computed(() => {
+  const limit = dayLimit.value
+  if (limit <= 0) return []
+  return allItems.value.filter((it) => !it.days || it.days <= 0 || it.days > limit)
+})
+const specialAlert = computed(() => {
+  const limit = dayLimit.value
+  const parts = ['麻精毒放专管处方：须填写患者卡号与诊断，并全程专人负责、双人核对。']
+  if (limit > 0) {
+    parts.push(`单张处方限量 ${limit} 日，每条明细「天数」须为 1~${limit}。`)
+  }
+  if (overLimitItems.value.length > 0) {
+    parts.push(`当前有 ${overLimitItems.value.length} 条明细「天数」不合规，提交将被拒绝。`)
+  }
+  if (!form.patient_card_no || !form.diagnosis) {
+    parts.push('患者卡号与诊断为必填项。')
+  }
+  return parts.join(' ')
+})
 
 async function searchPatients(keyword: string) {
   patientLoading.value = true
@@ -247,6 +303,18 @@ async function save(submit: boolean) {
   )
   if (!form.patient_name) return ElMessage.warning('请填写患者姓名')
   if (!items.length) return ElMessage.warning('请至少添加一条药品明细')
+  // 麻精毒放专管处方：卡号/诊断为必填（后端 4001 校验），限量类型的天数须落在 1~limit
+  // （后端 4002 校验）。此处前置拦截，避免提交后才报错。
+  if (isSpecial.value) {
+    if (!form.patient_card_no || !form.diagnosis) {
+      return ElMessage.warning('麻精毒放专管处方必须填写患者卡号与诊断')
+    }
+    if (overLimitItems.value.length > 0) {
+      return ElMessage.warning(
+        `有 ${overLimitItems.value.length} 条明细的「天数」不合规：${currentType.value}处方限量 ${dayLimit.value} 日，请填写 1~${dayLimit.value}`,
+      )
+    }
+  }
   const created = await createPrescription({ ...form, items })
   ElMessage.success('已保存')
   if (submit) {

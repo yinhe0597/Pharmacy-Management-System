@@ -108,6 +108,17 @@ export const PRESCRIPTION_TYPES: Record<number, string> = {
   5: '放射性',
 }
 
+// 处方类型单张限量天数（0=不限量），对应后端 SpecialDrugService 的限量常量。
+// 开方页据此做提交前自检：days 必须落在 1~limit（后端 CheckPrescriptionLimit 同样校验）。
+export const PRESCRIPTION_TYPE_DAY_LIMITS: Record<number, number> = {
+  0: 0,
+  1: 3, // 麻醉
+  2: 3, // 精神一类
+  3: 7, // 精神二类
+  4: 0, // 毒性
+  5: 0, // 放射性
+}
+
 // 计费项目类型
 export const CHARGE_ITEM_TYPES: Record<string, string> = {
   drug: '药品',

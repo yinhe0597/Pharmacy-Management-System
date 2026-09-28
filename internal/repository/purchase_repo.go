@@ -48,21 +48,29 @@ func (r *PurchaseOrderRepo) UpdateStatus(ctx context.Context, id int64, status s
 		Updates(map[string]any{"status": status, "received_at": time.Now()}).Error
 }
 
-// List 分页查询采购单。
-func (r *PurchaseOrderRepo) List(ctx context.Context, supplierID int64, status string, offset, limit int) ([]model.PurchaseOrder, int64, error) {
-	q := r.db.WithContext(ctx).Model(&model.PurchaseOrder{})
+// PurchaseOrderRow 采购单列表行：补出供应商名（前端采购列表按 supplier_name 渲染）。
+type PurchaseOrderRow struct {
+	model.PurchaseOrder
+	SupplierName string `json:"supplier_name"`
+}
+
+// List 分页查询采购单（含供应商名称）。
+func (r *PurchaseOrderRepo) List(ctx context.Context, supplierID int64, status string, offset, limit int) ([]PurchaseOrderRow, int64, error) {
+	q := r.db.WithContext(ctx).Model(&model.PurchaseOrder{}).
+		Joins("LEFT JOIN suppliers s ON s.id = purchase_orders.supplier_id AND s.deleted_at IS NULL")
 	if supplierID > 0 {
-		q = q.Where("supplier_id = ?", supplierID)
+		q = q.Where("purchase_orders.supplier_id = ?", supplierID)
 	}
 	if status != "" {
-		q = q.Where("status = ?", status)
+		q = q.Where("purchase_orders.status = ?", status)
 	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var list []model.PurchaseOrder
-	if err := q.Order("id DESC").Offset(offset).Limit(limit).Find(&list).Error; err != nil {
+	var list []PurchaseOrderRow
+	if err := q.Select("purchase_orders.*, s.name AS supplier_name").
+		Order("purchase_orders.id DESC").Offset(offset).Limit(limit).Find(&list).Error; err != nil {
 		return nil, 0, err
 	}
 	return list, total, nil
@@ -78,7 +86,16 @@ func NewPOItemRepo(db *gorm.DB) *POItemRepo { return &POItemRepo{db: db} }
 
 // CreateBatch 批量新建明细。
 func (r *POItemRepo) CreateBatch(ctx context.Context, items []*model.PurchaseOrderItem) error {
+	if len(items) == 0 {
+		return nil
+	}
 	return r.db.WithContext(ctx).Create(items).Error
+}
+
+// POItemRow 采购明细行：补出药品名（前端收货质检弹窗按 drug_name 渲染）。
+type POItemRow struct {
+	model.PurchaseOrderItem
+	DrugName string `json:"drug_name"`
 }
 
 // GetByID 查询采购明细。
@@ -90,10 +107,14 @@ func (r *POItemRepo) GetByID(ctx context.Context, id int64) (*model.PurchaseOrde
 	return &it, nil
 }
 
-// ListByOrder 查询某采购单明细。
-func (r *POItemRepo) ListByOrder(ctx context.Context, orderID int64) ([]model.PurchaseOrderItem, error) {
-	var list []model.PurchaseOrderItem
-	err := r.db.WithContext(ctx).Where("purchase_order_id = ?", orderID).Order("id ASC").Find(&list).Error
+// ListByOrder 查询某采购单明细（含药品名）。
+func (r *POItemRepo) ListByOrder(ctx context.Context, orderID int64) ([]POItemRow, error) {
+	var list []POItemRow
+	err := r.db.WithContext(ctx).Model(&model.PurchaseOrderItem{}).
+		Joins("LEFT JOIN drugs d ON d.id = purchase_order_items.drug_id AND d.deleted_at IS NULL").
+		Where("purchase_order_items.purchase_order_id = ?", orderID).
+		Select("purchase_order_items.*, d.generic_name AS drug_name").
+		Order("purchase_order_items.id ASC").Find(&list).Error
 	return list, err
 }
 
@@ -193,13 +214,27 @@ func NewReceiptItemRepo(db *gorm.DB) *ReceiptItemRepo { return &ReceiptItemRepo{
 
 // CreateBatch 批量新建收货明细。
 func (r *ReceiptItemRepo) CreateBatch(ctx context.Context, items []*model.PurchaseReceiptItem) error {
+	// GORM 对空切片 Create 返回 ErrEmptySlice（会被当 500 上报）；空明细视为无事发生。
+	if len(items) == 0 {
+		return nil
+	}
 	return r.db.WithContext(ctx).Create(items).Error
 }
 
-// ListByReceipt 查询某收货单明细。
-func (r *ReceiptItemRepo) ListByReceipt(ctx context.Context, receiptID int64) ([]model.PurchaseReceiptItem, error) {
-	var list []model.PurchaseReceiptItem
-	err := r.db.WithContext(ctx).Where("receipt_id = ?", receiptID).Order("id ASC").Find(&list).Error
+// ReceiptItemRow 收货明细行：补出药品名（前端收货质检弹窗按 drug_name 渲染）。
+type ReceiptItemRow struct {
+	model.PurchaseReceiptItem
+	DrugName string `json:"drug_name"`
+}
+
+// ListByReceipt 查询某收货单明细（含药品名）。
+func (r *ReceiptItemRepo) ListByReceipt(ctx context.Context, receiptID int64) ([]ReceiptItemRow, error) {
+	var list []ReceiptItemRow
+	err := r.db.WithContext(ctx).Model(&model.PurchaseReceiptItem{}).
+		Joins("LEFT JOIN drugs d ON d.id = purchase_receipt_items.drug_id AND d.deleted_at IS NULL").
+		Where("purchase_receipt_items.receipt_id = ?", receiptID).
+		Select("purchase_receipt_items.*, d.generic_name AS drug_name").
+		Order("purchase_receipt_items.id ASC").Find(&list).Error
 	return list, err
 }
 

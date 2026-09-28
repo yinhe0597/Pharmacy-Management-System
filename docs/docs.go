@@ -7223,7 +7223,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "patient_id": {
-                    "description": "关联患者档案（可选）",
                     "type": "integer"
                 },
                 "patient_name": {
@@ -7237,6 +7236,10 @@ const docTemplate = `{
                 },
                 "unit_price": {
                     "description": "分；0 允许（免费项）",
+                    "type": "integer"
+                },
+                "visit_id": {
+                    "description": "关联就诊（000040：结算单按此精确归集本费用项）",
                     "type": "integer"
                 }
             }

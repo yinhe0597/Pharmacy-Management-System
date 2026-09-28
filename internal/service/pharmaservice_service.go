@@ -89,8 +89,8 @@ func (s *PharmaService) DeleteAdverseReaction(ctx context.Context, id int64) err
 	return repository.NewAdverseReactionRepo(s.db).Delete(ctx, id)
 }
 
-// ListAdverseReactions 分页查询登记。
-func (s *PharmaService) ListAdverseReactions(ctx context.Context, drugID int64, keyword string, page, pageSize int) ([]model.AdverseReaction, int64, error) {
+// ListAdverseReactions 分页查询登记（含药品名）。
+func (s *PharmaService) ListAdverseReactions(ctx context.Context, drugID int64, keyword string, page, pageSize int) ([]repository.AdverseReactionRow, int64, error) {
 	return repository.NewAdverseReactionRepo(s.db).List(ctx, drugID, keyword, (page-1)*pageSize, pageSize)
 }
 
@@ -107,8 +107,8 @@ func (s *PharmaService) CreateGuidance(ctx context.Context, m *model.MedicationG
 	return repository.NewMedicationGuidanceRepo(s.db).Create(ctx, m)
 }
 
-// ListGuidances 分页查询指导。
-func (s *PharmaService) ListGuidances(ctx context.Context, keyword string, page, pageSize int) ([]model.MedicationGuidance, int64, error) {
+// ListGuidances 分页查询指导（含药品名）。
+func (s *PharmaService) ListGuidances(ctx context.Context, keyword string, page, pageSize int) ([]repository.MedicationGuidanceRow, int64, error) {
 	return repository.NewMedicationGuidanceRepo(s.db).List(ctx, keyword, (page-1)*pageSize, pageSize)
 }
 
