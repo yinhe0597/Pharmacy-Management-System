@@ -13,3 +13,8 @@ Makefile text eol=lf
 *.css  text eol=lf
 *.html text eol=lf
 package-lock.json text eol=lf
+
+# 无扩展名的点文件不受上面按扩展名的规则约束；在 core.autocrlf=true 的
+# Windows 检出中会被转成 CRLF，导致 prettier format:check 恒失败。
+.prettierrc text eol=lf
+.eslintrc*  text eol=lf

@@ -113,3 +113,79 @@ describe('前后端字段契约', () => {
     ).toEqual([])
   })
 })
+
+/**
+ * 源码编码守卫。
+ *
+ * 背景：src/api/prescriptions.ts 与 src/api/purchase.ts 的中文注释是 **GBK 字节**，
+ * 混在一个 UTF-8 仓库里。后果是连锁的：
+ *   1. 任何 UTF-8 工具读它们都会得到乱码；
+ *   2. `prettier format:check` 恒报这两个文件「格式不合规」——但那根本不是格式问题；
+ *   3. `prettier --write` 会把非法字节替换成 U+FFFD，**不可逆销毁注释内容**。
+ * 其中 prescriptions.ts 的损坏吃掉了换行，导致 `batch_group?: string` 被并进上一行的
+ * 注释里——该字段是后端真实字段（model.PrescriptionItem.BatchGroup）且 create.vue 正在
+ * 发送，却因不在接口中而完全脱离类型检查。
+ *
+ * 损坏先于本轮存在且长期无人察觉，说明「prettier 报格式错」掩盖了「文件根本不是 UTF-8」
+ * 这个更严重的事实。这里把编码校验变成硬门禁，避免再次靠 `npm run format` 踩雷。
+ */
+const TEXT_EXTS = new Set([
+  '.ts',
+  '.vue',
+  '.js',
+  '.json',
+  '.md',
+  '.yml',
+  '.yaml',
+  '.css',
+  '.html',
+  '.go',
+  '.sql',
+  '.sh',
+])
+const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'vendor', '.idea', '.vscode', 'bin'])
+
+/** 严格 UTF-8 解码：非法字节序列直接抛错（而非常规解码那样静默产出 U+FFFD）。 */
+function collectNonUtf8Files(): string[] {
+  const bad: string[] = []
+  const decoder = new TextDecoder('utf-8', { fatal: true })
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir)) {
+      if (SKIP_DIRS.has(entry)) continue
+      const full = join(dir, entry)
+      if (statSync(full).isDirectory()) {
+        walk(full)
+        continue
+      }
+      const dot = entry.lastIndexOf('.')
+      if (dot < 0) continue
+      if (!TEXT_EXTS.has(entry.slice(dot).toLowerCase())) continue
+      try {
+        decoder.decode(readFileSync(full))
+      } catch {
+        bad.push(relative(webRoot, full))
+      }
+    }
+  }
+  walk(join(goRoot, 'internal'))
+  walk(join(webRoot, 'src'))
+  return bad.sort()
+}
+
+describe('源码编码', () => {
+  it('所有源码文件均为合法 UTF-8', () => {
+    const bad = collectNonUtf8Files()
+    expect(
+      bad,
+      `以下文件不是合法 UTF-8（很可能是 GBK 字节混入）：\n  ${bad.join('\n  ')}\n` +
+        '后果：prettier 会把它们报成「格式不合规」，而 --write 会把注释替换成 U+FFFD 永久销毁。',
+    ).toEqual([])
+  })
+
+  it('.gitattributes 对无扩展名点文件声明 eol=lf', () => {
+    // core.autocrlf=true 的 Windows 检出中，无扩展名点文件不受按扩展名的规则约束，
+    // 会被转成 CRLF，导致 format:check 在 Windows 上恒失败
+    const attrs = readFileSync(join(goRoot, '.gitattributes'), 'utf8')
+    expect(attrs).toMatch(/^\.prettierrc\s+.*eol=lf/m)
+  })
+})

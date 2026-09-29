@@ -155,6 +155,20 @@
 - **lint 门槛实际变严并暴露 3 处 QF1003**：v1 的 `staticcheck` 只含 SA\* 检查，v2 合并了 QF\*，
   查出 3 处 if-else 链可改为 tagged switch（`clinical2_service.go` ×2、`prescription_service.go` ×1），
   已改，`golangci-lint run` 现为 **0 issues**。
+- **`format:check` 报的 4 个文件里藏着编码缺陷**：`src/api/prescriptions.ts` 与 `src/api/purchase.ts`
+  的中文注释是 **GBK 字节**混在 UTF-8 仓库中。`format:check` 把它们报成「格式不合规」，
+  但那根本不是格式问题——执行 `npm run format` 会把非法字节替换成 U+FFFD，**不可逆销毁注释**。
+  已按 GBK→UTF-8 转换并逐行修复二次编码，注释内容全部找回。
+- **编码损坏已造成实际功能后果**：`prescriptions.ts` 第 10 行的损坏吃掉换行，
+  `batch_group?: string` 被并进上一行注释。该字段是后端真实字段
+  （`model.PrescriptionItem.BatchGroup`）且 `create.vue:298` 正在发送，却因不在接口中而
+  完全脱离类型检查。已恢复为独立字段，注释按后端模型原文对齐。
+- **无扩展名点文件缺 `eol=lf`**：`.gitattributes` 按扩展名声明了 `*.ts`/`*.vue` 等，
+  但漏了 `.prettierrc`；在 `core.autocrlf=true` 的 Windows 检出下会被转成 CRLF，
+  `format:check` 恒失败。已补 `.prettierrc text eol=lf` 与 `.eslintrc* text eol=lf`。
+- **新增源码编码守卫**（`contract.test.ts` +2 例）：用 `TextDecoder(fatal)` 严格校验
+  `internal/` 与 `pharmacy-web/src/` 下所有文本文件均为合法 UTF-8，并断言 `.gitattributes`
+  声明了 `.prettierrc eol=lf`。反向验证：植入一个 GBK 探针文件后测试确实变红并指出文件名。
 - 同步文档：docs/00 补 3 条坑位（测试库隔离、DATE 相减禁套 EXTRACT、主干分支名）、
   docs/06 新增 §8.1「前后端字段契约（强制）」、docs/10 补 §11.1 本地跑集成测试。
 
@@ -173,10 +187,10 @@
 单元测试 11 包全通过；集成测试（真实 PG16，独立测试库 `yaofang_test`）全通过；`docker build` 实测成功；
 构建产物端到端（`/readyz`/登录/库存/报表）通过，令牌吊销实测「改密后旧 token 立即 401」；
 覆盖率门槛全达标（domain 90.8 / middleware 66.7 / auth 85.7 / money 89.3 / config 39.6 /
-service 44.7 / repository 31.3 / handler 12.3）；前端 `type-check`/`lint`/`test` 全绿（20 用例）；
-`swag` 后 `docs/` 无变化（符合预期）。
-其中 Docker 构建、FEFO 口径、自动拆零退货、预警行 DTO（缺 JOIN 与套 EXTRACT 两种形态）、契约守卫
-五项做了**反向验证**（还原修复后测试确实失败并报出预期症状）。
+service 44.7 / repository 31.3 / handler 12.3）；前端 `type-check`/`lint`/`format:check`/`test`
+全绿（22 用例）；`swag` 后 `docs/` 无变化（符合预期）。
+其中 Docker 构建、FEFO 口径、自动拆零退货、预警行 DTO（缺 JOIN 与套 EXTRACT 两种形态）、
+契约守卫、编码守卫 六项做了**反向验证**（还原修复后测试确实失败并报出预期症状）。
 
 ## [v1.5.0] - 2026-09-28
 

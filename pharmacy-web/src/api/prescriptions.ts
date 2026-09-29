@@ -8,7 +8,7 @@ export interface PrescriptionItemInput {
   usage_text?: string
   frequency?: string
   route?: string // 给药途径（oral/external/iv/im/iv_drip/inhale/other）
-  batch_group?: string // 分批组（口服组/输液组1 等）
+  batch_group?: string // 分批组（如 口服组/输液组1）
   single_dose?: number
   total_daily_dose?: number
   days?: number
@@ -68,7 +68,7 @@ export function cancelPrescription(id: number) {
   return http.post(`/prescriptions/${id}/cancel`)
 }
 
-// �����־����תȫ��¼��
+// 审计日志（流转全记录）
 export function getAuditLog(id: number) {
   return http.get(`/prescriptions/${id}/audit-log`)
 }

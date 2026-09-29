@@ -26,7 +26,7 @@ export function completeReceipt(id: number) {
   return http.post(`/purchase-receipts/${id}/complete`)
 }
 
-//  ’ªıµ•
+// Êî∂Ë¥ßÂçï
 export function listReceipts(params?: Record<string, unknown>) {
   return http.get('/purchase-receipts', { params })
 }
