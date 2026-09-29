@@ -98,9 +98,11 @@ GitHub Actions 首次真正执行后，CI 稳定失败在第 9 步 `golangci-lin
   「本地分支 `main` 跟踪 `origin/master`；推送 `git push origin main:master`」。
 
 > ⚠️ **推 Gitee 不触发任何流水线** —— GitHub Actions 只认 GitHub 上的 push。
-> 本地 `main` 的上游是 `origin`（Gitee），所以 `git push` 裸命令只到 Gitee；
-> 必须显式 `git push github main`（或 `git push --all` 一次推两个远端）。
-> 这是**静默失败**：没有报错、没有提示，只有 Actions 页空着。
+> 本地 `main` 的上游是 `origin`（Gitee），所以 `git push` 裸命令只到 Gitee。
+> 推两个远端**只能用两条命令**：`git push origin main && git push github main`。
+> **实测 `git push --all` 只推上游那一个远端且不报错**，
+> `git push origin main github main` 会被静默忽略后半段——都不是可用写法。
+> 这类「推了但什么都没发生」是**静默失败**：没有报错、没有提示，只有 Actions 页空着。
 
 ### 清理：删除远端过期分支
 

@@ -287,9 +287,13 @@ yaofang/
 > 但**全部自动化都在 GitHub**（CI + 前端门禁 + 镜像构建）。因此：
 >
 > ```bash
-> git push            # 裸命令 → 只到 Gitee，⚠️ 不会触发任何流水线
-> git push github main  # ← 这一条才会跑 CI / 门禁 / 镜像构建
+> git push                 # 裸命令 → 只到 Gitee，⚠️ 不会触发任何流水线
+> git push origin main && git push github main   # ← 两个远端都推，CI 才会跑
 > ```
+>
+> ⚠️ **不要指望 `git push --all` 一次推两个**：实测它**只推到分支上游那一个远端**
+> （上游是 `origin` 时 GitHub 收不到），且**不报错**。git 一次 push 也只接受一个远端，
+> `git push origin main github main` 会被静默忽略后半段。只能两条命令。
 >
 > 镜像仓库为 **GHCR**（`ghcr.io/yinhe0597/yaofang-*`），公开可匿名拉取。
 > 这类「推了但什么都没发生」是**静默失败**——本轮已两次踩坑（分支名不匹配、
