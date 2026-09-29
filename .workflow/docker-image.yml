@@ -1,0 +1,75 @@
+# Gitee Go 流水线：镜像构建与推送
+#
+# 取代原 .github/workflows/docker-image.yml —— 仓库托管在 Gitee，GitHub Actions 不生效。
+#
+# 产物（registry 由 Gitee 流水线全局参数提供，不在仓库内硬编码）：
+#   ${REGISTRY}/${REGISTRY_NAMESPACE}/yaofang-api
+#   ${REGISTRY}/${REGISTRY_NAMESPACE}/yaofang-web
+#   ${REGISTRY}/${REGISTRY_NAMESPACE}/yaofang-migrate
+#
+# ⚠️ 已知能力差异（相对原 GitHub Actions 版本，详见 docs/10 §十一）：
+#   1. build@docker 不支持多架构（buildx），只产出构建环境自身架构的镜像。
+#      如需 amd64+arm64 双架构，见 docs/10 的备选方案。
+#   2. build@docker 不支持 build-args，Dockerfile 的 ARG VERSION/COMMIT/BUILDTIME
+#      将取默认值（dev/unknown/unknown），镜像内 /version 拿不到真实版本号。
+#      前端的 ARG VITE_API_BASE_URL 同理退回默认 /api/v1。
+#
+# 使用前需在 Gitee 后台配置全局参数（流水线 → 全局参数，均设为「密文」）：
+#   REGISTRY            镜像仓库地址，如 gitee.com
+#   REGISTRY_NAMESPACE  命名空间，如 pharmacy
+#   REGISTRY_USERNAME   仓库用户名
+#   REGISTRY_PASSWORD   仓库密码/访问令牌（密文）
+#
+# 注意：Gitee Go 的 YAML 对大小写敏感，节点名须与本文完全一致。
+version: '1.0'
+name: docker-image
+displayName: 镜像构建与推送
+
+triggers:
+  push:
+    branches:
+      # 主干为 master（仓库非 main，见 docs/00 坑位）
+      precise:
+        - master
+    tags:
+      # 仅 v* 版本号标签触发
+      prefix:
+        - v
+
+stages:
+  - stage: build
+    name: build
+    displayName: 镜像构建与推送
+    # naturally：某一镜像构建失败不影响其余镜像继续构建
+    strategy: naturally
+    trigger: auto
+    steps:
+      - step: build@docker
+        name: build_api
+        displayName: 后端镜像
+        repository: ${REGISTRY}
+        username: ${REGISTRY_USERNAME}
+        password: ${REGISTRY_PASSWORD}
+        tag: ${REGISTRY_NAMESPACE}/yaofang-api:${GITEE_PIPELINE_BUILD_NUMBER}
+        dockerfile: ./Dockerfile
+        isCache: true
+
+      - step: build@docker
+        name: build_web
+        displayName: 前端镜像
+        repository: ${REGISTRY}
+        username: ${REGISTRY_USERNAME}
+        password: ${REGISTRY_PASSWORD}
+        tag: ${REGISTRY_NAMESPACE}/yaofang-web:${GITEE_PIPELINE_BUILD_NUMBER}
+        dockerfile: ./pharmacy-web/Dockerfile
+        isCache: true
+
+      - step: build@docker
+        name: build_migrate
+        displayName: 迁移镜像
+        repository: ${REGISTRY}
+        username: ${REGISTRY_USERNAME}
+        password: ${REGISTRY_PASSWORD}
+        tag: ${REGISTRY_NAMESPACE}/yaofang-migrate:${GITEE_PIPELINE_BUILD_NUMBER}
+        dockerfile: ./deploy/Dockerfile.migrate
+        isCache: true

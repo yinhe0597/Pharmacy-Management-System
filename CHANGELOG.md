@@ -4,6 +4,31 @@
 
 ## [Unreleased]
 
+### 基础设施：镜像构建迁到 Gitee Go
+
+- 新增 `.workflow/docker-image.yml`（Gitee 专用格式，配置在 `/.workflow/`），
+  用 `build@docker` 构建并推送 后端/前端/迁移 三枚镜像，触发条件 push `master` / `v*` 标签。
+  取代 `.github/workflows/docker-image.yml`（已删除）——**仓库托管在 Gitee，GitHub Actions 本就不生效**。
+- 凭据与仓库地址一律走 Gitee 后台「全局参数」（`REGISTRY` / `REGISTRY_NAMESPACE` /
+  `REGISTRY_USERNAME` / `REGISTRY_PASSWORD`），**不写入仓库**，避免与 `.env` 同样的泄露风险。
+- `.dockerignore` 补 `.workflow`，与既有 `.github` 排除保持一致。
+- 同步 docs/10 §十一（重写为现状对照 + Gitee Go 配置说明 + 能力差异）与 docs/00。
+
+⚠️ `build@docker` 相对原 GitHub Actions 版本有**两处能力缺失**（已在流水线文件顶部与 docs/10 注明）：
+1. 不支持多架构（buildx），只产出构建环境自身架构的镜像；
+2. 不支持 build-args，Dockerfile 的 `ARG VERSION/COMMIT/BUILDTIME` 取默认值，
+   **镜像内 `/version` 会退回 `dev`**；本地构建须显式传参。
+
+⚠️ 遗留：`ci.yml` / `frontend-ci.yml` / `deploy.yml` 仍是 GitHub Actions，
+**在 Gitee 上不会执行**——需镜像到 GitHub 或移植为 Gitee Go（docs/10 §11.1 列了方案与代价）。
+迁移前 CI 缺位，请用本地命令兜底。
+
+### 清理：删除远端过期分支
+
+- 删除 `origin/main` 与 `origin/feature/enhance-sprint-2026-09-26`：
+  两者均已完全并入 `master`（是 master 的祖先），留着会让人误以为有东西没合并。
+  删除后 `4b384c6`、`a673130` 等历史提交仍完整可达。远端现仅存 `master`。
+
 ### 修复（第六轮：生产阻断收口 + 账务口径统一 + 单号多副本 + 前后端契约守卫）
 
 > 本轮以「能否上线」为标准复审全量代码/配置/部署，**凡可证伪的一律实测**
