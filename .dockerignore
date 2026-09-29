@@ -7,7 +7,6 @@
 .vscode
 .claude
 bin/
-ruanzhu
 *.exe
 *.log
 .pgdata
