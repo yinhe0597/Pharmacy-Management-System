@@ -19,4 +19,11 @@ data/
 pharmacy-web/
 node_modules/
 dist/
-scripts/
+# scripts/ 整体排除（多数是不可跟踪的运维脚本），但 deploy/Dockerfile.migrate
+# 需要 COPY scripts/migrate.sh —— 迁移镜像内置统一迁移脚本。
+# ⚠️ 排除 scripts/ 会让迁移镜像构建失败，且报错信息是
+# 「failed to compute cache key ... /scripts/migrate.sh: not found」，
+# 与真实原因（构建上下文缺文件）相距甚远，排查成本高。
+# Docker 构建上下文内迁移镜像与后端镜像共用此文件，故此处用 ! 取反白名单。
+scripts/*
+!scripts/migrate.sh

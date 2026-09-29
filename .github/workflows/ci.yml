@@ -51,6 +51,16 @@ jobs:
             -X yaofang/internal/version.Commit=${GITHUB_SHA::7}" \
             -o /tmp/yaofang-check ./cmd/server
 
+      - name: 三个 Dockerfile 均可构建（防 COPY 目标被 .dockerignore 排除）
+        # 迁移镜像曾因 .dockerignore 排除 scripts/ 而构建失败，而报错是
+        # 「failed to compute cache key ... /scripts/migrate.sh: not found」——
+        # 与真实原因（构建上下文缺文件）相距甚远，本地只测后端镜像时完全看不到。
+        # 故把三份 Dockerfile 都纳入门禁：单架构快速验证，不推 registry。
+        run: |
+          docker build -q -t ci-check-api     -f Dockerfile                 .
+          docker build -q -t ci-check-web     -f pharmacy-web/Dockerfile    pharmacy-web
+          docker build -q -t ci-check-migrate -f deploy/Dockerfile.migrate  .
+
       - name: 静态检查（vet + 格式）
         run: |
           go vet ./...

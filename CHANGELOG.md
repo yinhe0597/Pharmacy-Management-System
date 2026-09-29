@@ -4,6 +4,25 @@
 
 ## [Unreleased]
 
+### 修复：迁移镜像必然构建失败（.dockerignore 排除了它需要的文件）
+
+CI 镜像流水线第 9 步「迁移镜像」失败：
+`failed to compute cache key ... "/scripts/migrate.sh": not found`
+
+- 根因：`deploy/Dockerfile.migrate:8` 要 `COPY scripts/migrate.sh`，
+  而 `.dockerignore` 整体排除了 `scripts/`——**迁移镜像从一开始就不可能构建成功**。
+- 报错信息与真实原因相距甚远（说"缓存 key"，实为"构建上下文缺文件"），排查成本高。
+- 修复：`.dockerignore` 改为 `scripts/*` + `!scripts/migrate.sh`（整体排除 + 精确白名单）。
+- 已本地实测：迁移镜像构建成功，镜像内 `migrate.sh` 存在且可执行、
+  `migrations` 41 个版本 up/down 齐全、ENTRYPOINT 正常启动。
+- 后端镜像回归构建同样通过，确认白名单未污染其他构建上下文。
+
+**为什么一直没发现**：此前只本地构建过后端 `Dockerfile`，从未构建过 migrate 镜像；
+而构建它的 GitHub Actions 流水线因仓库只在 Gitee 而从未执行过。
+
+**新增门禁**：`ci.yml` 增加「三个 Dockerfile 均可构建」步骤（单架构、不推 registry），
+覆盖后端 / 前端 / 迁移三份 Dockerfile。凡有 `COPY` 的镜像都必须能被构建到。
+
 ### 修复：golangci-lint 门禁在 GitHub 上首次实跑失败（两个版本错配）
 
 GitHub Actions 首次真正执行后，CI 稳定失败在第 9 步 `golangci-lint`
