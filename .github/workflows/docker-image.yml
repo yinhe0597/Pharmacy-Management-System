@@ -68,25 +68,32 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
             COMMIT=${{ github.sha }}
             BUILDTIME=${{ github.event.head_commit.timestamp }}
 
-      - name: 构建并推送 前端镜像
+      - name: 构建并推送 前端镜像（单架构）
         uses: docker/build-push-action@v6
         with:
           context: pharmacy-web
           file: pharmacy-web/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          # ⚠️ 前端**只构建 amd64**，刻意不做多架构：
+          # 该镜像是两阶段构建（node 跑 vite build → 产物拷进 nginx），
+          # 而 dist/ 是与架构无关的静态文件。让 QEMU 模拟 arm64 把整套
+          # `npm ci` + `vue-tsc` + `vite build` 重跑一遍纯属浪费——
+          # 实测多架构下这一步跑了 42 分钟仍未结束。
+          # amd64 镜像在 arm64 宿主机上由 QEMU/binfmt 承载，对纯静态文件
+          # 的 Nginx 而言模拟开销可忽略；需要原生 arm64 时再单开一条流水线。
+          platforms: linux/amd64
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/yaofang-web:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/yaofang-web:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
 
       - name: 构建并推送 迁移镜像
         uses: docker/build-push-action@v6
@@ -98,5 +105,5 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/yaofang-migrate:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/yaofang-migrate:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=migrate
+          cache-to: type=gha,mode=max,scope=migrate

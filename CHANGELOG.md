@@ -53,12 +53,21 @@ GitHub Actions 首次真正执行后，CI 稳定失败在第 9 步 `golangci-lin
   对照 `ghcr.io/v2/` 返回标准 401 + `WWW-Authenticate: Bearer realm="https://ghcr.io/token"`，合规。
 - 恢复 `.github/workflows/docker-image.yml`（曾因仓库只在 Gitee 而删除），
   改为推 **GHCR**：`ghcr.io/yinhe0597/yaofang-api` / `yaofang-web` / `yaofang-migrate`。
-  - 认证用自动注入的 `secrets.GITHUB_TOKEN`（工作流声明 `packages: write`），**无需另建 PAT**
-  - 多架构 `linux/amd64,linux/arm64`（QEMU + buildx）
-  - build-args 注入 `VERSION` / `COMMIT` / `BUILDTIME`，镜像内 `/version` 拿到真实版本号
-  - GHA 缓存（`type=gha`）加速重复构建
+- 认证用自动注入的 `secrets.GITHUB_TOKEN`（工作流声明 `packages: write`），**无需另建 PAT**
+- 多架构 `linux/amd64,linux/arm64`（QEMU + buildx）
+- build-args 注入 `VERSION` / `COMMIT` / `BUILDTIME`，镜像内 `/version` 拿到真实版本号
+- GHA 缓存（`type=gha`）加速重复构建
 - 本仓库为公开仓库，GHCR 公开包不占存储配额、可匿名拉取：
   `docker pull ghcr.io/yinhe0597/yaofang-api:latest`
+
+**两个针对性调整（均由实测得出，非预防性配置）**
+
+1. **前端镜像只构建 amd64**：该镜像是两阶段构建（`node` 跑 `vite build` → 拷进 `nginx`），
+   而 `dist/` 与架构无关。让 QEMU 模拟 arm64 把整套 `npm ci` + `vue-tsc` + `vite build`
+   重跑一遍纯属浪费——**实测多架构下这一步跑了 42 分钟仍未结束**，而后端镜像仅数分钟。
+   amd64 镜像在 arm64 宿主机上由 QEMU/binfmt 承载，对静态文件 Nginx 开销可忽略。
+2. **三个构建各用独立 gha cache scope**（`scope=api` / `scope=web` / `scope=migrate`）：
+   同一 job 内多个 `type=gha` 缓存共用默认 scope 会互相覆盖。初版三处都漏写。
 
 **评估后放弃的方案：Gitee Go 流水线**（曾短暂引入 `.workflow/docker-image.yml`，已删除）
 
