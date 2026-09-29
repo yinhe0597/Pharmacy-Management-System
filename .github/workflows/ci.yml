@@ -58,10 +58,14 @@ jobs:
           test -z "$(gofmt -l .)"
 
       - name: golangci-lint（docs/06 CI 门槛）
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v8
         with:
-          # v1.62.x 早于 Go 1.24，其内嵌 go/types 无法解析新标准库，lint 门槛会整体失效
+          # v2.1.6：v1.x 内嵌 go/types 过旧，解析不了 Go 1.24+ 标准库，lint 门槛会整体失效
           version: v2.1.6
+          # ⚠️ action 主版本必须与 lint 主版本匹配，否则必现失败：
+          #   action v6 仅支持 lint v1（v7 专门加了「restrict action v6 on golangci-lint v1」）
+          #   action v7 支持 v2 only；v8 起要求 lint >= v2.1.0
+          # 配错时的症状是 lint 步骤失败但看不出原因，本轮已踩过一次。
           args: --timeout=5m
 
       - name: 单元测试
