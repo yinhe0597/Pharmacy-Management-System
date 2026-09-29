@@ -28,6 +28,9 @@ Thumbs.db
 # Claude Code 本地配置
 .claude/settings.local.json
 
+# AI 助手的本地操作手册（含项目内部决策与踩坑记录，属个人工作笔记，不上传云端仓库）
+AGENTS.md
+
 # test
 coverage.out
 coverage_all
