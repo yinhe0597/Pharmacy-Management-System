@@ -2,7 +2,6 @@
 .git
 .gitignore
 .github
-.workflow
 .idea
 .vscode
 .claude

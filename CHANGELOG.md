@@ -4,45 +4,54 @@
 
 ## [Unreleased]
 
+### 基础设施：镜像构建推送到 GitHub Container Registry
+
+- **实测确认 Gitee 不提供容器镜像仓库**，四步证据：
+  `GET gitee.com/v2/` 返回 200 但 `Content-Type: text/html` 且无
+  `Docker-Distribution-Api-Version` 头（是网页路由兜底）；`GET /v2/_catalog` 返回 404
+  且无 `WWW-Authenticate` 挑战（真 registry 必须 401 + Bearer realm）；
+  `docker login gitee.com` 报 "Login Succeeded" 属**假阳性**（Docker 把 200 当成
+  "无需认证"，根本没校验凭据）；`docker push` 每层均 `Unavailable`、退出码 1。
+  对照 `ghcr.io/v2/` 返回标准 401 + `WWW-Authenticate: Bearer realm="https://ghcr.io/token"`，合规。
+- 恢复 `.github/workflows/docker-image.yml`（曾因仓库只在 Gitee 而删除），
+  改为推 **GHCR**：`ghcr.io/yinhe0597/yaofang-api` / `yaofang-web` / `yaofang-migrate`。
+  - 认证用自动注入的 `secrets.GITHUB_TOKEN`（工作流声明 `packages: write`），**无需另建 PAT**
+  - 多架构 `linux/amd64,linux/arm64`（QEMU + buildx）
+  - build-args 注入 `VERSION` / `COMMIT` / `BUILDTIME`，镜像内 `/version` 拿到真实版本号
+  - GHA 缓存（`type=gha`）加速重复构建
+- 本仓库为公开仓库，GHCR 公开包不占存储配额、可匿名拉取：
+  `docker pull ghcr.io/yinhe0597/yaofang-api:latest`
+
+**评估后放弃的方案：Gitee Go 流水线**（曾短暂引入 `.workflow/docker-image.yml`，已删除）
+
+`build@docker` 插件相比 GitHub Actions 缺两项关键能力：① 不支持多架构；
+② 不支持 build-args，会使 `ARG VERSION/COMMIT/BUILDTIME` 取默认值、
+**镜像内 `/version` 退回 `dev`**；此外还需在 Gitee 后台手工维护 4 个全局参数。
+既然 GitHub Actions 因新增 GitHub 远端而可用，镜像构建没有必要迁就 Gitee。
+同步回退 `.dockerignore` 中的 `.workflow` 排除项。
+
 ### 基础设施：新增 GitHub 镜像远端 + 主干改名为 `main`
 
 - 新增 `github` 远端 `git@github.com:yinhe0597/Pharmacy-Management-System.git`（SSH），
-  与 Gitee 的 `origin` **并存**。分工明确：Gitee 触发 Gitee Go 镜像流水线，
-  GitHub 触发 `ci.yml` / `frontend-ci.yml`——这两条此前托管在 Gitee 时是死配置，
-  有了 GitHub 远端后**首次真正开始执行**。
+  与 Gitee 的 `origin` **并存**。分工明确：GitHub 承担全部自动化
+  （`ci.yml` / `frontend-ci.yml` / `docker-image.yml`）——这些工作流此前托管在 Gitee 时
+  是死配置，有了 GitHub 远端后**首次真正开始执行**。
 - 推送前已做公开仓库上线检查（零命中）：私钥块 / `AKIA*` / `ghp_*` / `github_pat_*` /
   32 位十六进制成对赋值 / `password|secret|jwt_secret|api_key` 赋值模式；
   `.env`、`*.pem`、`*.key`、`*.p12` 从未进入 git 历史。
 
 **主干分支 `master` → `main`**
 
-- 改名本身是为了消除长期存在的一个陷阱：两条流水线监听 `main` 而推送走 `master`，
+- 改名本身是为了消除长期存在的一个陷阱：流水线监听 `main` 而推送走 `master`，
   导致 CI 整体**静默不触发**且无任何报错。改名后 `branches` 与实际推送分支一致。
-- 同步更新：`.github/workflows/ci.yml`、`.github/workflows/frontend-ci.yml`、
-  `.workflow/docker-image.yml`、README、`docs/00`（Git 与 CI 两处 + 坑位）、
+- 同步更新：四个 `.github/workflows/*.yml`、README、`docs/00`（Git 与 CI 两处 + 坑位）、
   `docs/06` §8、`docs/10` §11.1/§11.2。
 - 顺带修正两处陈旧描述：`docs/06` §8 仍在描述一个早已回退的 `ci.yml` 的 `frontend` job
   （实际由独立的 `frontend-ci.yml` 承担）；`docs/00` 的 Git 行仍写着
   「本地分支 `main` 跟踪 `origin/master`；推送 `git push origin main:master`」。
 
-### 基础设施：镜像构建迁到 Gitee Go
-
-- 新增 `.workflow/docker-image.yml`（Gitee 专用格式，配置在 `/.workflow/`），
-  用 `build@docker` 构建并推送 后端/前端/迁移 三枚镜像，触发条件 push `master` / `v*` 标签。
-  取代 `.github/workflows/docker-image.yml`（已删除）——**仓库托管在 Gitee，GitHub Actions 本就不生效**。
-- 凭据与仓库地址一律走 Gitee 后台「全局参数」（`REGISTRY` / `REGISTRY_NAMESPACE` /
-  `REGISTRY_USERNAME` / `REGISTRY_PASSWORD`），**不写入仓库**，避免与 `.env` 同样的泄露风险。
-- `.dockerignore` 补 `.workflow`，与既有 `.github` 排除保持一致。
-- 同步 docs/10 §十一（重写为现状对照 + Gitee Go 配置说明 + 能力差异）与 docs/00。
-
-⚠️ `build@docker` 相对原 GitHub Actions 版本有**两处能力缺失**（已在流水线文件顶部与 docs/10 注明）：
-1. 不支持多架构（buildx），只产出构建环境自身架构的镜像；
-2. 不支持 build-args，Dockerfile 的 `ARG VERSION/COMMIT/BUILDTIME` 取默认值，
-   **镜像内 `/version` 会退回 `dev`**；本地构建须显式传参。
-
-⚠️ 遗留：`ci.yml` / `frontend-ci.yml` / `deploy.yml` 仍是 GitHub Actions，
-**在 Gitee 上不会执行**——需镜像到 GitHub 或移植为 Gitee Go（docs/10 §11.1 列了方案与代价）。
-迁移前 CI 缺位，请用本地命令兜底。
+> ⚠️ **推 Gitee 不触发任何流水线** —— GitHub Actions 只认 GitHub 上的 push。
+> `git push github main` 才是关键命令；Gitee 仅作代码备份。
 
 ### 清理：删除远端过期分支
 

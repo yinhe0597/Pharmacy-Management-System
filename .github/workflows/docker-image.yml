@@ -1,0 +1,102 @@
+# 镜像构建与推送：推送到 GitHub Container Registry (GHCR)
+#
+# 为什么用 GHCR 而不是 Gitee：已实测 Gitee 不提供容器镜像仓库
+# （gitee.com/v2/ 返回 text/html 而非 Registry v2，/_catalog 返回 404 且无
+#  WWW-Authenticate 挑战，实际 push 每层均 Unavailable）。ghcr.io 是合规的
+# Registry v2，且本仓库为公开仓库——GHCR 公开包不占存储配额、可匿名拉取。
+#
+# 产物：
+#   ghcr.io/yinhe0597/yaofang-api       后端
+#   ghcr.io/yinhe0597/yaofang-web       前端（Nginx）
+#   ghcr.io/yinhe0597/yaofang-migrate   迁移镜像（K8s Job 用）
+#
+# 认证：使用自动注入的 GITHUB_TOKEN（需本文件声明 packages: write），
+# 无需配置任何 PAT——这是相比 Gitee Go 方案的实际优势之一。
+#
+# 拉取示例（公开仓库，匿名即可）：
+#   docker pull ghcr.io/yinhe0597/yaofang-api:latest
+name: Docker Image Build & Push
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_OWNER: yinhe0597
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # 推 GHCR 必需；缺这行登录会拿到 403
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 登录 GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 设置 QEMU + Buildx（多架构）
+        uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: 生成镜像 tag
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/yaofang-api
+          # 分支推送产出 latest；v* 标签推送同时产出版本号与 latest
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=tag
+            type=sha,format=short
+
+      - name: 构建并推送 后端镜像
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+            COMMIT=${{ github.sha }}
+            BUILDTIME=${{ github.event.head_commit.timestamp }}
+
+      - name: 构建并推送 前端镜像
+        uses: docker/build-push-action@v6
+        with:
+          context: pharmacy-web
+          file: pharmacy-web/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/yaofang-web:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/yaofang-web:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 构建并推送 迁移镜像
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile.migrate
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/yaofang-migrate:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/yaofang-migrate:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
