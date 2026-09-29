@@ -60,12 +60,13 @@ jobs:
       - name: golangci-lint（docs/06 CI 门槛）
         uses: golangci/golangci-lint-action@v8
         with:
-          # v2.1.6：v1.x 内嵌 go/types 过旧，解析不了 Go 1.24+ 标准库，lint 门槛会整体失效
-          version: v2.1.6
-          # ⚠️ action 主版本必须与 lint 主版本匹配，否则必现失败：
-          #   action v6 仅支持 lint v1（v7 专门加了「restrict action v6 on golangci-lint v1」）
-          #   action v7 支持 v2 only；v8 起要求 lint >= v2.1.0
-          # 配错时的症状是 lint 步骤失败但看不出原因，本轮已踩过一次。
+          # ⚠️ 版本必须 ≥ v2.13：官方预编译二进制的构建 Go 版本若低于项目 go.mod 的
+          # 1.26.6，lint 会直接报 "the Go language version used to build golangci-lint
+          # is lower than the targeted Go version" 而失败。
+          # 实测：v2.1.6 预编译 = go1.24.2 构建（不够）；v2.14.0 = go1.27.0 构建（可以）。
+          version: v2.14.0
+          # ⚠️ action 主版本也必须与 lint 主版本匹配：
+          #   action v6 仅支持 lint v1（v7 专门加了 restrict v6 on v1）；v7 仅 v2；v8 起要求 lint >= v2.1.0
           args: --timeout=5m
 
       - name: 单元测试

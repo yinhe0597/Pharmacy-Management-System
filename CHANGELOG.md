@@ -4,6 +4,25 @@
 
 ## [Unreleased]
 
+### 修复：golangci-lint 门禁在 GitHub 上首次实跑失败（两个版本错配）
+
+GitHub Actions 首次真正执行后，CI 稳定失败在第 9 步 `golangci-lint`
+（其前迁移/编译/vet/gofmt 全部 success，故确定是配置而非代码问题）。
+**本地始终 0 issues**——因为本地习惯用 `go run ...@version` 从源码编译，
+而 CI 用 action 下载的**预编译二进制**。连续踩了两个坑：
+
+1. **`golangci-lint-action` v6 仅支持 golangci-lint v1**。
+   官方兼容性：v6 → v1 only（v7 专门加了「restrict action v6 on golangci-lint v1」）、
+   v7 → v2 only、v8 → 要求 lint >= v2.1.0。已改为 **action v8**。
+2. **预编译二进制的构建 Go 版本低于项目 go.mod**。
+   `v2.1.6` 的 linux-amd64 资产由 **go1.24.2** 构建，而项目要求 `1.26.6`，
+   会报 `the Go language version used to build golangci-lint is lower than the
+   targeted Go version`。逐版本实测构建工具链后升到 **v2.14.0**（go1.27.0 构建）。
+   升级前已本地验证 v2.14.0 规则集仍为 0 issues。
+
+> 教训：**「CI 绿」不能靠本地推断**。凡涉及 action 封装、预编译产物、
+> 工具链版本下限的环节，本地直跑二进制覆盖不到，只有 CI 实跑能暴露。
+
 ### 基础设施：镜像构建推送到 GitHub Container Registry
 
 - **实测确认 Gitee 不提供容器镜像仓库**，四步证据：
