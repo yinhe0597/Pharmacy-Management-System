@@ -283,10 +283,17 @@ yaofang/
 > 质量门禁：后端 `go build` / `go vet` / `go test` / `gofmt` / `golangci-lint` / `govulncheck` +
 > 前端 `vue-tsc` / `eslint` / `prettier` / `vitest` / `build` 全绿 ✅
 >
-> **主干分支为 `main`**，双远端：`origin` = Gitee（代码备份）、`github` = GitHub（**全部自动化在此执行**：
-> CI + 前端门禁 + 镜像构建）。**推 Gitee 不触发任何流水线**——`git push github main` 才是关键命令。
+> **主干分支为 `main`**，双远端。本地 `main` 跟踪 **`origin`（Gitee，代码备份）**，
+> 但**全部自动化都在 GitHub**（CI + 前端门禁 + 镜像构建）。因此：
+>
+> ```bash
+> git push            # 裸命令 → 只到 Gitee，⚠️ 不会触发任何流水线
+> git push github main  # ← 这一条才会跑 CI / 门禁 / 镜像构建
+> ```
+>
 > 镜像仓库为 **GHCR**（`ghcr.io/yinhe0597/yaofang-*`），公开可匿名拉取。
-> 分支名历史上踩过坑——流水线监听 `main` 而推送走 `master`，会**静默不触发**且无任何报错。
+> 这类「推了但什么都没发生」是**静默失败**——本轮已两次踩坑（分支名不匹配、
+> action/工具链版本错配），提交后请到 Actions 页确认结果，别默认"推了就等于跑过了"。
 > 本地跑集成测试请先 `make test-db-init`（建独立测试库 `yaofang_test`，不碰开发库）。
 
 ### 🧭 生产就绪检查清单
