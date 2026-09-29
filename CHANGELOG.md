@@ -4,6 +4,27 @@
 
 ## [Unreleased]
 
+### 基础设施：新增 GitHub 镜像远端 + 主干改名为 `main`
+
+- 新增 `github` 远端 `git@github.com:yinhe0597/Pharmacy-Management-System.git`（SSH），
+  与 Gitee 的 `origin` **并存**。分工明确：Gitee 触发 Gitee Go 镜像流水线，
+  GitHub 触发 `ci.yml` / `frontend-ci.yml`——这两条此前托管在 Gitee 时是死配置，
+  有了 GitHub 远端后**首次真正开始执行**。
+- 推送前已做公开仓库上线检查（零命中）：私钥块 / `AKIA*` / `ghp_*` / `github_pat_*` /
+  32 位十六进制成对赋值 / `password|secret|jwt_secret|api_key` 赋值模式；
+  `.env`、`*.pem`、`*.key`、`*.p12` 从未进入 git 历史。
+
+**主干分支 `master` → `main`**
+
+- 改名本身是为了消除长期存在的一个陷阱：两条流水线监听 `main` 而推送走 `master`，
+  导致 CI 整体**静默不触发**且无任何报错。改名后 `branches` 与实际推送分支一致。
+- 同步更新：`.github/workflows/ci.yml`、`.github/workflows/frontend-ci.yml`、
+  `.workflow/docker-image.yml`、README、`docs/00`（Git 与 CI 两处 + 坑位）、
+  `docs/06` §8、`docs/10` §11.1/§11.2。
+- 顺带修正两处陈旧描述：`docs/06` §8 仍在描述一个早已回退的 `ci.yml` 的 `frontend` job
+  （实际由独立的 `frontend-ci.yml` 承担）；`docs/00` 的 Git 行仍写着
+  「本地分支 `main` 跟踪 `origin/master`；推送 `git push origin main:master`」。
+
 ### 基础设施：镜像构建迁到 Gitee Go
 
 - 新增 `.workflow/docker-image.yml`（Gitee 专用格式，配置在 `/.workflow/`），

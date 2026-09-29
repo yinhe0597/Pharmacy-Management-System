@@ -28,9 +28,9 @@ displayName: 镜像构建与推送
 triggers:
   push:
     branches:
-      # 主干为 master（仓库非 main，见 docs/00 坑位）
+      # 主干已统一为 main（改分支名时务必同步此处，否则流水线不触发）
       precise:
-        - master
+        - main
     tags:
       # 仅 v* 版本号标签触发
       prefix:

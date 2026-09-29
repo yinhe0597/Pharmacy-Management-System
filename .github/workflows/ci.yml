@@ -2,8 +2,9 @@ name: CI
 
 on:
   push:
-    # master 是本仓库实际使用的分支；此前只配 main，导致直接推 master 时 CI 整体不触发
-    branches: [master, main]
+    # 主干已统一为 main。历史上踩过的坑：分支名与实际推送分支不一致时，
+    # 流水线整体不触发，「CI 全绿」一度形同虚设。改分支名务必同步这里。
+    branches: [main]
   pull_request:
 
 jobs:

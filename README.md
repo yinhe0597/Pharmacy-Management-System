@@ -283,8 +283,9 @@ yaofang/
 > 质量门禁：后端 `go build` / `go vet` / `go test` / `gofmt` / `golangci-lint` / `govulncheck` +
 > 前端 `vue-tsc` / `eslint` / `prettier` / `vitest` / `build` 全绿 ✅
 >
-> **主干分支为 `master`**（Gitee `origin/master`）。两条流水线此前只监听 `main`，
-> 导致推送 master 时 CI 整体不触发，已修正为 `[master, main]`。
+> **主干分支为 `main`**，双远端：`origin` = Gitee（主，触发 Gitee Go 镜像流水线）、
+> `github` = GitHub（触发 CI 与前端门禁）。**推 Gitee 不跑 CI，推 GitHub 不建镜像**，两条都要推。
+> 分支名历史上踩过坑——流水线监听 `main` 而推送走 `master`，会**静默不触发**且无任何报错。
 > 本地跑集成测试请先 `make test-db-init`（建独立测试库 `yaofang_test`，不碰开发库）。
 
 ### 🧭 生产就绪检查清单

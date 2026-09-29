@@ -2,8 +2,8 @@ name: Frontend CI
 
 on:
   push:
-    # master 是本仓库实际主干；此前只配 main，推 master 时前端流水线整体不触发
-    branches: [master, main]
+    # 主干已统一为 main。历史上踩过的坑：分支名与实际推送分支不一致时流水线不触发。
+    branches: [main]
   pull_request:
 
 defaults:
